@@ -17,10 +17,22 @@ from scanner import __version__
 from scanner.config import SamplingConfig
 from scanner.cv_metrics import aggregate_quality, measure_motion
 from scanner.detector import TorchvisionSSDLiteDetector, summarize_detections
+from scanner.evaluation import evaluate_detector
 from scanner.metadata import build_manifest, discover_videos
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
 from scanner.schema import GroundTruthDataset, TestManifest
 from scanner.selection import propose_stratified_set, render_contact_sheet
+from scanner.vision import (
+    ACTION_PROMPTS,
+    DEFAULT_SIGLIP2_MODEL_ID,
+    DEFAULT_SIGLIP2_REVISION,
+    OBJECT_PROMPTS,
+    PEOPLE_TYPE_PROMPTS,
+    PROMPT_SET_VERSION,
+    SCENE_PROMPTS,
+    SHOT_SCALE_PROMPTS,
+    SiglipEvidenceEncoder,
+)
 
 
 app = typer.Typer(no_args_is_help=True, help="Local-first travel media scanner experiments.")
@@ -233,3 +245,132 @@ def detector_smoke(
     result_path = output / "detector_result.json"
     result_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     typer.echo(str(result_path))
+
+
+@app.command("vision-smoke")
+def vision_smoke(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
+    limit: int = typer.Option(5, "--limit", min=1),
+    output: Path = typer.Option(..., "--output", file_okay=False),
+    device: Literal["auto", "cpu", "mps", "cuda"] = typer.Option("auto", "--device"),
+    hwaccel: Literal["none", "videotoolbox"] = typer.Option("none", "--hwaccel"),
+    model_id: str = typer.Option(DEFAULT_SIGLIP2_MODEL_ID, "--model-id"),
+    revision: str = typer.Option(DEFAULT_SIGLIP2_REVISION, "--revision"),
+    cache_dir: Path = typer.Option(Path(".cache/models/huggingface"), "--cache-dir", file_okay=False),
+    local_files_only: bool = typer.Option(False, "--local-files-only/--allow-download"),
+) -> None:
+    """Run pinned local SigLIP2 prompt evidence on a bounded manifest prefix."""
+
+    parsed = TestManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    output.mkdir(parents=True, exist_ok=True)
+    process = psutil.Process()
+    peak_rss = process.memory_info().rss
+    total_started = time.perf_counter()
+
+    load_started = time.perf_counter()
+    encoder = SiglipEvidenceEncoder.load(
+        model_id=model_id,
+        cache_dir=cache_dir,
+        requested_device=device,
+        revision=revision,
+        local_files_only=local_files_only,
+    )
+    load_ms = (time.perf_counter() - load_started) * 1000.0
+    peak_rss = max(peak_rss, process.memory_info().rss)
+
+    field_groups = {
+        "scene": SCENE_PROMPTS,
+        "shot_scale": SHOT_SCALE_PROMPTS,
+        "people_type": PEOPLE_TYPE_PROMPTS,
+        "action": ACTION_PROMPTS,
+        "objects": OBJECT_PROMPTS,
+    }
+    config = SamplingConfig(profile="adaptive5", hardware_acceleration=hwaccel)
+    items: list[dict] = []
+    inference_total_ms = 0.0
+    for index, entry in enumerate(parsed.entries[:limit]):
+        item_started = time.perf_counter()
+        source = Path(parsed.input_root) / entry.source.relative_path
+        probe_frames = decode_probe_frames(
+            source,
+            entry.technical,
+            output / "probe" / f"{index:04d}",
+            config,
+        )
+        candidates = select_representatives(probe_frames, entry.technical.duration, "adaptive5")
+        images = [
+            Image.fromarray(cv2.cvtColor(candidate.image, cv2.COLOR_BGR2RGB))
+            for candidate in candidates
+        ]
+        inference_started = time.perf_counter()
+        predictions_by_field = encoder.classify_many(images, field_groups)
+        inference_ms = (time.perf_counter() - inference_started) * 1000.0
+        inference_total_ms += inference_ms
+        frames: list[dict] = []
+        for frame_index, candidate in enumerate(candidates):
+            frames.append(
+                {
+                    "timestamp": candidate.timestamp,
+                    "reasons": candidate.reasons,
+                    "predictions": {
+                        field: asdict(predictions[frame_index])
+                        for field, predictions in predictions_by_field.items()
+                    },
+                }
+            )
+        peak_rss = max(peak_rss, process.memory_info().rss)
+        items.append(
+            {
+                "file": entry.file,
+                "probe_frame_count": len(probe_frames),
+                "representative_frame_count": len(candidates),
+                "frames": frames,
+                "inference_ms": inference_ms,
+                "elapsed_ms": (time.perf_counter() - item_started) * 1000.0,
+            }
+        )
+
+    import torch
+    import transformers
+
+    mps_allocated = None
+    if encoder.device.actual == "mps" and hasattr(torch.mps, "current_allocated_memory"):
+        mps_allocated = torch.mps.current_allocated_memory()
+    result = {
+        "model_id": encoder.model_id,
+        "requested_revision": revision,
+        "resolved_revision": encoder.resolved_revision,
+        "prompt_set_version": PROMPT_SET_VERSION,
+        "requested_device": encoder.device.requested,
+        "actual_device": encoder.device.actual,
+        "fallback_reason": encoder.device.fallback_reason,
+        "hardware_acceleration": hwaccel,
+        "cache_dir": str(cache_dir.resolve()),
+        "local_files_only": local_files_only,
+        "dependency_versions": {"torch": torch.__version__, "transformers": transformers.__version__},
+        "load_ms": load_ms,
+        "inference_total_ms": inference_total_ms,
+        "peak_rss_bytes_observed": peak_rss,
+        "mps_allocated_bytes_after_run": mps_allocated,
+        "total_ms": (time.perf_counter() - total_started) * 1000.0,
+        "items": items,
+    }
+    result_path = output / "vision_result.json"
+    result_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    typer.echo(str(result_path))
+
+
+@app.command("evaluate-detector")
+def evaluate_detector_command(
+    ground_truth: Path = typer.Option(..., "--ground-truth", exists=True, dir_okay=False),
+    detector_result: Path = typer.Option(..., "--detector-result", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Compare detector evidence with the frozen human labels."""
+
+    truth = GroundTruthDataset.model_validate_json(ground_truth.read_text(encoding="utf-8"))
+    payload = json.loads(detector_result.read_text(encoding="utf-8"))
+    result = evaluate_detector(truth, payload)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    typer.echo(str(output))

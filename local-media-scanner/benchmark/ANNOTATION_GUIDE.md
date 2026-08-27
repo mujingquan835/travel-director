@@ -18,5 +18,5 @@ This Ground Truth is frozen before detector or vision-model inference. Labels ar
 
 - Sparse review cannot establish exact people counts in dense crowds.
 - `child` versus `adult` is omitted for distant performers when age is not visually defensible.
-- One portrait clip renders sideways in the current representative-frame path. Its content label is based on the visible scene, and the rotation defect is recorded in `notes`.
+- One clip has a `-90` Display Matrix even though its encoded landscape pixels are visually upright without autorotation. It is treated as a source metadata/content conflict, not evidence that global autorotation should be disabled.
 - Two severely dark or obstructed clips intentionally abstain on uncertain content fields.

@@ -207,7 +207,7 @@
       "simple_action": "horse_riding",
       "material_role_candidates": ["experience", "environment"],
       "annotation_confidence": 0.84,
-      "notes": "Portrait clip renders sideways in the current sparse-frame path; rotation handling must be fixed."
+      "notes": "Source Display Matrix says -90 degrees, but visual inspection shows the encoded landscape pixels are already upright without autorotation; flag as a metadata/content rotation conflict for manual review."
     },
     {
       "file": "2026_02_07_14_10_01_IMG_0409.MOV",

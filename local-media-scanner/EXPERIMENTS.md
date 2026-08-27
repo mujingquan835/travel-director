@@ -145,3 +145,14 @@
 - Corrected failure: the first ablation draft used all 28 known Ground Truth labels as the denominator even though only three evidence files existed. The evaluator now freezes the denominator to evidence/Ground Truth overlap, matching the main run evaluator.
 - Decision: retain field-level evaluation, explicit coverage, end-to-end accuracy, and the restricted saved-evidence ablation methods. Do not use the three-video smoke to claim field reliability.
 - Next: render a static validation report from the existing Scanner and evaluation artifacts without rerunning models.
+
+## Experiment 11 — Static HTML Validation Report — 2026-08-28
+
+- Method: render a server-free Jinja HTML report from the existing Scanner result, field evaluation, local environment, and frozen Ground Truth. Embedded CSS provides the complete presentation; no JavaScript framework or remote asset is used.
+- Privacy/path contract: Jinja autoescape protects filenames and values; data-image/base64 thumbnails are rejected. The report command uses run-relative thumbnails, while `publish` rewrites thumbnail paths relative to the chosen output directory without copying private frames or source videos.
+- Report contents: top-level card/failure/error/field counts, environment and model revisions, summed stage timings, field coverage/reliability, every representative frame with timestamp/reasons, per-card prediction/Ground Truth/status/confidence, and explicit match/mismatch/abstained/not-evaluated states.
+- Test evidence: three focused report tests passed; the final complete suite passed 67 tests in 5.97 seconds. Tests cover HTML escaping and mismatch classes, rejection of embedded images, and published relative-path rewriting.
+- Three-video artifact: `benchmark/runs/exp09-pipeline-e2e-3-v2/validation_report.html` contains three cards and ten thumbnails. Static parsing found zero missing images, no script tags, and no data images.
+- Browser acceptance: the actual local report loaded at 1280×720 with zero broken images, zero console warnings/errors, and no horizontal overflow. All three cards were reachable; the first and last cards visibly distinguished match, mismatch, abstained, and not-evaluated rows.
+- Decision: retain the dependency-light static report and publish path. Do not add a web app, server runtime, client framework, or report editing UI in Scanner V0.1.
+- Next: add low-overhead environment and resource telemetry, then repeat one warm three-video benchmark only.

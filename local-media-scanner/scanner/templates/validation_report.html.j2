@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scanner validation · {{ result.run_id }}</title>
+  <style>
+    :root { color-scheme: dark; --bg:#071018; --panel:#101c26; --line:#253746; --text:#edf5f7; --muted:#91a6b4; --cyan:#55d7d0; --green:#65d995; --red:#ff7a86; --amber:#f3c76a; --slate:#748797; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 15% -10%,#153143 0,transparent 38%),var(--bg); color:var(--text); font:14px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1500px; margin:auto; padding:32px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { font-size:30px; letter-spacing:-.03em; margin-bottom:6px; }
+    h2 { font-size:18px; margin-bottom:14px; }
+    .muted { color:var(--muted); }
+    .summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:24px 0; }
+    .stat,.panel,.card { background:color-mix(in srgb,var(--panel) 94%,transparent); border:1px solid var(--line); border-radius:14px; }
+    .stat { padding:16px; }
+    .stat strong { display:block; font-size:24px; color:var(--cyan); }
+    .top-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:16px; margin-bottom:26px; }
+    .panel { padding:18px; overflow:auto; }
+    .kv { display:grid; grid-template-columns:minmax(120px,.7fr) 1.3fr; gap:6px 14px; }
+    .kv dt { color:var(--muted); }
+    .kv dd { margin:0; overflow-wrap:anywhere; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+    .cards { display:grid; gap:18px; }
+    .card { overflow:hidden; }
+    .card-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:18px; border-bottom:1px solid var(--line); }
+    .card-head h3 { margin:0 0 4px; font-size:17px; overflow-wrap:anywhere; }
+    .badge { border:1px solid var(--line); border-radius:999px; padding:4px 9px; color:var(--muted); white-space:nowrap; }
+    .frames { display:flex; gap:10px; padding:16px; overflow-x:auto; background:#09141d; }
+    figure { margin:0; min-width:180px; max-width:260px; }
+    figure img { width:100%; height:140px; object-fit:cover; display:block; border-radius:9px; border:1px solid var(--line); background:#02070a; }
+    figcaption { color:var(--muted); font-size:12px; padding-top:6px; }
+    .fields { padding:0 16px 16px; overflow:auto; }
+    .field-match { border-left:3px solid var(--green); }
+    .field-mismatch { border-left:3px solid var(--red); background:color-mix(in srgb,var(--red) 7%,transparent); }
+    .field-abstained { border-left:3px solid var(--amber); }
+    .field-not-evaluated { border-left:3px solid var(--slate); }
+    .state { font-weight:650; }
+    .field-match .state { color:var(--green); }
+    .field-mismatch .state { color:var(--red); }
+    .field-abstained .state { color:var(--amber); }
+    .field-not-evaluated .state { color:var(--slate); }
+    .errors { margin:0 16px 16px; padding:12px 14px; border:1px solid color-mix(in srgb,var(--red) 60%,var(--line)); border-radius:10px; background:color-mix(in srgb,var(--red) 8%,transparent); }
+    @media (max-width:900px) { main{padding:18px}.summary{grid-template-columns:repeat(2,1fr)}.top-grid{grid-template-columns:1fr}.card-head{display:block}.badge{display:inline-block;margin-top:10px} }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="muted">LOCAL MEDIA SCANNER · VALIDATION REPORT</p>
+    <h1>{{ result.run_id }}</h1>
+    <p class="muted">Requested {{ result.requested_device }} · actual {{ result.actual_device }} · {{ evaluation.overlapping_items }} overlapping Ground Truth items</p>
+  </header>
+  <section class="summary">
+    <div class="stat"><strong>{{ result.items|length }}</strong><span>Scanner cards</span></div>
+    <div class="stat"><strong>{{ failed_count }}</strong><span>Failed files</span></div>
+    <div class="stat"><strong>{{ error_count }}</strong><span>Recorded errors</span></div>
+    <div class="stat"><strong>{{ evaluation.fields|length }}</strong><span>Evaluated fields</span></div>
+  </section>
+  <section class="top-grid">
+    <div class="panel">
+      <h2>Environment</h2>
+      <dl class="kv">
+      {% for key, value in environment|dictsort %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}
+      {% for key, value in result.model_revisions|dictsort %}<dt>{{ key }} revision</dt><dd>{{ value }}</dd>{% endfor %}
+      </dl>
+    </div>
+    <div class="panel">
+      <h2>Stage timing</h2>
+      <table><thead><tr><th>Stage</th><th>Total ms</th><th>Measured cards</th></tr></thead><tbody>
+      {% for timing in timings %}<tr><td>{{ timing.stage }}</td><td>{{ "%.1f"|format(timing.total_ms) }}</td><td>{{ timing.measured }}</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </section>
+  <section class="panel" style="margin-bottom:26px">
+    <h2>Field metrics and reliability</h2>
+    <table><thead><tr><th>Field</th><th>Coverage</th><th>End-to-end accuracy</th><th>Reliability</th></tr></thead><tbody>
+    {% for name, item in evaluation.fields|dictsort %}
+      <tr><td>{{ name }}</td><td>{{ "%.1f%%"|format(item.metrics.scored_coverage * 100) }}</td><td>{% if item.metrics.end_to_end_accuracy is not none %}{{ "%.1f%%"|format(item.metrics.end_to_end_accuracy * 100) }}{% else %}—{% endif %}</td><td>{{ item.reliability.status }}</td></tr>
+    {% endfor %}
+    </tbody></table>
+  </section>
+  <section class="cards">
+  {% for item in cards %}
+    <article class="card" data-file="{{ item.card.file }}">
+      <div class="card-head"><div><h3>{{ item.card.file }}</h3><div class="muted">{{ "%.2f"|format(item.card.technical.duration) }}s · {{ item.card.technical.width }}×{{ item.card.technical.height }} · {{ item.card.technical.orientation }}</div></div><span class="badge">{{ item.card.analysis_status }}</span></div>
+      <div class="frames">
+      {% for frame in item.card.representative_frames %}<figure><img src="{{ frame.thumbnail_relpath }}" alt="{{ item.card.file }} at {{ frame.timestamp }} seconds"><figcaption>{{ "%.2f"|format(frame.timestamp) }}s · {{ frame.reasons|join(", ") }}</figcaption></figure>{% endfor %}
+      {% if not item.card.representative_frames %}<p class="muted">No representative frames.</p>{% endif %}
+      </div>
+      <div class="fields"><table><thead><tr><th>Field</th><th>Prediction</th><th>Ground Truth</th><th>State</th><th>Confidence</th><th>Reliability</th></tr></thead><tbody>
+      {% for field in item.fields %}<tr class="field-{{ field.state }}"><td>{{ field.field }}</td><td>{{ field.predicted }}<div class="muted">{{ field.status }}</div></td><td>{{ field.truth }}</td><td class="state">{{ field.state }}</td><td>{% if field.confidence is not none %}{{ "%.3f"|format(field.confidence) }}<div class="muted">{{ field.confidence_source }}</div>{% else %}—{% endif %}</td><td>{{ field.reliability or "—" }}</td></tr>{% endfor %}
+      </tbody></table></div>
+      {% if item.card.errors %}<div class="errors"><strong>Errors</strong>{% for error in item.card.errors %}<div>{{ error.stage }} / {{ error.code }} — {{ error.message }}</div>{% endfor %}</div>{% endif %}
+    </article>
+  {% endfor %}
+  </section>
+</main>
+</body>
+</html>

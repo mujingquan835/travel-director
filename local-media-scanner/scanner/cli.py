@@ -21,8 +21,9 @@ from scanner.detector import TorchvisionSSDLiteDetector, summarize_detections
 from scanner.evaluation import evaluate_ablation, evaluate_detector, evaluate_run
 from scanner.metadata import build_manifest, discover_videos
 from scanner.pipeline import ScanContext, scan_manifest
+from scanner.report import publish_run, rebase_thumbnail_paths, render_validation_report
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
-from scanner.schema import GroundTruthDataset, ScannerResult, TestManifest
+from scanner.schema import EvaluationSummary, GroundTruthDataset, ScannerResult, TestManifest
 from scanner.selection import propose_stratified_set, render_contact_sheet
 from scanner.vision import (
     ACTION_PROMPTS,
@@ -412,6 +413,36 @@ def ablate_command(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(str(output))
+
+
+@app.command("report")
+def report_command(
+    ground_truth: Path = typer.Option(..., "--ground-truth", exists=True, dir_okay=False),
+    run: Path = typer.Option(..., "--run", exists=True, file_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Render a local static validation report from saved run artifacts."""
+
+    result = ScannerResult.model_validate_json((run / "scanner_result.json").read_text(encoding="utf-8"))
+    evaluation = EvaluationSummary.model_validate_json((run / "evaluation.json").read_text(encoding="utf-8"))
+    truth = GroundTruthDataset.model_validate_json(ground_truth.read_text(encoding="utf-8"))
+    environment = json.loads((run / "environment.json").read_text(encoding="utf-8"))
+    rebased = rebase_thumbnail_paths(result, run, output.parent)
+    render_validation_report(rebased, evaluation, environment, output, truth)
+    typer.echo(str(output))
+
+
+@app.command("publish")
+def publish_command(
+    ground_truth: Path = typer.Option(..., "--ground-truth", exists=True, dir_okay=False),
+    run: Path = typer.Option(..., "--run", exists=True, file_okay=False),
+    output_dir: Path = typer.Option(..., "--output-dir", file_okay=False),
+) -> None:
+    """Publish shareable JSON/HTML pointers without copying private frames."""
+
+    result_path, report_path = publish_run(run, ground_truth, output_dir)
+    typer.echo(str(result_path))
+    typer.echo(str(report_path))
 
 
 @app.command("scan")

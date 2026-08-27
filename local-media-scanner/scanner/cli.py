@@ -25,6 +25,7 @@ from scanner.report import publish_run, rebase_thumbnail_paths, render_validatio
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
 from scanner.schema import EvaluationSummary, GroundTruthDataset, ScannerResult, TestManifest
 from scanner.selection import propose_stratified_set, render_contact_sheet
+from scanner.telemetry import ResourceMonitor, accelerator_memory
 from scanner.vision import (
     ACTION_PROMPTS,
     DEFAULT_SIGLIP2_MODEL_ID,
@@ -469,38 +470,82 @@ def scan_command(
         sampling=SamplingConfig(profile=sampling_profile, hardware_acceleration=hwaccel),
     )
     paths = create_run_dir(runs_dir, run_id, config, resume=resume)
+    monitor = ResourceMonitor().start()
     detector = None
     vision_encoder = None
     model_revisions: dict[str, str] = {}
     actual_device = "none"
-    if models:
-        detector = TorchvisionSSDLiteDetector.load(
-            cache_dir=config.models.model_cache_dir / "torchvision",
-            score_threshold=config.models.detector_score_threshold,
-            device="cpu",
+    model_load_ms = 0.0
+    scan_ms = 0.0
+    result = None
+    status = "failed"
+    failure: str | None = None
+    try:
+        load_started = time.perf_counter()
+        if models:
+            detector = TorchvisionSSDLiteDetector.load(
+                cache_dir=config.models.model_cache_dir / "torchvision",
+                score_threshold=config.models.detector_score_threshold,
+                device="cpu",
+            )
+            vision_encoder = SiglipEvidenceEncoder.load(
+                model_id=config.models.vision_model_id,
+                cache_dir=config.models.model_cache_dir / "huggingface",
+                requested_device=device,
+                revision=DEFAULT_SIGLIP2_REVISION,
+                local_files_only=True,
+            )
+            model_revisions = {
+                "detector": detector.weights_id,
+                "siglip": vision_encoder.resolved_revision or DEFAULT_SIGLIP2_REVISION,
+            }
+            actual_device = vision_encoder.device.actual
+        model_load_ms = (time.perf_counter() - load_started) * 1000.0
+        context = ScanContext(
+            input_root=Path(parsed.input_root),
+            run_dir=paths.root,
+            config=config,
+            detector=detector,
+            vision_encoder=vision_encoder,
+            model_revisions=model_revisions,
+            actual_device=actual_device,
         )
-        vision_encoder = SiglipEvidenceEncoder.load(
-            model_id=config.models.vision_model_id,
-            cache_dir=config.models.model_cache_dir / "huggingface",
-            requested_device=device,
-            revision=DEFAULT_SIGLIP2_REVISION,
-            local_files_only=True,
-        )
-        model_revisions = {
-            "detector": detector.weights_id,
-            "siglip": vision_encoder.resolved_revision or DEFAULT_SIGLIP2_REVISION,
+        scan_started = time.perf_counter()
+        result = scan_manifest(parsed, context)
+        scan_ms = (time.perf_counter() - scan_started) * 1000.0
+        output = paths.root / "scanner_result.json"
+        output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+        status = "completed"
+    except Exception as exc:
+        failure = type(exc).__name__
+        raise
+    finally:
+        resources = monitor.stop()
+        cards = result.items if result is not None else []
+        telemetry = {
+            "schema_version": "0.1.0",
+            "run_id": run_id,
+            "status": status,
+            "failure": failure,
+            "phases_ms": {
+                "model_load": model_load_ms,
+                "scan": scan_ms,
+                "total": resources.wall_ms,
+            },
+            "resource": resources.to_dict(),
+            "accelerator": {
+                "requested_device": device,
+                **accelerator_memory(actual_device),
+            },
+            "workload": {
+                "cards_total": len(cards),
+                "cards_complete": sum(card.analysis_status == "complete" for card in cards),
+                "cards_partial": sum(card.analysis_status == "partial" for card in cards),
+                "cards_failed": sum(card.analysis_status == "failed" for card in cards),
+                "representative_frames": sum(len(card.representative_frames) for card in cards),
+            },
         }
-        actual_device = vision_encoder.device.actual
-    context = ScanContext(
-        input_root=Path(parsed.input_root),
-        run_dir=paths.root,
-        config=config,
-        detector=detector,
-        vision_encoder=vision_encoder,
-        model_revisions=model_revisions,
-        actual_device=actual_device,
-    )
-    result = scan_manifest(parsed, context)
-    output = paths.root / "scanner_result.json"
-    output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+        (paths.root / "telemetry.json").write_text(
+            json.dumps(telemetry, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
     typer.echo(str(output))

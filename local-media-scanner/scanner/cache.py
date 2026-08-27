@@ -5,13 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
-import platform
 from pathlib import Path
-import sys
 from typing import Mapping
 
 from scanner.config import ScanConfig
 from scanner.schema import ManifestEntry
+from scanner.telemetry import collect_environment
 
 
 def cache_key(
@@ -78,17 +77,7 @@ def create_run_dir(
             encoding="utf-8",
         )
         (root / "environment.json").write_text(
-            json.dumps(
-                {
-                    "python": platform.python_version(),
-                    "python_implementation": platform.python_implementation(),
-                    "platform": platform.platform(),
-                    "machine": platform.machine(),
-                    "executable_name": Path(sys.executable).name,
-                },
-                indent=2,
-                ensure_ascii=False,
-            ),
+            json.dumps(collect_environment(), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
     return RunPaths(

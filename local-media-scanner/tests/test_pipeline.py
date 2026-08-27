@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -158,3 +159,8 @@ def test_scan_cli_writes_immutable_run_result_without_models(sample_video: Path,
     assert '"run_id": "test-run"' in payload
     assert '"actual_device": "none"' in payload
     assert (runs_dir / "test-run" / "environment.json").exists()
+    telemetry = json.loads((runs_dir / "test-run" / "telemetry.json").read_text(encoding="utf-8"))
+    assert telemetry["status"] == "completed"
+    assert telemetry["workload"]["cards_total"] == 1
+    assert telemetry["workload"]["representative_frames"] >= 1
+    assert telemetry["accelerator"]["actual_device"] == "none"

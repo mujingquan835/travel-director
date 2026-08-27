@@ -11,9 +11,13 @@ def infer_material_roles(
     roles: list[MaterialRole] = []
     evidence: dict[MaterialRole, RoleEvidence] = {}
 
-    def add(role: MaterialRole, score: float, rule: str, inputs: list[str]) -> None:
+    def add(role: MaterialRole, factor: float, rule: str, inputs: list[str]) -> None:
         if role in evidence:
             return
+        input_scores = [card.confidence[key].score for key in inputs if key in card.confidence]
+        if len(input_scores) != len(inputs):
+            return
+        score = round(max(0.0, min(1.0, min(input_scores))) * factor, 6)
         roles.append(role)
         evidence[role] = RoleEvidence(score=score, rules=[rule], inputs=inputs)
 
@@ -22,7 +26,7 @@ def infer_material_roles(
             "human_story",
             0.85,
             "visible people provide human-story evidence",
-            ["content.people_present", "content.people_count_estimate", "shot_scale"],
+            ["content.people_present"],
         )
     if card.content.scene_type is not None and card.shot_scale == "wide":
         add(

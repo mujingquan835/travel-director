@@ -50,3 +50,15 @@
 - Failure boundary: a single frame cannot support motion; the Scanner must preserve unavailable evidence instead of classifying it as static.
 - Decision: retain all raw CV fields and provisional exposure evidence. Do not calibrate blur, motion levels, or combined quality on the three-video smoke set.
 - Next: freeze a diverse 30-video manifest and human Ground Truth before any detector or SigLIP2 inference.
+
+## Experiment 04 — Frozen 30-video Ground Truth — 2026-08-27
+
+- Method: build a deterministic model-free candidate set from metadata rarity strata, render midpoint contact cards, then inspect 3–5 adaptive sparse frames per clip before writing human labels. No detector, CLIP, or SigLIP output was available during annotation.
+- Parameters: seed 20260827; 30 clips selected from 272; VideoToolbox adaptive5 review profile; compact V0.1 scene and material-role taxonomies; nullable labels for unreadable footage.
+- Selected set: 476.327695 seconds (7.94 minutes), 2,983,893,228 bytes; 28 landscape and 2 portrait; two clips under 3 seconds, 22 clips from 3–30 seconds, and six clips over 30 seconds.
+- Review extraction timing: 238.08 seconds accumulated decode/extract time for 30 clips. The result contains 111 representative frames: three clips with one frame, three with three frames, 17 with four frames, and seven with five frames.
+- Annotation evidence: `ground_truth.json` validates as 30 unique items and matches all 30 manifest filenames exactly. The root and `benchmark/ground_truth.json` copies are byte-identical.
+- Failures: one portrait horse-show clip renders sideways in the current sparse-frame path despite rotation-aware metadata; it is labeled `marginal` and the defect remains open. One near-black one-second clip and one severely obstructed vertical clip are `unusable` and intentionally abstain on content and shot scale.
+- Accuracy: this is reference creation, not a model accuracy result. Dense crowd counts and distant age classes remain approximate and are documented in annotation notes.
+- Decision: retain the frozen set and explicit abstentions. Do not use this same 30-clip set to tune thresholds and then report the tuned score as an unbiased generalization result.
+- Next: evaluate a lightweight local person/object detector without modifying the frozen labels.

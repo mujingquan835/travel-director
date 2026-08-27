@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 Orientation = Literal["landscape", "portrait", "square", "unknown"]
@@ -158,8 +158,36 @@ class TestManifest(StrictModel):
     total_size_bytes: int = Field(default=0, ge=0)
 
 
+class GroundTruthItem(StrictModel):
+    file: str
+    people_present: bool | None = None
+    people_count_estimate: int | None = Field(default=None, ge=0)
+    people_type: list[Literal["child", "adult"]] = Field(default_factory=list)
+    scene_type: SceneType | None = None
+    shot_scale: ShotScale | None = None
+    motion_level: MotionLevel
+    exposure_status: ExposureStatus
+    quality_label: Literal["usable", "marginal", "unusable"]
+    main_objects: list[str] = Field(default_factory=list)
+    simple_action: str | None = None
+    material_role_candidates: list[MaterialRole] = Field(default_factory=list)
+    annotation_confidence: float = Field(ge=0.0, le=1.0)
+    notes: str | None = None
+
+
+class GroundTruthDataset(StrictModel):
+    schema_version: Literal["0.1.0"] = "0.1.0"
+    items: list[GroundTruthItem]
+
+    @model_validator(mode="after")
+    def unique_files(self) -> "GroundTruthDataset":
+        files = [item.file for item in self.items]
+        if len(files) != len(set(files)):
+            raise ValueError("duplicate Ground Truth files are not allowed")
+        return self
+
+
 class ScannerResult(StrictModel):
     schema_version: Literal["0.1.0"] = "0.1.0"
     run_id: str
     items: list[ScannerCard]
-

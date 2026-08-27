@@ -14,7 +14,8 @@ from scanner.config import SamplingConfig
 from scanner.cv_metrics import aggregate_quality, measure_motion
 from scanner.metadata import build_manifest, discover_videos
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
-from scanner.schema import TestManifest
+from scanner.schema import GroundTruthDataset, TestManifest
+from scanner.selection import propose_stratified_set, render_contact_sheet
 
 
 app = typer.Typer(no_args_is_help=True, help="Local-first travel media scanner experiments.")
@@ -104,3 +105,33 @@ def cv_profile(
     result_path = output / "cv_profile.json"
     result_path.write_text(json.dumps({"items": rows}, indent=2, ensure_ascii=False), encoding="utf-8")
     typer.echo(str(result_path))
+
+
+@app.command("select-testset")
+def select_testset(
+    input: Path = typer.Option(..., "--input", exists=True, file_okay=False),
+    count: int = typer.Option(30, "--count", min=1),
+    seed: int = typer.Option(20260827, "--seed"),
+    manifest: Path = typer.Option(..., "--manifest", dir_okay=False),
+    contact_sheet: Path = typer.Option(..., "--contact-sheet", dir_okay=False),
+    hwaccel: Literal["none", "videotoolbox"] = typer.Option("none", "--hwaccel"),
+) -> None:
+    """Propose a deterministic, model-free Ground Truth test set."""
+
+    inventory = build_manifest(input, discover_videos(input))
+    selected = propose_stratified_set(inventory, [], count=count, seed=seed)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(selected.model_dump_json(indent=2), encoding="utf-8")
+    render_contact_sheet(selected, contact_sheet, hardware_acceleration=hwaccel)
+    typer.echo(str(manifest))
+
+
+@app.command("validate-ground-truth")
+def validate_ground_truth(
+    input: Path = typer.Option(..., "--input", exists=True, dir_okay=False),
+) -> None:
+    """Validate a frozen human Ground Truth JSON file."""
+
+    dataset = GroundTruthDataset.model_validate_json(input.read_text(encoding="utf-8"))
+    suffix = "item" if len(dataset.items) == 1 else "items"
+    typer.echo(f"valid: {len(dataset.items)} {suffix}")

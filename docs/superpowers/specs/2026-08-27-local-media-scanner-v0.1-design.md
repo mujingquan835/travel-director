@@ -312,6 +312,18 @@ Experiment 05 对比三种方法：
   },
   "shot_scale": "wide",
   "material_role_candidates": ["human_story", "environment"],
+  "material_role_evidence": {
+    "human_story": {
+      "score": 0.81,
+      "rules": ["people_present", "people_dominant_scale"],
+      "inputs": ["content.people_present", "shot_scale"]
+    },
+    "environment": {
+      "score": 0.76,
+      "rules": ["wide_environment"],
+      "inputs": ["content.scene_type", "shot_scale"]
+    }
+  },
   "representative_frames": [
     {
       "timestamp": 1.6,
@@ -348,6 +360,7 @@ Experiment 05 对比三种方法：
 - `representative_frames.reason` 改为 `reasons` 数组，保留合并候选的多重依据。
 - 增加原始 CV 指标，防止归一化分数掩盖阈值变化。
 - 增加字段级 `confidence`、`field_status` 和 `timings_ms`。单条视频的 `field_status` 只表示 `predicted|candidate|abstained|unavailable`，不能冒充跨测试集可靠性。
+- 保留字符串形式的 `material_role_candidates` 供 Director 简单消费，同时增加 `material_role_evidence`，使每个候选可追溯到规则和输入字段。
 - `reliable|candidate|not_reliable_for_v0_1|insufficient_coverage` 属于 Ground Truth 评估后的全局字段结论，只写入评估汇总、HTML 顶部和 `BENCHMARK.md`，不重复写进原始 Scanner 素材卡片。
 - 不可靠字段允许 `null`；示例值不代表本轮模型已经达到对应准确率。
 

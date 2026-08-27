@@ -62,3 +62,17 @@
 - Accuracy: this is reference creation, not a model accuracy result. Dense crowd counts and distant age classes remain approximate and are documented in annotation notes.
 - Decision: retain the frozen set and explicit abstentions. Do not use this same 30-clip set to tune thresholds and then report the tuned score as an unbiased generalization result.
 - Next: evaluate a lightweight local person/object detector without modifying the frozen labels.
+
+## Experiment 05 — Lightweight COCO Detector — 2026-08-27
+
+- Method: run Torchvision `ssdlite320_mobilenet_v3_large` with default COCO V1 weights on each 320 px adaptive representative frame, batch size one, score threshold 0.5, and CPU inference. Video decode remains local with explicit VideoToolbox acceleration.
+- Dependencies: torch 2.13.0, torchvision 0.28.0, transformers 5.16.1; MPS is built and available but was not used for this CPU detector baseline. Installing the vision dependency group increased the project virtual environment from 183 MB to 808 MB; the shared uv cache measured 2.5 GB after installation.
+- Model asset: 13.4 MiB at `.cache/models/torchvision/checkpoints/ssdlite320_mobilenet_v3_large_coco-a79551df.pth`; SHA-256 `a79551df90c79834bcd3bb3845ef9d966b5449a3a9b2833ae8404778ca5d65d2`.
+- Test evidence: five detector tests cover per-frame people counts, threshold filtering, object ordering, empty-frame negative evidence, and CLI evidence serialization. The full suite passes 35 tests.
+- Cold five-video smoke: 82.11 seconds wall time including a slow 13.4 MiB weight download; the run JSON measured 53.01 seconds model download/load and 81.44 seconds total. External process peak RSS was 710,443,008 bytes.
+- Warm five-video smoke: 30.33 seconds wall time; run JSON measured 1.84 seconds model load, 29.62 seconds total, 27.78 seconds combined per-item decode plus inference, and 2.71 seconds detector inference across 18 representative frames. Observed in-process RSS was 404,750,336 bytes; external maximum RSS was 711,213,056 bytes.
+- People result against frozen Ground Truth: all five `people_present` labels matched. Maximum detected counts were 0, 2, 0, 0, 1 versus human estimates 0, 4, 0, 0, 2, so the detector systematically undercounted partially visible/background people; count MAE on this small smoke set is 0.6.
+- Object result: cars were supported in three of four night-road frames and people in two of three parking frames. The detector produced no object above threshold for illuminated storefront/gate footage, and misclassified a three-wheel vehicle as `airplane` with score 0.768.
+- Failure boundary: COCO detection is useful evidence for `people_present`, rough lower-bound people count, person geometry, cars, and common objects. It is not reliable for travel-specific signs, gates, architecture, exact crowds, or unrestricted `main_objects`.
+- Decision: retain SSDLite as a lightweight independent detector, but never treat its people count as exact and never use its COCO object list as the complete scene description. Keep raw per-frame detections for fusion and ablation.
+- Next: add SigLIP2 zero-shot evidence on CPU and MPS without changing the frozen Ground Truth.

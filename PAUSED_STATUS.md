@@ -2,6 +2,8 @@
 
 暂停时间：2026-08-27（Asia/Shanghai）
 
+> 状态：已恢复开发。本文件作为当时的历史检查点保留；Detector 的当前进展以后续 Git 提交和 `EXPERIMENTS.md` 为准。
+
 ## 安全恢复位置
 
 - 主项目：`/Users/meimaodawang/Documents/旅行导演`

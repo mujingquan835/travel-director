@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
 
+import cv2
+import psutil
 import typer
+from PIL import Image
 
 from scanner import __version__
 from scanner.config import SamplingConfig
 from scanner.cv_metrics import aggregate_quality, measure_motion
+from scanner.detector import TorchvisionSSDLiteDetector, summarize_detections
 from scanner.metadata import build_manifest, discover_videos
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
 from scanner.schema import GroundTruthDataset, TestManifest
@@ -135,3 +140,96 @@ def validate_ground_truth(
     dataset = GroundTruthDataset.model_validate_json(input.read_text(encoding="utf-8"))
     suffix = "item" if len(dataset.items) == 1 else "items"
     typer.echo(f"valid: {len(dataset.items)} {suffix}")
+
+
+@app.command("detector-smoke")
+def detector_smoke(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
+    limit: int = typer.Option(5, "--limit", min=1),
+    output: Path = typer.Option(..., "--output", file_okay=False),
+    device: Literal["cpu", "mps", "cuda"] = typer.Option("cpu", "--device"),
+    threshold: float = typer.Option(0.5, "--threshold", min=0.0, max=1.0),
+    hwaccel: Literal["none", "videotoolbox"] = typer.Option("none", "--hwaccel"),
+    cache_dir: Path = typer.Option(Path(".cache/models/torchvision"), "--cache-dir", file_okay=False),
+) -> None:
+    """Run local SSDLite evidence on a bounded manifest prefix."""
+
+    parsed = TestManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    output.mkdir(parents=True, exist_ok=True)
+    process = psutil.Process()
+    peak_rss = process.memory_info().rss
+    total_started = time.perf_counter()
+
+    load_started = time.perf_counter()
+    detector = TorchvisionSSDLiteDetector.load(
+        cache_dir=cache_dir,
+        score_threshold=threshold,
+        device=device,
+    )
+    load_ms = (time.perf_counter() - load_started) * 1000.0
+    peak_rss = max(peak_rss, process.memory_info().rss)
+
+    config = SamplingConfig(profile="adaptive5", hardware_acceleration=hwaccel)
+    items: list[dict] = []
+    for index, entry in enumerate(parsed.entries[:limit]):
+        item_started = time.perf_counter()
+        source = Path(parsed.input_root) / entry.source.relative_path
+        probe_frames = decode_probe_frames(
+            source,
+            entry.technical,
+            output / "probe" / f"{index:04d}",
+            config,
+        )
+        candidates = select_representatives(probe_frames, entry.technical.duration, "adaptive5")
+        images = [
+            Image.fromarray(cv2.cvtColor(candidate.image, cv2.COLOR_BGR2RGB))
+            for candidate in candidates
+        ]
+        inference_started = time.perf_counter()
+        per_frame = detector.detect(images)
+        inference_ms = (time.perf_counter() - inference_started) * 1000.0
+        summary = summarize_detections(per_frame)
+        frames = [
+            {
+                "timestamp": candidate.timestamp,
+                "reasons": candidate.reasons,
+                "detections": [asdict(detection) for detection in detections],
+            }
+            for candidate, detections in zip(candidates, per_frame, strict=True)
+        ]
+        peak_rss = max(peak_rss, process.memory_info().rss)
+        items.append(
+            {
+                "file": entry.file,
+                "probe_frame_count": len(probe_frames),
+                "representative_frame_count": len(candidates),
+                "frames": frames,
+                "summary": summary.model_dump(),
+                "inference_ms": inference_ms,
+                "elapsed_ms": (time.perf_counter() - item_started) * 1000.0,
+            }
+        )
+
+    try:
+        import torch
+        import torchvision
+
+        dependency_versions = {"torch": torch.__version__, "torchvision": torchvision.__version__}
+    except ImportError:
+        dependency_versions = {}
+    result = {
+        "model_id": detector.model_id,
+        "weights_id": detector.weights_id,
+        "device": detector.device,
+        "score_threshold": detector.score_threshold,
+        "hardware_acceleration": hwaccel,
+        "cache_dir": str(cache_dir.resolve()),
+        "dependency_versions": dependency_versions,
+        "load_ms": load_ms,
+        "peak_rss_bytes_observed": peak_rss,
+        "total_ms": (time.perf_counter() - total_started) * 1000.0,
+        "items": items,
+    }
+    result_path = output / "detector_result.json"
+    result_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    typer.echo(str(result_path))

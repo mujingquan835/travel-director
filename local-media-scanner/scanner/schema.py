@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -194,3 +194,63 @@ class ScannerResult(StrictModel):
     actual_device: str
     model_revisions: dict[str, str] = Field(default_factory=dict)
     items: list[ScannerCard]
+
+
+ReliabilityStatus = Literal[
+    "reliable",
+    "candidate",
+    "not_reliable_for_v0_1",
+    "insufficient_coverage",
+]
+
+
+class FieldMetrics(StrictModel):
+    total_ground_truth: int = Field(ge=0)
+    evaluated: int = Field(ge=0)
+    abstentions: int = Field(ge=0)
+    scored_coverage: float = Field(ge=0.0, le=1.0)
+    end_to_end_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    precision: float | None = Field(default=None, ge=0.0, le=1.0)
+    recall: float | None = Field(default=None, ge=0.0, le=1.0)
+    f1: float | None = Field(default=None, ge=0.0, le=1.0)
+    macro_f1: float | None = Field(default=None, ge=0.0, le=1.0)
+    micro_precision: float | None = Field(default=None, ge=0.0, le=1.0)
+    micro_recall: float | None = Field(default=None, ge=0.0, le=1.0)
+    micro_f1: float | None = Field(default=None, ge=0.0, le=1.0)
+    exact_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    within_one_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    mae: float | None = Field(default=None, ge=0.0)
+    mean_jaccard: float | None = Field(default=None, ge=0.0, le=1.0)
+    rank_correlation: float | None = Field(default=None, ge=-1.0, le=1.0)
+    min_class_support: int = Field(default=0, ge=0)
+    class_support: dict[str, int] = Field(default_factory=dict)
+    confusion: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReliabilityDecision(StrictModel):
+    status: ReliabilityStatus
+    score_used: float | None = None
+    min_class_support: int = Field(ge=0)
+    systematic_failure: bool = False
+    reason: str
+
+
+class FieldEvaluation(StrictModel):
+    metrics: FieldMetrics
+    reliability: ReliabilityDecision
+
+
+class EvaluationSummary(StrictModel):
+    schema_version: Literal["0.1.0"] = "0.1.0"
+    run_id: str
+    ground_truth_items: int = Field(ge=0)
+    overlapping_items: int = Field(ge=0)
+    overlap_files: list[str]
+    fields: dict[str, FieldEvaluation]
+
+
+class AblationSummary(StrictModel):
+    schema_version: Literal["0.1.0"] = "0.1.0"
+    run_id: str
+    fields: dict[str, dict[str, FieldEvaluation]]

@@ -18,11 +18,11 @@ from scanner.cache import create_run_dir
 from scanner.config import SamplingConfig, ScanConfig
 from scanner.cv_metrics import aggregate_quality, measure_motion
 from scanner.detector import TorchvisionSSDLiteDetector, summarize_detections
-from scanner.evaluation import evaluate_detector
+from scanner.evaluation import evaluate_ablation, evaluate_detector, evaluate_run
 from scanner.metadata import build_manifest, discover_videos
 from scanner.pipeline import ScanContext, scan_manifest
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
-from scanner.schema import GroundTruthDataset, TestManifest
+from scanner.schema import GroundTruthDataset, ScannerResult, TestManifest
 from scanner.selection import propose_stratified_set, render_contact_sheet
 from scanner.vision import (
     ACTION_PROMPTS,
@@ -375,6 +375,42 @@ def evaluate_detector_command(
     result = evaluate_detector(truth, payload)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("evaluate")
+def evaluate_command(
+    ground_truth: Path = typer.Option(..., "--ground-truth", exists=True, dir_okay=False),
+    result: Path = typer.Option(..., "--result", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Evaluate every overlapping Scanner field without an overall accuracy."""
+
+    truth = GroundTruthDataset.model_validate_json(ground_truth.read_text(encoding="utf-8"))
+    scanner_result = ScannerResult.model_validate_json(result.read_text(encoding="utf-8"))
+    summary = evaluate_run(truth, scanner_result)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("ablate")
+def ablate_command(
+    ground_truth: Path = typer.Option(..., "--ground-truth", exists=True, dir_okay=False),
+    evidence_dir: Path = typer.Option(..., "--evidence-dir", exists=True, file_okay=False),
+    fields: str = typer.Option("people_count_estimate,shot_scale", "--fields"),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Compare only the supported saved-evidence ablation methods."""
+
+    truth = GroundTruthDataset.model_validate_json(ground_truth.read_text(encoding="utf-8"))
+    summary = evaluate_ablation(
+        truth,
+        evidence_dir,
+        [field.strip() for field in fields.split(",") if field.strip()],
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(str(output))
 
 

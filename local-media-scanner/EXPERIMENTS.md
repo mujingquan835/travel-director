@@ -133,3 +133,15 @@
 - Remaining warning: the known Transformers 5.16 legacy BOS/EOS vocabulary warning still appears during local SigLIP model loading; inference succeeds and the warning remains documented rather than suppressed.
 - Decision: retain the cache-safe pipeline and immutable run artifact layout. Do not rerun the already completed 30-video detector, CV, or SigLIP experiments merely to regenerate equivalent raw evidence.
 - Next: implement null-aware field evaluation and evaluate only a small pipeline smoke before deciding whether a single canonical 30-video publish run is still needed.
+
+## Experiment 10 — Null-aware Field Evaluation — 2026-08-28
+
+- Method: compare only files present in both frozen Ground Truth and a Scanner run; exclude uncertain Ground Truth values, count Scanner null/abstained/unavailable values as unscored coverage, and count those abstentions as wrong in end-to-end accuracy.
+- Metrics: binary precision/recall/F1/accuracy; count exact/within-one/MAE; single-label accuracy/Macro F1/confusion; multilabel Micro/Macro F1/Jaccard; ordered quality rank correlation and threshold confusion. No overall Scanner accuracy is produced.
+- Reliability gate: decision-critical class support below five is `insufficient_coverage`; Macro F1 at least 0.80 without systematic failure may be `reliable`; incomplete coverage, a score of 0.65–0.79, or a documented systematic failure remains `candidate`; lower supported results are `not_reliable_for_v0_1`.
+- Test evidence: nine focused evaluation tests passed; the final complete suite passed 64 tests in 4.77 seconds.
+- Three-video result: `exp09-pipeline-e2e-3-v2/evaluation.json` evaluates 11 independent fields over three overlapping files. Every field is `insufficient_coverage`; `people_present` was 3/3 correct, people count exact accuracy was 2/3, and semantic/quality fields preserved their intended abstentions rather than fabricating predictions.
+- Saved-evidence ablation: people-count `max`, `median`, and `high_confidence` each evaluated the same three overlapping files. Shot Scale SigLIP abstained on 3/3; geometry and fusion each emitted one of three. All method decisions remain `insufficient_coverage`.
+- Corrected failure: the first ablation draft used all 28 known Ground Truth labels as the denominator even though only three evidence files existed. The evaluator now freezes the denominator to evidence/Ground Truth overlap, matching the main run evaluator.
+- Decision: retain field-level evaluation, explicit coverage, end-to-end accuracy, and the restricted saved-evidence ablation methods. Do not use the three-video smoke to claim field reliability.
+- Next: render a static validation report from the existing Scanner and evaluation artifacts without rerunning models.

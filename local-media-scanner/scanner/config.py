@@ -16,6 +16,7 @@ class SamplingConfig(BaseModel):
     thumbnail_max_edge: int = Field(default=720, ge=224, le=2048)
     max_probe_frames: int = Field(default=24, ge=3, le=64)
     max_representative_frames: int = Field(default=5, ge=1, le=8)
+    hardware_acceleration: Literal["none", "videotoolbox"] = "none"
 
 
 class ModelConfig(BaseModel):
@@ -35,4 +36,3 @@ class ScanConfig(BaseModel):
     sampling: SamplingConfig = Field(default_factory=SamplingConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
     cache_dir: Path = Path(".cache/scanner")
-

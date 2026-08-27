@@ -1,0 +1,62 @@
+{
+  "schema_version": "0.1.0",
+  "input_root": "/Users/meimaodawang/Desktop/万岁山素材",
+  "entries": [
+    {
+      "file": "2026_02_07_20_14_00_IMG_0480.MOV",
+      "source": {
+        "relative_path": "2026_02_07_20_14_00_IMG_0480.MOV",
+        "size_bytes": 2114783,
+        "mtime_ns": 1770466440000000000
+      },
+      "technical": {
+        "duration": 0.265,
+        "width": 3840,
+        "height": 2160,
+        "fps": 60.0,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T12:14:00.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_11_21_14_IMG_0293.MOV",
+      "source": {
+        "relative_path": "2026_02_07_11_21_14_IMG_0293.MOV",
+        "size_bytes": 64416882,
+        "mtime_ns": 1770434474000000000
+      },
+      "technical": {
+        "duration": 6.085,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.983566146261296,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T03:21:14.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_13_54_48_IMG_0399.MOV",
+      "source": {
+        "relative_path": "2026_02_07_13_54_48_IMG_0399.MOV",
+        "size_bytes": 789588029,
+        "mtime_ns": 1770443688000000000
+      },
+      "technical": {
+        "duration": 117.755,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.971126900104736,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T05:54:48.000000Z",
+        "rotation": null
+      }
+    }
+  ],
+  "total_duration_seconds": 124.105,
+  "total_size_bytes": 856119694
+}

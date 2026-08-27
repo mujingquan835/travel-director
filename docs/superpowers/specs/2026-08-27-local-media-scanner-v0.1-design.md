@@ -80,13 +80,16 @@ local-media-scanner/
     cli.py
     config.py
     schema.py
+    cache.py
     metadata.py
     sampling.py
     cv_metrics.py
+    selection.py
     detector.py
     vision.py
     fusion.py
     roles.py
+    pipeline.py
     telemetry.py
     evaluation.py
     report.py

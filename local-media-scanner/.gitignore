@@ -1,0 +1,9 @@
+.venv/
+.cache/
+.pytest_cache/
+**/__pycache__/
+*.pyc
+benchmark/runs/
+benchmark/test_selection.html
+benchmark/test_selection_files/
+

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,70 @@ from scanner.vision import (
     resolve_device,
     top_margin,
 )
+
+
+def test_siglip_loader_uses_config_driven_auto_model(tmp_path: Path, monkeypatch) -> None:
+    """Catch forcing a Siglip2 class onto checkpoints whose config maps to SiglipModel."""
+
+    calls: dict[str, object] = {}
+
+    class FakeProcessor:
+        @classmethod
+        def from_pretrained(cls, model_id, **kwargs):
+            calls["processor"] = (model_id, kwargs)
+            return cls()
+
+    class FakeModel:
+        config = type("Config", (), {"_commit_hash": "resolved-abc"})()
+
+        def eval(self):
+            return self
+
+        def to(self, device):
+            calls["device"] = device
+            return self
+
+    class FakeAutoModel:
+        @classmethod
+        def from_pretrained(cls, model_id, **kwargs):
+            calls["model"] = (model_id, kwargs)
+            return FakeModel()
+
+    class WrongExplicitModel:
+        @classmethod
+        def from_pretrained(cls, *args, **kwargs):
+            raise AssertionError("explicit Siglip2Model loader bypassed checkpoint config")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(
+            AutoProcessor=FakeProcessor,
+            AutoModel=FakeAutoModel,
+            Siglip2Model=WrongExplicitModel,
+        ),
+    )
+
+    from scanner.vision import SiglipEvidenceEncoder
+
+    encoder = SiglipEvidenceEncoder.load(
+        model_id="fake/siglip2",
+        cache_dir=tmp_path,
+        requested_device="cpu",
+        revision="abc",
+        local_files_only=True,
+    )
+
+    assert calls["model"] == (
+        "fake/siglip2",
+        {
+            "cache_dir": tmp_path,
+            "revision": "abc",
+            "local_files_only": True,
+        },
+    )
+    assert calls["device"] == "cpu"
+    assert encoder.resolved_revision == "resolved-abc"
 
 
 def test_prompt_groups_cover_fixed_taxonomies() -> None:
@@ -63,6 +129,16 @@ def test_margin_uses_top_two_scores() -> None:
 
 def test_margin_is_zero_when_fewer_than_two_scores() -> None:
     assert top_margin([LabelScore("wide", 0.8)]) == 0.0
+
+
+def test_embedding_tensor_accepts_transformers_pooled_output() -> None:
+    from scanner import vision
+
+    expected = torch.tensor([[1.0, 2.0]])
+    output = SimpleNamespace(pooler_output=expected)
+
+    assert vision.embedding_tensor(output) is expected
+    assert vision.embedding_tensor(expected) is expected
 
 
 def test_unavailable_mps_returns_explicit_cpu_fallback(monkeypatch) -> None:

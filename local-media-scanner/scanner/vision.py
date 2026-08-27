@@ -91,6 +91,17 @@ def top_margin(scores: Sequence[LabelScore]) -> float:
     return ordered[0].score - ordered[1].score
 
 
+def embedding_tensor(output: object) -> torch.Tensor:
+    """Normalize Transformers embedding API variants to their pooled tensor."""
+
+    if isinstance(output, torch.Tensor):
+        return output
+    pooled = getattr(output, "pooler_output", None)
+    if isinstance(pooled, torch.Tensor):
+        return pooled
+    raise TypeError(f"unsupported embedding output: {type(output).__name__}")
+
+
 def resolve_device(requested: str) -> DeviceResolution:
     if requested == "cpu":
         return DeviceResolution(requested, "cpu")
@@ -129,7 +140,7 @@ class SiglipEvidenceEncoder:
         revision: str = DEFAULT_SIGLIP2_REVISION,
         local_files_only: bool = False,
     ) -> "SiglipEvidenceEncoder":
-        from transformers import AutoProcessor, Siglip2Model
+        from transformers import AutoModel, AutoProcessor
 
         resolved = resolve_device(requested_device)
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -139,7 +150,7 @@ class SiglipEvidenceEncoder:
             revision=revision,
             local_files_only=local_files_only,
         )
-        model = Siglip2Model.from_pretrained(
+        model = AutoModel.from_pretrained(
             model_id,
             cache_dir=cache_dir,
             revision=revision,
@@ -164,7 +175,7 @@ class SiglipEvidenceEncoder:
         )
         inputs = {key: value.to(self.device.actual) for key, value in inputs.items()}
         with torch.inference_mode():
-            features = self._model.get_text_features(**inputs)
+            features = embedding_tensor(self._model.get_text_features(**inputs))
         features = functional.normalize(features.float(), dim=-1)
         ensembles: list[torch.Tensor] = []
         offset = 0
@@ -189,7 +200,7 @@ class SiglipEvidenceEncoder:
                 kwargs = {"pixel_values": pixel_values}
                 if pixel_attention_mask is not None:
                     kwargs["pixel_attention_mask"] = pixel_attention_mask
-                features = self._model.get_image_features(**kwargs)
+                features = embedding_tensor(self._model.get_image_features(**kwargs))
             batches.append(functional.normalize(features.float(), dim=-1))
         if not batches:
             return torch.empty((0, 0), device=self.device.actual)

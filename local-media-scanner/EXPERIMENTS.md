@@ -37,3 +37,16 @@
 - Failures: the original temporal3 path visually de-duplicated its three fixed anchors, invalidating the baseline. The test caught this; temporal3 now preserves all available time anchors, while adaptive5 may visually de-duplicate.
 - Decision: retain input-side sparse seek for cross-platform correctness and explicit `videotoolbox` acceleration for the M1 Pro benchmark. Do not silently fall back between hardware and software modes. The median clip remains slower than desired and must be included in the final performance conclusion.
 - Next: Experiment 03, raw blur/exposure/motion metrics on the same probe frames.
+
+## Experiment 03 — Blur, Exposure, and Motion CV — 2026-08-27
+
+- Method: compute per-frame Laplacian variance, Rec.709-like luminance, dark/bright clipping ratios, and adjacent-frame Farneback optical flow. Aggregate frame quality by median; normalize flow by image diagonal and time delta.
+- Parameters: dark pixels <=5, bright pixels >=250; provisional underexposure requires median brightness <0.18 and dark ratio >0.35; provisional overexposure requires brightness >0.82 and bright ratio >0.20; mixed exposure requires both dark ratio >0.25 and bright ratio >0.15.
+- Test evidence: seven tests cover blur monotonicity, brightness/clipping direction, explicit null calibrated scores, translated-motion direction, directional concentration, brightness flash response, and CLI output.
+- Real smoke timing: three-video VideoToolbox CV profile took 13.28 seconds wall time. Per-video decode-plus-CV times were 0.28 seconds (0.265-second clip), 4.85 seconds (6.085-second clip), and 7.93 seconds (117.755-second clip). Representative 720 px thumbnail extraction is not included in this CV-only command.
+- Real raw distributions: median Laplacian variance was 2156.60, 2103.18, and 1841.25; median brightness was 0.407, 0.464, and 0.679. All three received the provisional `normal` exposure label.
+- Motion evidence: the sub-second clip has no adjacent-frame evidence and correctly remains unknown. The median clip raw motion was 0.0580 with directional ratio 0.782; the longest clip raw motion was 0.00467 with directional ratio 0.929. Directional consistency does not imply high motion intensity.
+- Accuracy: synthetic directionality tests passed, but no real blur, exposure, or motion accuracy is claimed before Ground Truth. `blur_score`, `motion_intensity`, `motion_level`, `static_or_dynamic`, and `quality_score` remain null/unknown.
+- Failure boundary: a single frame cannot support motion; the Scanner must preserve unavailable evidence instead of classifying it as static.
+- Decision: retain all raw CV fields and provisional exposure evidence. Do not calibrate blur, motion levels, or combined quality on the three-video smoke set.
+- Next: freeze a diverse 30-video manifest and human Ground Truth before any detector or SigLIP2 inference.

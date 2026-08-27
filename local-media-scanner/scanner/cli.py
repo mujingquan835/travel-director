@@ -14,11 +14,13 @@ import typer
 from PIL import Image
 
 from scanner import __version__
-from scanner.config import SamplingConfig
+from scanner.cache import create_run_dir
+from scanner.config import SamplingConfig, ScanConfig
 from scanner.cv_metrics import aggregate_quality, measure_motion
 from scanner.detector import TorchvisionSSDLiteDetector, summarize_detections
 from scanner.evaluation import evaluate_detector
 from scanner.metadata import build_manifest, discover_videos
+from scanner.pipeline import ScanContext, scan_manifest
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
 from scanner.schema import GroundTruthDataset, TestManifest
 from scanner.selection import propose_stratified_set, render_contact_sheet
@@ -373,4 +375,65 @@ def evaluate_detector_command(
     result = evaluate_detector(truth, payload)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("scan")
+def scan_command(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
+    run_id: str = typer.Option(..., "--run-id"),
+    runs_dir: Path = typer.Option(Path("benchmark/runs"), "--runs-dir", file_okay=False),
+    limit: int | None = typer.Option(None, "--limit", min=1),
+    sampling_profile: Literal["temporal3", "adaptive5"] = typer.Option(
+        "adaptive5", "--sampling-profile"
+    ),
+    device: Literal["auto", "cpu", "mps", "cuda"] = typer.Option("auto", "--device"),
+    hwaccel: Literal["none", "videotoolbox"] = typer.Option("none", "--hwaccel"),
+    models: bool = typer.Option(True, "--models/--no-models"),
+    resume: bool = typer.Option(False, "--resume"),
+) -> None:
+    """Run one immutable, local-only Scanner pipeline."""
+
+    parsed = TestManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    if limit is not None:
+        parsed = parsed.model_copy(update={"entries": parsed.entries[:limit]})
+    config = ScanConfig(
+        device=device,
+        sampling=SamplingConfig(profile=sampling_profile, hardware_acceleration=hwaccel),
+    )
+    paths = create_run_dir(runs_dir, run_id, config, resume=resume)
+    detector = None
+    vision_encoder = None
+    model_revisions: dict[str, str] = {}
+    actual_device = "none"
+    if models:
+        detector = TorchvisionSSDLiteDetector.load(
+            cache_dir=config.models.model_cache_dir / "torchvision",
+            score_threshold=config.models.detector_score_threshold,
+            device="cpu",
+        )
+        vision_encoder = SiglipEvidenceEncoder.load(
+            model_id=config.models.vision_model_id,
+            cache_dir=config.models.model_cache_dir / "huggingface",
+            requested_device=device,
+            revision=DEFAULT_SIGLIP2_REVISION,
+            local_files_only=True,
+        )
+        model_revisions = {
+            "detector": detector.weights_id,
+            "siglip": vision_encoder.resolved_revision or DEFAULT_SIGLIP2_REVISION,
+        }
+        actual_device = vision_encoder.device.actual
+    context = ScanContext(
+        input_root=Path(parsed.input_root),
+        run_dir=paths.root,
+        config=config,
+        detector=detector,
+        vision_encoder=vision_encoder,
+        model_revisions=model_revisions,
+        actual_device=actual_device,
+    )
+    result = scan_manifest(parsed, context)
+    output = paths.root / "scanner_result.json"
+    output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(str(output))

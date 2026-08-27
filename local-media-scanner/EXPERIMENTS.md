@@ -121,3 +121,15 @@
 - Reliability boundary: Material Roles inherit errors and abstentions from people, scene, action, motion, objects, and Shot Scale. The 30-video labels can test rule consistency but do not establish independent role-model accuracy. `human_story` may be emitted as a candidate when detector evidence exists; environment, experience, detail, transition, and atmosphere should abstain when their required Scanner fields are unreliable.
 - Decision: retain explainable fusion/role plumbing and raw method evidence, but mark Shot Scale geometry/fusion and all Material Roles as candidate or not reliable enough for V0.1 according to input coverage. Do not weaken the margin threshold merely to increase coverage on the same evaluation set.
 - Next: build one cache-safe pipeline that shares decoded frames across CV, detector, SigLIP, fusion, and roles, while preserving per-stage failures.
+
+## Experiment 09 — Cache-safe End-to-end Pipeline — 2026-08-28
+
+- Method: run one immutable Scanner pipeline that decodes each clip once, shares representative frames across CV, SSDLite, SigLIP2, fusion, and Material Role rules, and writes per-frame evidence separately from the Scanner cards.
+- Run contract: every run records a config hash, basic local environment, relative thumbnails, detector/SigLIP evidence, cache identity links, requested/actual device, and pinned model revisions. Existing run IDs are rejected; `--resume` accepts only an identical config hash. Run IDs cannot escape the configured run directory.
+- Failure isolation: sampling failure retains a failed card without aborting the manifest; CV, detector, vision, and evidence-write failures are recorded by stage and preserve prior valid evidence as a partial card.
+- Test evidence: five focused cache/pipeline tests passed, followed by the full 57-test suite in 5.14 seconds. Tests cover source/config/model cache invalidation, immutable/resumable runs, one-file decode failure isolation, shared-frame model/fusion flow, evidence output, and no-model CLI output.
+- Real three-video smoke: `exp09-pipeline-e2e-3-v2` completed 3/3 cards with zero errors in 28.14 seconds on requested and actual MPS. Peak external RSS was 1,031,274,496 bytes. It wrote three evidence files and three cache-link files.
+- Provenance: detector revision `SSDLite320_MobileNet_V3_Large_Weights.COCO_V1`; SigLIP revision `75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2`. Scanner results contain relative source paths and no Ground Truth payload.
+- Remaining warning: the known Transformers 5.16 legacy BOS/EOS vocabulary warning still appears during local SigLIP model loading; inference succeeds and the warning remains documented rather than suppressed.
+- Decision: retain the cache-safe pipeline and immutable run artifact layout. Do not rerun the already completed 30-video detector, CV, or SigLIP experiments merely to regenerate equivalent raw evidence.
+- Next: implement null-aware field evaluation and evaluate only a small pipeline smoke before deciding whether a single canonical 30-video publish run is still needed.

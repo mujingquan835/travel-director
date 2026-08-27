@@ -190,4 +190,7 @@ class GroundTruthDataset(StrictModel):
 class ScannerResult(StrictModel):
     schema_version: Literal["0.1.0"] = "0.1.0"
     run_id: str
+    requested_device: str
+    actual_device: str
+    model_revisions: dict[str, str] = Field(default_factory=dict)
     items: list[ScannerCard]

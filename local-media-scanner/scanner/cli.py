@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict
+from hashlib import sha256
 from pathlib import Path
 from typing import Literal
 
@@ -23,8 +24,14 @@ from scanner.metadata import build_manifest, discover_videos
 from scanner.pipeline import ScanContext, scan_manifest
 from scanner.report import publish_run, rebase_thumbnail_paths, render_validation_report
 from scanner.sampling import decode_probe_frames, extract_representative_thumbnails, select_representatives
-from scanner.schema import EvaluationSummary, GroundTruthDataset, ScannerResult, TestManifest
-from scanner.selection import propose_stratified_set, render_contact_sheet
+from scanner.schema import (
+    EvaluationSummary,
+    GroundTruthDataset,
+    PeopleValidationDataset,
+    ScannerResult,
+    TestManifest,
+)
+from scanner.selection import propose_independent_set, propose_stratified_set, render_contact_sheet
 from scanner.telemetry import ResourceMonitor, accelerator_memory
 from scanner.vision import (
     ACTION_PROMPTS,
@@ -147,6 +154,26 @@ def select_testset(
     typer.echo(str(manifest))
 
 
+@app.command("select-people-validation")
+def select_people_validation(
+    input: Path = typer.Option(..., "--input", exists=True, file_okay=False),
+    exclude_manifest: Path = typer.Option(
+        ..., "--exclude-manifest", exists=True, dir_okay=False
+    ),
+    count: int = typer.Option(30, "--count", min=1),
+    seed: int = typer.Option(20260828, "--seed"),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Freeze a metadata-only people-validation set excluding prior Ground Truth."""
+
+    inventory = build_manifest(input, discover_videos(input))
+    excluded = TestManifest.model_validate_json(exclude_manifest.read_text(encoding="utf-8"))
+    selected = propose_independent_set(inventory, excluded, count=count, seed=seed)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(selected.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
 @app.command("validate-ground-truth")
 def validate_ground_truth(
     input: Path = typer.Option(..., "--input", exists=True, dir_okay=False),
@@ -156,6 +183,32 @@ def validate_ground_truth(
     dataset = GroundTruthDataset.model_validate_json(input.read_text(encoding="utf-8"))
     suffix = "item" if len(dataset.items) == 1 else "items"
     typer.echo(f"valid: {len(dataset.items)} {suffix}")
+
+
+@app.command("validate-people-ground-truth")
+def validate_people_ground_truth(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
+    input: Path = typer.Option(..., "--input", exists=True, dir_okay=False),
+) -> None:
+    """Validate independent people labels against the exact frozen manifest."""
+
+    manifest_bytes = manifest.read_bytes()
+    parsed_manifest = TestManifest.model_validate_json(manifest_bytes)
+    dataset = PeopleValidationDataset.model_validate_json(input.read_text(encoding="utf-8"))
+    expected_hash = sha256(manifest_bytes).hexdigest()
+    if dataset.manifest_sha256 != expected_hash:
+        raise typer.BadParameter("people Ground Truth manifest_sha256 does not match manifest")
+    manifest_files = {entry.file for entry in parsed_manifest.entries}
+    if len(manifest_files) != len(parsed_manifest.entries):
+        raise typer.BadParameter("people validation manifest contains ambiguous duplicate filenames")
+    label_files = {item.file for item in dataset.items}
+    if label_files != manifest_files:
+        missing = sorted(manifest_files - label_files)
+        extra = sorted(label_files - manifest_files)
+        raise typer.BadParameter(
+            f"people Ground Truth membership mismatch: missing={missing}, extra={extra}"
+        )
+    typer.echo(f"valid: {len(dataset.items)} people validation items")
 
 
 @app.command("detector-smoke")

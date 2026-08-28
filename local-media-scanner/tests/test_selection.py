@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from scanner.cli import app
 from scanner.schema import ManifestEntry, SourceRecord, TechnicalMetadata, TestManifest as ManifestModel
-from scanner.selection import propose_stratified_set, render_manual_review_sheet
+from scanner.selection import propose_independent_set, propose_stratified_set, render_manual_review_sheet
 
 
 def _entry(index: int, *, duration: float, orientation: str, day: int) -> ManifestEntry:
@@ -55,6 +55,20 @@ def test_selection_recomputes_manifest_totals() -> None:
     assert len(selected.entries) == 3
     assert selected.total_duration_seconds == sum(row.technical.duration for row in selected.entries)
     assert selected.total_size_bytes == sum(row.source.size_bytes for row in selected.entries)
+
+
+def test_independent_selection_excludes_prior_manifest_and_is_deterministic() -> None:
+    inventory = _manifest()
+    excluded = inventory.model_copy(update={"entries": inventory.entries[:2]})
+
+    first = propose_independent_set(inventory, excluded, count=4, seed=20260828)
+    second = propose_independent_set(inventory, excluded, count=4, seed=20260828)
+
+    excluded_paths = {entry.source.relative_path for entry in excluded.entries}
+    assert first.model_dump() == second.model_dump()
+    assert not excluded_paths.intersection(
+        entry.source.relative_path for entry in first.entries
+    )
 
 
 def test_select_testset_command_writes_manifest_and_unpredicted_contact_sheet(

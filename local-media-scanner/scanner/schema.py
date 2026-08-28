@@ -33,6 +33,8 @@ MaterialRole = Literal[
 ]
 FieldStatus = Literal["predicted", "candidate", "abstained", "unavailable"]
 AnalysisStatus = Literal["complete", "partial", "failed"]
+PeopleCountBand = Literal["none", "single", "few", "crowd"]
+PeopleVisibility = Literal["clear", "distant", "partial", "mixed", "unreadable"]
 
 
 class StrictModel(BaseModel):
@@ -184,6 +186,40 @@ class GroundTruthDataset(StrictModel):
         files = [item.file for item in self.items]
         if len(files) != len(set(files)):
             raise ValueError("duplicate Ground Truth files are not allowed")
+        return self
+
+
+class PeopleValidationItem(StrictModel):
+    file: str
+    people_present: bool | None
+    people_count_band: PeopleCountBand | None
+    visibility: PeopleVisibility
+    annotation_confidence: float = Field(ge=0.0, le=1.0)
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def consistent_people_labels(self) -> "PeopleValidationItem":
+        if self.people_present is None:
+            if self.people_count_band is not None or self.visibility != "unreadable":
+                raise ValueError("abstained people labels must be unreadable with no count band")
+        elif self.people_present is False:
+            if self.people_count_band != "none":
+                raise ValueError("people_present false requires count band none")
+        elif self.people_count_band in {None, "none"}:
+            raise ValueError("people_present true requires single, few, or crowd")
+        return self
+
+
+class PeopleValidationDataset(StrictModel):
+    schema_version: Literal["0.1.0"] = "0.1.0"
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    items: list[PeopleValidationItem]
+
+    @model_validator(mode="after")
+    def unique_files(self) -> "PeopleValidationDataset":
+        files = [item.file for item in self.items]
+        if len(files) != len(set(files)):
+            raise ValueError("duplicate people validation files are not allowed")
         return self
 
 

@@ -148,6 +148,29 @@ def propose_stratified_set(
     )
 
 
+def propose_independent_set(
+    manifest: TestManifest,
+    excluded: TestManifest,
+    count: int,
+    seed: int,
+) -> TestManifest:
+    """Select metadata-stratified files that never overlap a prior manifest."""
+
+    excluded_paths = {entry.source.relative_path for entry in excluded.entries}
+    eligible_entries = [
+        entry for entry in manifest.entries if entry.source.relative_path not in excluded_paths
+    ]
+    if count > len(eligible_entries):
+        raise ValueError("count exceeds eligible manifest size after exclusions")
+    eligible = TestManifest(
+        input_root=manifest.input_root,
+        entries=eligible_entries,
+        total_duration_seconds=sum(entry.technical.duration for entry in eligible_entries),
+        total_size_bytes=sum(entry.source.size_bytes for entry in eligible_entries),
+    )
+    return propose_stratified_set(eligible, [], count=count, seed=seed)
+
+
 def render_contact_sheet(
     manifest: TestManifest,
     output: Path,

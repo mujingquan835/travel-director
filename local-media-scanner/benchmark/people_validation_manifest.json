@@ -1,0 +1,548 @@
+{
+  "schema_version": "0.1.0",
+  "input_root": "/Users/meimaodawang/Desktop/万岁山素材",
+  "entries": [
+    {
+      "file": "2026_02_06_18_40_27_IMG_0235.MOV",
+      "source": {
+        "relative_path": "2026_02_06_18_40_27_IMG_0235.MOV",
+        "size_bytes": 33663629,
+        "mtime_ns": 1770374427000000000
+      },
+      "technical": {
+        "duration": 6.266667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 30.47061951608615,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-06T10:40:28.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_06_18_47_54_IMG_0236.MOV",
+      "source": {
+        "relative_path": "2026_02_06_18_47_54_IMG_0236.MOV",
+        "size_bytes": 57654485,
+        "mtime_ns": 1770374874000000000
+      },
+      "technical": {
+        "duration": 4.335,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.976931949250286,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-06T10:47:54.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_10_48_56_IMG_0267.MOV",
+      "source": {
+        "relative_path": "2026_02_07_10_48_56_IMG_0267.MOV",
+        "size_bytes": 47989593,
+        "mtime_ns": 1770432536000000000
+      },
+      "technical": {
+        "duration": 4.685,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.978655282817506,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T02:48:56.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_10_49_03_IMG_0268.MOV",
+      "source": {
+        "relative_path": "2026_02_07_10_49_03_IMG_0268.MOV",
+        "size_bytes": 35312060,
+        "mtime_ns": 1770432543000000000
+      },
+      "technical": {
+        "duration": 5.103333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.94123408423115,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T02:49:03.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_10_50_58_IMG_0270.MOV",
+      "source": {
+        "relative_path": "2026_02_07_10_50_58_IMG_0270.MOV",
+        "size_bytes": 52525883,
+        "mtime_ns": 1770432658000000000
+      },
+      "technical": {
+        "duration": 7.785,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97431506849315,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T02:50:59.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_11_00_40_IMG_0276.MOV",
+      "source": {
+        "relative_path": "2026_02_07_11_00_40_IMG_0276.MOV",
+        "size_bytes": 59017678,
+        "mtime_ns": 1770433240000000000
+      },
+      "technical": {
+        "duration": 8.886667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.96624789049316,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T03:00:40.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_11_19_48_IMG_0291.MOV",
+      "source": {
+        "relative_path": "2026_02_07_11_19_48_IMG_0291.MOV",
+        "size_bytes": 37905889,
+        "mtime_ns": 1770434388000000000
+      },
+      "technical": {
+        "duration": 5.651667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.964622641509436,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T03:19:48.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_11_39_47_IMG_0299.MOV",
+      "source": {
+        "relative_path": "2026_02_07_11_39_47_IMG_0299.MOV",
+        "size_bytes": 6043205,
+        "mtime_ns": 1770435587000000000
+      },
+      "technical": {
+        "duration": 0.916667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 60.0,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T03:39:47.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_12_31_14_IMG_0302.MOV",
+      "source": {
+        "relative_path": "2026_02_07_12_31_14_IMG_0302.MOV",
+        "size_bytes": 45224930,
+        "mtime_ns": 1770438674000000000
+      },
+      "technical": {
+        "duration": 6.87,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97088791848617,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T04:31:14.000000Z",
+        "rotation": 180
+      }
+    },
+    {
+      "file": "2026_02_07_12_37_11_IMG_0314.MOV",
+      "source": {
+        "relative_path": "2026_02_07_12_37_11_IMG_0314.MOV",
+        "size_bytes": 33875827,
+        "mtime_ns": 1770439031000000000
+      },
+      "technical": {
+        "duration": 5.035,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.98013902681232,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T04:37:11.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_12_41_47_IMG_0321.MOV",
+      "source": {
+        "relative_path": "2026_02_07_12_41_47_IMG_0321.MOV",
+        "size_bytes": 11358831,
+        "mtime_ns": 1770439307000000000
+      },
+      "technical": {
+        "duration": 1.718333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.94180407371484,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T04:41:47.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_12_45_54_IMG_0324.MOV",
+      "source": {
+        "relative_path": "2026_02_07_12_45_54_IMG_0324.MOV",
+        "size_bytes": 41398463,
+        "mtime_ns": 1770439554000000000
+      },
+      "technical": {
+        "duration": 6.138333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.93485342019544,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T04:45:54.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_12_49_21_IMG_0338.MOV",
+      "source": {
+        "relative_path": "2026_02_07_12_49_21_IMG_0338.MOV",
+        "size_bytes": 35032927,
+        "mtime_ns": 1770439761000000000
+      },
+      "technical": {
+        "duration": 5.235,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.98089780324737,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T04:49:21.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_12_51_23_IMG_0343.MOV",
+      "source": {
+        "relative_path": "2026_02_07_12_51_23_IMG_0343.MOV",
+        "size_bytes": 115376741,
+        "mtime_ns": 1770439883000000000
+      },
+      "technical": {
+        "duration": 17.201667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.936052708070925,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T04:51:23.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_13_06_55_IMG_0359.MOV",
+      "source": {
+        "relative_path": "2026_02_07_13_06_55_IMG_0359.MOV",
+        "size_bytes": 49582526,
+        "mtime_ns": 1770440815000000000
+      },
+      "technical": {
+        "duration": 7.353333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.9728014505893,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T05:06:55.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_14_02_06_IMG_0402.MOV",
+      "source": {
+        "relative_path": "2026_02_07_14_02_06_IMG_0402.MOV",
+        "size_bytes": 240363540,
+        "mtime_ns": 1770444126000000000
+      },
+      "technical": {
+        "duration": 35.766667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97204100652377,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T06:02:06.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_14_07_16_IMG_0405.MOV",
+      "source": {
+        "relative_path": "2026_02_07_14_07_16_IMG_0405.MOV",
+        "size_bytes": 73504411,
+        "mtime_ns": 1770444436000000000
+      },
+      "technical": {
+        "duration": 42.1517,
+        "width": 1920,
+        "height": 1080,
+        "fps": 59.971532500395384,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T06:07:17.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_14_17_11_IMG_0415.MOV",
+      "source": {
+        "relative_path": "2026_02_07_14_17_11_IMG_0415.MOV",
+        "size_bytes": 242481923,
+        "mtime_ns": 1770445031000000000
+      },
+      "technical": {
+        "duration": 36.1667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97235023041475,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T06:17:11.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_14_25_20_IMG_0417.MOV",
+      "source": {
+        "relative_path": "2026_02_07_14_25_20_IMG_0417.MOV",
+        "size_bytes": 46693331,
+        "mtime_ns": 1770445520000000000
+      },
+      "technical": {
+        "duration": 6.92,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.971098265895954,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T06:25:20.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_20_07_36_IMG_0471.MOV",
+      "source": {
+        "relative_path": "2026_02_07_20_07_36_IMG_0471.MOV",
+        "size_bytes": 20393367,
+        "mtime_ns": 1770466056000000000
+      },
+      "technical": {
+        "duration": 2.185,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.954233409610985,
+        "orientation": "portrait",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T12:07:37.000000Z",
+        "rotation": 270
+      }
+    },
+    {
+      "file": "2026_02_07_21_05_06_IMG_0489.MOV",
+      "source": {
+        "relative_path": "2026_02_07_21_05_06_IMG_0489.MOV",
+        "size_bytes": 103327283,
+        "mtime_ns": 1770469506000000000
+      },
+      "technical": {
+        "duration": 8.218333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97566909975669,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T13:05:06.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_07_21_24_00_IMG_0502.MOV",
+      "source": {
+        "relative_path": "2026_02_07_21_24_00_IMG_0502.MOV",
+        "size_bytes": 110517735,
+        "mtime_ns": 1770470640000000000
+      },
+      "technical": {
+        "duration": 8.518333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97652582159625,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-07T13:24:00.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_08_13_47_52_IMG_0546.MOV",
+      "source": {
+        "relative_path": "2026_02_08_13_47_52_IMG_0546.MOV",
+        "size_bytes": 178604496,
+        "mtime_ns": 1770529672000000000
+      },
+      "technical": {
+        "duration": 14.9217,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97989500726013,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-08T05:47:52.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_08_19_07_20_IMG_0553.MOV",
+      "source": {
+        "relative_path": "2026_02_08_19_07_20_IMG_0553.MOV",
+        "size_bytes": 38539444,
+        "mtime_ns": 1770548840000000000
+      },
+      "technical": {
+        "duration": 2.801667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.96430696014277,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-08T11:07:20.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_08_19_18_10_IMG_0559.MOV",
+      "source": {
+        "relative_path": "2026_02_08_19_18_10_IMG_0559.MOV",
+        "size_bytes": 19667322,
+        "mtime_ns": 1770549490000000000
+      },
+      "technical": {
+        "duration": 4.198333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 30.0,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-08T11:18:11.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_09_10_09_37_IMG_0583.MOV",
+      "source": {
+        "relative_path": "2026_02_09_10_09_37_IMG_0583.MOV",
+        "size_bytes": 27988051,
+        "mtime_ns": 1770602977000000000
+      },
+      "technical": {
+        "duration": 4.368333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.977107974055706,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-09T02:09:37.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_09_10_17_38_IMG_0594.MOV",
+      "source": {
+        "relative_path": "2026_02_09_10_17_38_IMG_0594.MOV",
+        "size_bytes": 64660304,
+        "mtime_ns": 1770603458000000000
+      },
+      "technical": {
+        "duration": 6.836667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.970745977571916,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-09T02:17:39.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_09_11_15_19_IMG_0599.MOV",
+      "source": {
+        "relative_path": "2026_02_09_11_15_19_IMG_0599.MOV",
+        "size_bytes": 29454074,
+        "mtime_ns": 1770606919000000000
+      },
+      "technical": {
+        "duration": 2.816667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.96451803666469,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-09T03:15:19.000000Z",
+        "rotation": 180
+      }
+    },
+    {
+      "file": "2026_02_09_11_55_20_IMG_0609.MOV",
+      "source": {
+        "relative_path": "2026_02_09_11_55_20_IMG_0609.MOV",
+        "size_bytes": 53042337,
+        "mtime_ns": 1770609320000000000
+      },
+      "technical": {
+        "duration": 9.5317,
+        "width": 3840,
+        "height": 2160,
+        "fps": 30.0,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-09T03:55:20.000000Z",
+        "rotation": null
+      }
+    },
+    {
+      "file": "2026_02_09_12_03_02_IMG_0617.MOV",
+      "source": {
+        "relative_path": "2026_02_09_12_03_02_IMG_0617.MOV",
+        "size_bytes": 64484308,
+        "mtime_ns": 1770609782000000000
+      },
+      "technical": {
+        "duration": 10.46,
+        "width": 3840,
+        "height": 2160,
+        "fps": 47.602357814242474,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-09T04:03:02.000000Z",
+        "rotation": null
+      }
+    }
+  ],
+  "total_duration_seconds": 289.043467,
+  "total_size_bytes": 1975684593
+}

@@ -168,3 +168,11 @@
 - Consistency check: after excluding run ID and nondeterministic timings, the Experiment 12 Scanner result is byte-equivalent to the normalized Experiment 09 result. The known Transformers BOS/EOS warning remained non-fatal and unchanged.
 - Decision: retain summary-only telemetry and nullable unsupported fields. Do not add continuous trace persistence or rerun the three-video benchmark for timing variance in this phase.
 - Next: synthesize the saved experiments into the V0.1 benchmark conclusion and acceptance matrix without rerunning local models.
+
+## Experiment 13 — Saved-evidence V0.1 Conclusion — 2026-08-28
+
+- Method: synthesize Experiments 01–12, the frozen manifest/Ground Truth, saved 30-video Detector/CV/SigLIP results, and the Task 12 telemetry into `BENCHMARK.md`. No video decode, model inference, threshold tuning, or new benchmark run was performed.
+- Performance conclusion: 100 mixed 10–30 second videos are estimated at approximately 10–20 minutes on the measured M1 Pro configuration. The lower range uses per-file rates from the 30-video runs; the upper range adjusts the measured per-source-minute rate toward 30-second clips. This is explicitly an extrapolation, not a 100-video measurement.
+- Field conclusion: technical metadata, raw CV measurements, representative-frame provenance, errors, timings, and cache/model provenance are retained. `people_present`, provisional exposure, people type, and Material Roles remain candidate evidence. Exact count, calibrated quality/motion, Scene, Shot Scale, Action, and unrestricted Objects are not reliable enough for V0.1; under-supported classes remain explicit.
+- Acceptance boundary: local privacy, failure isolation, immutable runs, null-aware evaluation, static report, and telemetry pass. A combined 30-video temporal3/adaptive5 matrix and a real 100-video full-pipeline run remain unperformed and are listed as such rather than inferred complete.
+- Decision: Continue with constraints. Use the Scanner as an auditable evidence producer, not as a source of deterministic semantic facts or editorial decisions. The minimum next experiment is an independent, narrowly scoped validation set for `people_present` and a coarse people-count taxonomy; do not retune all fields on the frozen 30 clips.

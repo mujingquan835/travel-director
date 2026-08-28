@@ -2,7 +2,7 @@
 
 This directory contains a local-first technical validation project. It scans sparse frames from travel videos and never uploads source media.
 
-Current status: the versioned Schema and CLI bootstrap are implemented. Metadata, sampling, CV, local model inference, evaluation, and benchmark evidence are added sequentially in `EXPERIMENTS.md`.
+Current status: the Scanner V0.1 feasibility phase is concluded. The local pipeline is viable with strict field-level constraints; most semantic fields are not reliable enough to become deterministic facts. See `BENCHMARK.md` for the measured evidence, extrapolated 100-video range, acceptance matrix, and minimum next step.
 
 ## Development setup
 
@@ -17,4 +17,3 @@ Python is pinned to 3.12 by `pyproject.toml`. FFmpeg and ffprobe must be availab
 ## Scope boundary
 
 This V0.1 is a Scanner, not an AI Director. It does not generate music or SFX, call Dreamina, create timelines, or export editing projects.
-

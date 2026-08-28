@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1.0",
+  "location": "开封",
+  "travel_type": "城市漫游",
+  "target_duration_seconds": 60,
+  "orientation": "portrait",
+  "style": "明亮",
+  "mood": "探索",
+  "rhythm": "medium",
+  "vocals": "instrumental_preferred",
+  "instrument_preferences": [
+    "木吉他",
+    "电子鼓"
+  ]
+}

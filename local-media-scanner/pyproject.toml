@@ -28,15 +28,15 @@ dev = [
 
 [project.scripts]
 travel-scanner = "scanner.cli:app"
+travel-director = "director.cli:app"
 
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["scanner"]
+packages = ["scanner", "director"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-

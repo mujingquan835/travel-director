@@ -1,0 +1,71 @@
+{
+  "provider": "fixture",
+  "candidates": [
+    {
+      "candidate_id": "fixture-01",
+      "title": "明亮城市脉冲",
+      "visible_tags": ["轻电子", "明亮", "探索", "木吉他", "电子鼓"],
+      "bpm": 116,
+      "duration_seconds": 60,
+      "author": "Fixture Studio",
+      "label": "Offline Fixture",
+      "detail_url": "https://example.invalid/detail/fixture-01",
+      "preview_url": "https://example.invalid/preview/fixture-01"
+    },
+    {
+      "candidate_id": "fixture-02",
+      "title": "古城轻步",
+      "visible_tags": ["流行器乐", "明亮", "木吉他"],
+      "bpm": 108,
+      "duration_seconds": 65,
+      "author": "Fixture Studio",
+      "label": "Offline Fixture",
+      "detail_url": "https://example.invalid/detail/fixture-02",
+      "preview_url": "https://example.invalid/preview/fixture-02"
+    },
+    {
+      "candidate_id": "fixture-03",
+      "title": "探索推进",
+      "visible_tags": ["轻电子", "探索", "电子鼓"],
+      "bpm": 122,
+      "duration_seconds": 58,
+      "author": "Fixture Studio",
+      "label": "Offline Fixture",
+      "detail_url": "https://example.invalid/detail/fixture-03",
+      "preview_url": "https://example.invalid/preview/fixture-03"
+    },
+    {
+      "candidate_id": "fixture-04",
+      "title": "安静河岸",
+      "visible_tags": ["氛围器乐", "安静", "钢琴"],
+      "bpm": 82,
+      "duration_seconds": 90,
+      "author": "Fixture Studio",
+      "label": "Offline Fixture",
+      "detail_url": "https://example.invalid/detail/fixture-04",
+      "preview_url": "https://example.invalid/preview/fixture-04"
+    },
+    {
+      "candidate_id": "fixture-05",
+      "title": "快速公路",
+      "visible_tags": ["摇滚", "强烈", "电吉他"],
+      "bpm": 148,
+      "duration_seconds": 45,
+      "author": "Fixture Studio",
+      "label": "Offline Fixture",
+      "detail_url": "https://example.invalid/detail/fixture-05",
+      "preview_url": "https://example.invalid/preview/fixture-05"
+    },
+    {
+      "candidate_id": "fixture-06-discarded",
+      "title": "超过内部上限",
+      "visible_tags": ["轻电子"],
+      "bpm": 115,
+      "duration_seconds": 60,
+      "author": "Fixture Studio",
+      "label": "Offline Fixture",
+      "detail_url": "https://example.invalid/detail/fixture-06",
+      "preview_url": "https://example.invalid/preview/fixture-06"
+    }
+  ]
+}

@@ -1,12 +1,15 @@
 """Thin CLI for local Director stages."""
 
 from pathlib import Path
+import json
 
 import typer
 
 from director import __version__
+from director.catalog.fixture import FixtureCatalogProvider
+from director.music_directions import rank_directions
 from director.scanner_bridge import build_library_profile
-from director.schema import UserCreativeBrief
+from director.schema import MusicSearchBrief, UserCreativeBrief
 from director.search_planner import build_music_search_brief
 from scanner.schema import ScannerResult, TestManifest
 
@@ -56,4 +59,29 @@ def plan_search(
     search_brief = build_music_search_brief(profile, parsed_brief)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(search_brief.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("catalog-fixture")
+def catalog_fixture(
+    brief: Path = typer.Option(..., "--brief", exists=True, dir_okay=False),
+    fixture: Path = typer.Option(..., "--fixture", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Rank three music directions from an offline metadata fixture."""
+
+    parsed_brief = MusicSearchBrief.model_validate_json(
+        brief.read_text(encoding="utf-8")
+    )
+    result = FixtureCatalogProvider(fixture).search(parsed_brief)
+    directions = rank_directions(result, parsed_brief, limit=3)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(
+            [direction.model_dump(mode="json") for direction in directions],
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     typer.echo(str(output))

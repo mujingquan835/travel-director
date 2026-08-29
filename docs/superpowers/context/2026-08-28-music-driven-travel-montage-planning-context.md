@@ -51,3 +51,14 @@
 2. 先离线契约，再曲多多单页、即梦只读能力检查、单次生成授权的顺序。
 3. 本地音乐分析使用 librosa/soundfile，预览渲染仅使用 FFmpeg。
 4. 首次验收最多一次曲多多页面捕获、一次音乐生成尝试、不生成 SFX、一次代表性混剪渲染。
+
+## 2026-08-30 恢复与 Task 5 离线检查点
+
+- 恢复后确认 worktree clean、前四个功能提交存在，重新运行 `95 passed`。
+- 已提交计划与上下文：`fc20152 docs: record director implementation plan and checkpoint`。
+- Task 5 离线可见页面解析器已按 TDD 完成并提交：`13f1c98 feat: parse bounded visible catalog results`。
+- 当前完整测试：`100 passed`。
+- 解析器只接收单个当前可见页面的规范化 JSON；最多保留5条，只保留允许字段，不包含浏览器控制或 DOM 选择器。
+- `login_required`、`captcha`、`waf`、多页面或异常卡片结构均返回 `blocked` 和空候选，不猜测或绕过。
+- 截至本检查点仍未打开曲多多、未捕获真实页面、未下载试听音频，未检查或调用即梦，付费调用和积分消耗均为0。
+- 当前停止点：等待用户明确授权一次曲多多当前可见搜索结果页 smoke；若未授权，Task 5 保持“离线解析完成、真实网页未执行”。

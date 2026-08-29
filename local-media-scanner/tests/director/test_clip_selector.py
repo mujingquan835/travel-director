@@ -113,6 +113,7 @@ def test_shortage_reuses_only_after_unique_candidates_are_exhausted() -> None:
     available = materials()[:2]
     placements = place_clips(slots(), available, ClipSelectionConfig())
 
+    assert len(placements) == len(slots())
     assert len({placements[0].file, placements[1].file}) == 2
     assert any("reused_after_unique_exhausted" in row.relaxed_constraints for row in placements)
 
@@ -138,3 +139,27 @@ def test_people_candidate_does_not_create_human_story_score() -> None:
     placements = place_clips(slots()[:1], materials(), ClipSelectionConfig())
 
     assert "human_story" not in placements[0].score_components
+
+
+def test_long_slot_relaxes_recommendation_only_when_source_is_long_enough() -> None:
+    long_slot = TimelineSlot(
+        slot_id="slot-long",
+        start=0,
+        end=5.5,
+        section_role="breath",
+        energy=0.1,
+        content_need="reflective_pause",
+        desired_motion="low",
+    )
+
+    placements = place_clips(
+        [long_slot],
+        [material("long.mp4", impact=0.2, duplicate_group="long", motion="low")],
+        ClipSelectionConfig(),
+    )
+
+    assert placements.status == "completed"
+    assert len(placements) == 1
+    assert placements[0].source_in == 0
+    assert placements[0].source_out == 5.5
+    assert "recommended_range_unavailable" in placements[0].relaxed_constraints

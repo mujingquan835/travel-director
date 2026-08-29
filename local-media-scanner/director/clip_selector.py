@@ -43,19 +43,24 @@ class PlacementResult(list[ClipPlacement]):
 def _available_ranges(
     material: MaterialScanResult,
     required_seconds: float,
-) -> list[tuple[float, float]]:
+) -> tuple[list[tuple[float, float]], bool]:
     if material.analysis_status == "failed":
-        return []
+        return [], False
     ranges = (
         [(row.start, row.end) for row in material.recommended_ranges]
         if material.recommended_ranges
         else [(0.0, material.technical.duration)]
     )
-    return [
+    available = [
         (start, min(end, material.technical.duration))
         for start, end in ranges
         if min(end, material.technical.duration) - start >= required_seconds
     ]
+    if available:
+        return available, False
+    if material.recommended_ranges and material.technical.duration >= required_seconds:
+        return [(0.0, material.technical.duration)], True
+    return [], False
 
 
 def _impact(material: MaterialScanResult) -> float:
@@ -152,17 +157,23 @@ def place_clips(
     errors: list[ProviderError] = []
 
     for slot in slots:
-        eligible = [
-            (item, ranges[0])
-            for item in materials
-            if (ranges := _available_ranges(item, slot.duration))
-        ]
+        eligible = []
+        for item in materials:
+            ranges, relaxed_range = _available_ranges(item, slot.duration)
+            if ranges:
+                eligible.append((item, ranges[0], relaxed_range))
         relaxed: list[str] = []
         unique = [row for row in eligible if row[0].file not in used_files]
 
         if slot.section_role == "climax":
             reserved_unique = [row for row in unique if row[0].file in reserved]
-            pool = reserved_unique or unique
+            if reserved_unique:
+                pool = reserved_unique
+            elif unique:
+                pool = unique
+            else:
+                reserved_reuse = [row for row in eligible if row[0].file in reserved]
+                pool = reserved_reuse or eligible
         else:
             unreserved_unique = [row for row in unique if row[0].file not in reserved]
             if unreserved_unique:
@@ -201,7 +212,7 @@ def place_clips(
             continue
 
         ranked = []
-        for item, available_range in pool:
+        for item, available_range, relaxed_range in pool:
             components = _score(
                 item,
                 slot,
@@ -220,11 +231,14 @@ def place_clips(
                     item.file,
                     item,
                     available_range,
+                    relaxed_range,
                     components,
                 )
             )
         ranked.sort(key=lambda row: (-row[0], row[1]))
-        _, _, selected, selected_range, components = ranked[0]
+        _, _, selected, selected_range, relaxed_range, components = ranked[0]
+        if relaxed_range:
+            relaxed.append("recommended_range_unavailable")
         source_in = selected_range[0]
         source_out = source_in + slot.duration
         placements.append(

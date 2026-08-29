@@ -1,0 +1,64 @@
+{
+  "page_url": "https://example.invalid/quduoduo-visible-search",
+  "captured_at": "2026-08-30T09:00:00+08:00",
+  "page_state": "results",
+  "cards": [
+    {
+      "candidate_id": "visible-01",
+      "title": "可见候选一",
+      "visible_tags": ["轻电子", "明亮"],
+      "bpm": 116,
+      "duration_seconds": 60,
+      "author": "页面可见作者",
+      "label": "页面可见厂牌",
+      "detail_url": "https://example.invalid/detail/visible-01",
+      "preview_url": "https://example.invalid/preview/visible-01",
+      "internal_dom_node": "must be discarded"
+    },
+    {
+      "candidate_id": "visible-02",
+      "title": "可见候选二",
+      "visible_tags": ["流行器乐"],
+      "bpm": 108,
+      "duration_seconds": 65,
+      "detail_url": "https://example.invalid/detail/visible-02",
+      "preview_url": "https://example.invalid/preview/visible-02"
+    },
+    {
+      "candidate_id": "visible-03",
+      "title": "可见候选三",
+      "visible_tags": ["探索"],
+      "bpm": 122,
+      "duration_seconds": 58,
+      "detail_url": "https://example.invalid/detail/visible-03",
+      "preview_url": "https://example.invalid/preview/visible-03"
+    },
+    {
+      "candidate_id": "visible-04",
+      "title": "可见候选四",
+      "visible_tags": [],
+      "bpm": null,
+      "duration_seconds": null,
+      "detail_url": "https://example.invalid/detail/visible-04",
+      "preview_url": null
+    },
+    {
+      "candidate_id": "visible-05",
+      "title": "可见候选五",
+      "visible_tags": ["木吉他"],
+      "bpm": 110,
+      "duration_seconds": 62,
+      "detail_url": "https://example.invalid/detail/visible-05",
+      "preview_url": "https://example.invalid/preview/visible-05"
+    },
+    {
+      "candidate_id": "visible-06-discarded",
+      "title": "超过内部上限",
+      "visible_tags": ["轻电子"],
+      "bpm": 115,
+      "duration_seconds": 60,
+      "detail_url": "https://example.invalid/detail/visible-06",
+      "preview_url": "https://example.invalid/preview/visible-06"
+    }
+  ]
+}

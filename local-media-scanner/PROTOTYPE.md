@@ -25,3 +25,5 @@ Offline fixture-based Director work may continue, but no real Quduoduo catalog v
 `travel-director analyze-music` accepts a local WAV, MP3, or M4A and measures decoded samples at 22.05 kHz. It records a source hash, BPM, beat and four-beat downbeat candidates, a normalized one-second energy curve, change-based sections with confidence, and ending behavior. Provider BPM or section metadata is not used as measured timing evidence.
 
 The deterministic fixture generator at `prototype/fixtures/generate_synthetic_media.py` creates a 60-second 120 BPM click track with a 24–31 second low-energy interval and five colored local test videos. These fixtures contain no private source material and make no network or paid-service calls.
+
+`director.timeline.build_timeline_slots` turns measured sections and beats into contiguous editorial budgets. Intermediate boundaries are snapped to measured beats, pacing targets vary by section role, and content/motion needs are recorded without selecting any source file. Unknown measured sections remain `unknown` and receive an explicit `continuity_fallback` need.

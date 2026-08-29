@@ -92,3 +92,12 @@
 - 完整回归：`110 passed in 9.66s`；另有3条来自上游 `audioread` 的 Python 3.13 弃用预警，当前运行时为 Python 3.12。
 - `travel-director version` 仍输出 `0.1.0`，音频分析栈改为仅在 `analyze-music` 命令中懒加载。
 - 本阶段曲多多/即梦调用数均为0，费用0。
+
+## 2026-08-30 Task 9 时间线骨架检查点
+
+- 新增 `build_timeline_slots(structure, brief, config)`，只消费实测音乐结构和用户 brief，不选择任何素材文件。
+- 0–60 秒时间线连续、无重叠；内部槽位边界吸附到实测 beat/downbeat，并记录对应 beat 索引。
+- 默认目标均值：intro 3.5秒、rise 2.2秒、breath 4.5秒、climax 1.4秒、outro 3.5秒；同时受最短/最长槽位预算约束。
+- 开场需求为 `establishing_environment`，高潮为 `high_visual_impact`，结尾为 `resolved_ending`；未知段保留 `unknown` 并记录 `continuity_fallback`。
+- 聚焦测试 `5 passed`，完整回归 `115 passed in 9.60s`；仍仅3条上游 `audioread` 弃用预警。
+- 本阶段曲多多/即梦调用数0，费用0。

@@ -110,3 +110,11 @@
 - 所有 in/out 位于技术时长及推荐区间内；`analysis_status=failed` 的素材不可用，无法填充时返回 `partial/insufficient_material`。
 - `people_present`/人数候选不参与人物主线推断，评分中不存在 `human_story`。
 - 聚焦测试 `6 passed`，完整回归 `121 passed in 9.66s`；本阶段外部服务调用0，费用0。
+
+## 2026-08-30 Task 11 原声/SFX 计划检查点
+
+- `collect_sfx_candidates` 只保留白名单标签，要求候选 `file` 与所属素材一致，按来源去重并保留置信度。
+- `build_sfx_plan` 只处理已放置且事件时刻位于裁切区间内的候选；输出 `keep_original|enhance_original|generate_sfx|silence`，不调用生成器。
+- 呼吸段的本地音频证据优先 `keep_original`；纯视觉事件可记录一次选择性 `generate_sfx` 建议，相邻镜头不会连续建议生成。
+- 时间线事件时刻按传入 placement 顺序累加镜头时长，因此要求该列表为连续时间线顺序；候选时刻减去 `source_in` 后映射到对应镜头。
+- 聚焦测试 `6 passed`，完整回归 `127 passed in 9.55s`；曲多多、即梦和 SFX 生成调用数均为0，费用0。

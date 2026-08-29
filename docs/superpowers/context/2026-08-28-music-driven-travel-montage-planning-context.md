@@ -129,3 +129,12 @@
 - 最新本地编排证据为被忽略的 `prototype/runs/fixture-demo-v2/`：首次到 timeline 约3.1秒，恢复约0.15秒，生成29个槽位，`external_calls.json=[]`。
 - 早期 `fixture-demo/` 是外部账本纳入 hash 校验前的被忽略证据，保留但不作为后续验收来源。
 - 聚焦测试 `6 passed`，完整回归 `133 passed in 9.51s`；曲多多/即梦/付费调用数0，费用0。
+
+## 2026-08-30 Task 13 本地预览渲染检查点
+
+- `build_ffmpeg_command` 返回 argv 列表，不通过 shell；每个镜头显式 `trim,setpts,scale,crop,fps=24`，再 concat。
+- 本地音乐作为床轨；仅 SFX 计划中 `keep_original|enhance_original` 的源音轨会被裁切、延迟并混入，其余不自动添加。
+- `render_preview` 使用 H.264/AAC、`+faststart`、固定24 fps，并用 ffprobe 校验时长、尺寸和 codec；FFmpeg/ffprobe 失败返回结构化 `failed/ffmpeg_failed`。
+- 持久化合成渲染位于被忽略的 `prototype/runs/synthetic-render-v1/render/montage.mp4`：60.000秒，720×1280，H.264/AAC，媒体 SHA-256 `799be11e32ee6a25a56fcfbd923e511703c4776d20f9231b483a3558fcea95ca`。
+- 项目 `render_result.json` 已纳入状态 hash；第二次 `render-project` 用约0.09秒校验并复用，未重跑 FFmpeg；媒体漂移时会拒绝覆盖。
+- 聚焦渲染测试 `3 passed`，完整回归 `136 passed in 9.93s`；本阶段外部服务调用0，费用0。

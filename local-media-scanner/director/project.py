@@ -64,6 +64,7 @@ class ProjectPaths:
             "timeline": self.timeline_slots,
             "clip_placements": self.clip_placements,
             "sfx_plan": self.sfx_plan,
+            "render": self.render_result,
         }
         try:
             return mapping[stage]
@@ -228,6 +229,15 @@ def create_project(
     return paths
 
 
+def open_project(root: Path) -> ProjectPaths:
+    """Resolve an existing project without mutating it."""
+
+    paths = _paths(root.resolve())
+    if not paths.project_state.is_file() or not paths.brief.is_file():
+        raise FileNotFoundError("project_state.json and brief.json are required")
+    return paths
+
+
 def record_project_inputs(
     paths: ProjectPaths,
     inputs: Mapping[str, Path],
@@ -263,6 +273,41 @@ def record_project_inputs(
 
     _atomic_write(paths.input_manifest, payload)
     state.completed_artifact_hashes["input_manifest"] = payload_hash
+    _write_state(paths, state)
+    return payload_hash
+
+
+def record_stage_artifact(
+    paths: ProjectPaths,
+    stage: str,
+    value: BaseModel | dict[str, Any] | list[Any] | Path,
+) -> str:
+    """Atomically record a stage result without overwriting prior evidence."""
+
+    artifact_path = paths.artifact_for(stage)
+    json_value = _json_value(value)
+    _validate_schema_version(json_value)
+    payload = _canonical_bytes(json_value)
+    payload_hash = _sha256_bytes(payload)
+    state = ProjectState.model_validate_json(
+        paths.project_state.read_text(encoding="utf-8")
+    )
+    recorded_hash = state.completed_artifact_hashes.get(stage)
+    if recorded_hash is not None:
+        if (
+            not artifact_path.exists()
+            or _sha256_file(artifact_path) != recorded_hash
+            or recorded_hash != payload_hash
+        ):
+            raise ProjectConflict(f"completed artifact already differs: {stage}")
+        return recorded_hash
+    if artifact_path.exists():
+        raise ProjectConflict(f"untracked artifact already exists: {stage}")
+    _atomic_write(artifact_path, payload)
+    state.completed_artifact_hashes[stage] = payload_hash
+    state.current_stage = stage
+    result_status = json_value.get("status") if isinstance(json_value, dict) else None
+    state.status = result_status if result_status in {"completed", "failed", "blocked", "partial"} else "completed"
     _write_state(paths, state)
     return payload_hash
 

@@ -13,10 +13,12 @@ from director.music_blueprint import build_blueprint, build_generation_prompt
 from director.scanner_bridge import build_library_profile
 from director.schema import (
     CatalogSearchResult,
+    ClipPlacement,
     MaterialLibraryProfile,
     MusicDirection,
     MusicSearchBrief,
     MusicStructure,
+    SfxPlan,
     UserCreativeBrief,
 )
 from director.search_planner import build_music_search_brief
@@ -248,3 +250,53 @@ def run_local_command(
         },
     )
     typer.echo(state.model_dump_json(indent=2))
+
+
+@app.command("render-project")
+def render_project_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Render one bounded local project preview and record its verified result."""
+
+    from director.project import open_project, record_stage_artifact
+    from director.render import RenderResult, render_preview, verify_render_result
+
+    root = project.resolve()
+    paths = open_project(root)
+    if paths.render_result.exists():
+        existing = RenderResult.model_validate_json(
+            paths.render_result.read_text(encoding="utf-8")
+        )
+        if existing.status == "completed" and not verify_render_result(existing):
+            raise RuntimeError("recorded render output hash drifted")
+        typer.echo(existing.model_dump_json(indent=2))
+        if existing.status != "completed":
+            raise typer.Exit(code=1)
+        return
+    parsed_placements = TypeAdapter(list[ClipPlacement]).validate_json(
+        paths.clip_placements.read_text(encoding="utf-8")
+    )
+    parsed_sfx = SfxPlan.model_validate_json(
+        paths.sfx_plan.read_text(encoding="utf-8")
+    )
+    parsed_brief = UserCreativeBrief.model_validate_json(
+        paths.brief.read_text(encoding="utf-8")
+    )
+    manifest = json.loads(paths.input_manifest.read_text(encoding="utf-8"))
+    music_path = Path(manifest["inputs"]["music"]["path"])
+    expected_duration = sum(
+        item.source_out - item.source_in for item in parsed_placements
+    )
+    result = render_preview(
+        placements=parsed_placements,
+        music=music_path,
+        sfx_plan=parsed_sfx,
+        output=output,
+        orientation=parsed_brief.orientation,
+        music_duration_seconds=expected_duration,
+    )
+    record_stage_artifact(paths, "render", result)
+    typer.echo(result.model_dump_json(indent=2))
+    if result.status != "completed":
+        raise typer.Exit(code=1)

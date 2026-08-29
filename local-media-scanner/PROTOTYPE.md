@@ -14,4 +14,6 @@ Stop immediately on login requirements, CAPTCHA, WAF, or an unsupported page str
 
 ## External-service status
 
-No Quduoduo page has been opened or captured by this implementation stage. Dreamina capability, login, music generation, SFX generation, paid calls, and credits have not been checked or used.
+On 2026-08-30 the user authorized one Quduoduo visible-page smoke for the frozen 60-second search brief. The official product page identifies `https://agm.haifanwu.com/` as the catalog target, but both the in-app browser and connected Chrome timed out during navigation before any page content or result cards became available. The smoke is therefore `blocked/navigation_timeout`, with zero visible candidates, zero downloads, zero login/CAPTCHA/WAF interaction, and zero cost. Redacted local evidence is stored below ignored `prototype/runs/quduoduo-smoke-20260830/`.
+
+Dreamina capability, login, music generation, SFX generation, paid calls, and credits have not been checked or used. Offline fixture-based Director work may continue, but no real Quduoduo catalog value or end-to-end provider success may be claimed.

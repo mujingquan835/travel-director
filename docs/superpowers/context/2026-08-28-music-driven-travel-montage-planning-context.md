@@ -118,3 +118,14 @@
 - 呼吸段的本地音频证据优先 `keep_original`；纯视觉事件可记录一次选择性 `generate_sfx` 建议，相邻镜头不会连续建议生成。
 - 时间线事件时刻按传入 placement 顺序累加镜头时长，因此要求该列表为连续时间线顺序；候选时刻减去 `source_in` 后映射到对应镜头。
 - 聚焦测试 `6 passed`，完整回归 `127 passed in 9.55s`；曲多多、即梦和 SFX 生成调用数均为0，费用0。
+
+## 2026-08-30 Task 12 可恢复编排检查点
+
+- 新增固定 `ProjectPaths`：`project_state.json`、`brief.json`、`input_manifest.json`、`material_profile.json`、`search_brief.json`、`catalog/result.json`、`blueprint.json`、`generation/`、`music_structure.json`、`timeline_slots.json`、`clip_placements.json`、`sfx_plan.json`、`render/`和 `external_calls.json`。
+- JSON 通过同目录临时文件 `fsync` 后 `os.replace` 原子写入；brief、外部调用账本、输入清单及每个完成阶段都记录 SHA-256。
+- 恢复时复核文件 hash 和 `schema_version=0.1.0`；brief、本地输入、外部账本或已完成产物漂移均抛出 `ProjectConflict`，不覆盖、不重跑。
+- `run-local` 仅允许从 `material_profile` 推进到 `timeline`，使用 Scanner 本地结果、离线 catalog fixture 和本地 WAV，不具备外部 Provider 适配器。
+- 合成媒体脚本已实际生成 1 个60秒 WAV 和5个12秒纯色 MP4，位于被忽略的 `prototype/runs/synthetic-inputs/`。
+- 最新本地编排证据为被忽略的 `prototype/runs/fixture-demo-v2/`：首次到 timeline 约3.1秒，恢复约0.15秒，生成29个槽位，`external_calls.json=[]`。
+- 早期 `fixture-demo/` 是外部账本纳入 hash 校验前的被忽略证据，保留但不作为后续验收来源。
+- 聚焦测试 `6 passed`，完整回归 `133 passed in 9.51s`；曲多多/即梦/付费调用数0，费用0。

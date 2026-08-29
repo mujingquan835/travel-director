@@ -2,7 +2,7 @@
 
 ## Current implementation boundary
 
-The completed offline foundation provides strict Director contracts, a conservative Scanner bridge, local duplicate/audio evidence, structured music-search briefs, an offline catalog provider, and explainable three-direction ranking.
+The completed offline foundation provides strict Director contracts, a conservative Scanner bridge, local duplicate/audio evidence, structured music-search briefs, an offline catalog provider, explainable three-direction ranking, a reference-safe music blueprint, and a fail-closed music-generation authorization boundary.
 
 `director.catalog.quduoduo.parse_visible_results` is only a parser for normalized metadata captured from one currently visible result page. It does not open a browser, contain DOM selectors, bypass access controls, download preview audio, or perform background collection.
 
@@ -16,4 +16,6 @@ Stop immediately on login requirements, CAPTCHA, WAF, or an unsupported page str
 
 On 2026-08-30 the user authorized one Quduoduo visible-page smoke for the frozen 60-second search brief. The official product page identifies `https://agm.haifanwu.com/` as the catalog target, but both the in-app browser and connected Chrome timed out during navigation before any page content or result cards became available. The smoke is therefore `blocked/navigation_timeout`, with zero visible candidates, zero downloads, zero login/CAPTCHA/WAF interaction, and zero cost. Redacted local evidence is stored below ignored `prototype/runs/quduoduo-smoke-20260830/`.
 
-Dreamina capability, login, music generation, SFX generation, paid calls, and credits have not been checked or used. Offline fixture-based Director work may continue, but no real Quduoduo catalog value or end-to-end provider success may be claimed.
+On 2026-08-30 a read-only audit of the installed Dreamina CLI build `673dd28-dirty` used only `--version` and `--help`. Its help exposes image and video generators but no music or audio generation command, so `music_generation=false` and the adapter phase stopped as `unsupported_capability`. Login state and credit balance were not checked; no generation command ran, no authorization was requested, and call count and cost remain zero. Redacted evidence is stored below ignored `prototype/runs/dreamina-capability-20260830/`.
+
+Offline fixture-based Director work may continue, but no real Quduoduo catalog value, Dreamina music generation, or end-to-end provider success may be claimed.

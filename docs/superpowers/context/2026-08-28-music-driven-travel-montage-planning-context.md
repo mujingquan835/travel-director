@@ -82,3 +82,13 @@
 - 当前构建为 `673dd28-dirty`（commit `673dd28`，build time `2026-08-17T16:06:28Z`）；帮助只暴露图像/视频生成，没有 music/audio 生成命令，结论为 `music_generation=false`。
 - 按停止规则未检查登录态、未查询积分、未请求生成授权、未运行生成；外部调用数0，费用0。
 - 脱敏运行证据位于被忽略的 `local-media-scanner/prototype/runs/dreamina-capability-20260830/dreamina/capabilities.json`。
+
+## 2026-08-30 Task 8 本地音乐分析检查点
+
+- 新增 `librosa>=0.11,<1` 与 `soundfile>=0.13,<1`，并更新 `uv.lock`；仅下载本地 Python wheels/缓存，未调用外部业务或付费服务。
+- `analyze_music` 只从本地 WAV/MP3/M4A 解码样本测量 22.05 kHz 单声道数据，输出源 SHA-256、BPM、beat、四拍 downbeat 候选、1秒能量曲线、分段置信度和结尾行为。
+- 合成回归音频为 60 秒/120 BPM，24–31 秒低能段，59.5 秒末次冲击；聚焦测试 3 passed。
+- 新增非私有合成媒体脚本，可生成同款 click track 和5个纯色本地视频；本检查点仅做语法检查，未执行视频生成。
+- 完整回归：`110 passed in 9.66s`；另有3条来自上游 `audioread` 的 Python 3.13 弃用预警，当前运行时为 Python 3.12。
+- `travel-director version` 仍输出 `0.1.0`，音频分析栈改为仅在 `analyze-music` 命令中懒加载。
+- 本阶段曲多多/即梦调用数均为0，费用0。

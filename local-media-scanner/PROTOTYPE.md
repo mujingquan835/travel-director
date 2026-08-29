@@ -19,3 +19,9 @@ On 2026-08-30 the user authorized one Quduoduo visible-page smoke for the frozen
 On 2026-08-30 a read-only audit of the installed Dreamina CLI build `673dd28-dirty` used only `--version` and `--help`. Its help exposes image and video generators but no music or audio generation command, so `music_generation=false` and the adapter phase stopped as `unsupported_capability`. Login state and credit balance were not checked; no generation command ran, no authorization was requested, and call count and cost remain zero. Redacted evidence is stored below ignored `prototype/runs/dreamina-capability-20260830/`.
 
 Offline fixture-based Director work may continue, but no real Quduoduo catalog value, Dreamina music generation, or end-to-end provider success may be claimed.
+
+## Local music analysis
+
+`travel-director analyze-music` accepts a local WAV, MP3, or M4A and measures decoded samples at 22.05 kHz. It records a source hash, BPM, beat and four-beat downbeat candidates, a normalized one-second energy curve, change-based sections with confidence, and ending behavior. Provider BPM or section metadata is not used as measured timing evidence.
+
+The deterministic fixture generator at `prototype/fixtures/generate_synthetic_media.py` creates a 60-second 120 BPM click track with a 24–31 second low-energy interval and five colored local test videos. These fixtures contain no private source material and make no network or paid-service calls.

@@ -118,3 +118,18 @@ def blueprint_command(
         json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     typer.echo(str(output))
+
+
+@app.command("analyze-music")
+def analyze_music_command(
+    audio: Path = typer.Option(..., "--audio", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Measure beats, energy, sections, and ending from a local audio file."""
+
+    from director.music_analysis import AudioAnalysisConfig, analyze_music
+
+    structure = analyze_music(audio, AudioAnalysisConfig())
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(structure.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))

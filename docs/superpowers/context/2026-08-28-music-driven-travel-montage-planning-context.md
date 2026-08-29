@@ -101,3 +101,12 @@
 - 开场需求为 `establishing_environment`，高潮为 `high_visual_impact`，结尾为 `resolved_ending`；未知段保留 `unknown` 并记录 `continuity_fallback`。
 - 聚焦测试 `5 passed`，完整回归 `115 passed in 9.60s`；仍仅3条上游 `audioread` 弃用预警。
 - 本阶段曲多多/即梦调用数0，费用0。
+
+## 2026-08-30 Task 10 镜头选择检查点
+
+- 新增两遍式 `place_clips`：先保留有视觉冲击/运动证据的顶部候选给高潮，再填充开场、上升、呼吸和结尾槽位。
+- 评分分项包含时长匹配、原始运动证据、画质证据、候选场景多样性和视觉冲击；每个 placement 保留 `score_components` 和 `relaxed_constraints`。
+- 相邻槽位优先排除同一 `duplicate_group_id`，唯一素材耗尽后才允许复用，并显式记录 `reused_after_unique_exhausted`。
+- 所有 in/out 位于技术时长及推荐区间内；`analysis_status=failed` 的素材不可用，无法填充时返回 `partial/insufficient_material`。
+- `people_present`/人数候选不参与人物主线推断，评分中不存在 `human_story`。
+- 聚焦测试 `6 passed`，完整回归 `121 passed in 9.66s`；本阶段外部服务调用0，费用0。

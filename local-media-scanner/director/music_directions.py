@@ -62,6 +62,7 @@ def _direction(candidate: MusicCandidate, brief: MusicSearchBrief) -> MusicDirec
         ),
         preview_url=candidate.preview_url,
         bpm=candidate.bpm,
+        genres=[tag for tag in candidate.visible_tags if tag in brief.genres],
         moods=[tag for tag in candidate.visible_tags if tag in brief.moods],
         instruments=[
             tag for tag in candidate.visible_tags if tag in brief.instrument_preferences

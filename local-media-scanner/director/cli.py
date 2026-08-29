@@ -3,13 +3,15 @@
 from pathlib import Path
 import json
 
+from pydantic import TypeAdapter
 import typer
 
 from director import __version__
 from director.catalog.fixture import FixtureCatalogProvider
 from director.music_directions import rank_directions
+from director.music_blueprint import build_blueprint, build_generation_prompt
 from director.scanner_bridge import build_library_profile
-from director.schema import MusicSearchBrief, UserCreativeBrief
+from director.schema import MusicDirection, MusicSearchBrief, UserCreativeBrief
 from director.search_planner import build_music_search_brief
 from scanner.schema import ScannerResult, TestManifest
 
@@ -83,5 +85,36 @@ def catalog_fixture(
             ensure_ascii=False,
         ),
         encoding="utf-8",
+    )
+    typer.echo(str(output))
+
+
+@app.command("blueprint")
+def blueprint_command(
+    directions: Path = typer.Option(
+        ..., "--directions", exists=True, dir_okay=False
+    ),
+    choice: int = typer.Option(..., "--choice", min=1),
+    brief: Path = typer.Option(..., "--brief", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Build a reference-safe blueprint from one selected direction."""
+
+    parsed_directions = TypeAdapter(list[MusicDirection]).validate_json(
+        directions.read_text(encoding="utf-8")
+    )
+    if choice > len(parsed_directions):
+        raise typer.BadParameter("choice exceeds available directions", param_hint="--choice")
+    parsed_brief = UserCreativeBrief.model_validate_json(
+        brief.read_text(encoding="utf-8")
+    )
+    blueprint = build_blueprint(parsed_directions[choice - 1], parsed_brief)
+    payload = {
+        "blueprint": blueprint.model_dump(mode="json"),
+        "generation_prompt": build_generation_prompt(blueprint),
+    }
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     typer.echo(str(output))

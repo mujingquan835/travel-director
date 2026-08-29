@@ -204,6 +204,7 @@ class MusicDirection(StrictModel):
     fit_reason: str
     preview_url: str | None = None
     bpm: int | None = None
+    genres: list[str] = Field(default_factory=list)
     moods: list[str] = Field(default_factory=list)
     instruments: list[str] = Field(default_factory=list)
     score: float

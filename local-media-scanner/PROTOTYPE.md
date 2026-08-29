@@ -35,3 +35,9 @@ The deterministic fixture generator at `prototype/fixtures/generate_synthetic_me
 `travel-director run-local` creates a resumable project with fixed evidence paths and atomic JSON writes. The brief, external-call ledger, local input manifest, and every completed stage artifact are hashed. Resume verifies hashes and schema versions before skipping work; brief, input, ledger, or completed-artifact drift raises `ProjectConflict`. The local command supports stages through `timeline` and cannot invoke an external provider.
 
 `travel-director render-project` builds a shell-free FFmpeg argument list, trims and normalizes each placed video, concatenates at 24 fps, uses the selected local music as the bed, and mixes only explicitly retained/enhanced source audio. It writes H.264/AAC previews without overwriting inputs and verifies duration, dimensions, codecs, and SHA-256 with ffprobe. Existing render evidence is hash-checked and reused rather than overwritten.
+
+## Prototype decision
+
+The 2026-08-30 gated acceptance decision is `continue-with-constraints`; see `prototype/ACCEPTANCE.md`. The local technical chain reached a verified 60-second portrait H.264/AAC render with zero external calls, but the five-material fixture required 24 reuses and produced 21 same-file adjacent pairs. Provider-real catalog/music and editorial quality on real travel footage remain `not_executed`.
+
+The next implementation gate is local only: prevent avoidable same-file adjacency even when duplicate-group evidence is unknown, add the five-material/29-slot regression, and repeat one synthetic acceptance. Quduoduo and Dreamina remain closed until separately re-authorized and technically supported.

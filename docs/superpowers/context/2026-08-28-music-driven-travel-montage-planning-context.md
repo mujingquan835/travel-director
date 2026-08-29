@@ -138,3 +138,15 @@
 - 持久化合成渲染位于被忽略的 `prototype/runs/synthetic-render-v1/render/montage.mp4`：60.000秒，720×1280，H.264/AAC，媒体 SHA-256 `799be11e32ee6a25a56fcfbd923e511703c4776d20f9231b483a3558fcea95ca`。
 - 项目 `render_result.json` 已纳入状态 hash；第二次 `render-project` 用约0.09秒校验并复用，未重跑 FFmpeg；媒体漂移时会拒绝覆盖。
 - 聚焦渲染测试 `3 passed`，完整回归 `136 passed in 9.93s`；本阶段外部服务调用0，费用0。
+
+## 2026-08-30 Task 14 门控验收检查点
+
+- 最终决策：`continue-with-constraints`；不宣称真实曲多多价值、即梦音乐生成、真实旅行素材剪辑质量或 Provider 闭环。
+- 离线门：修复后 `137 passed`，30条冻结 Ground Truth 有效，Git 差异检查通过。
+- 首次不可变验收在选择阶段仅填充12/29槽位，17条 `insufficient_material`；保留为 partial 证据。
+- 系统调试确认高潮复用池缺失且推荐区间无审计回退；唯一修复提交 `f966d27`，唯一 rerun 为被忽略的 `prototype/runs/acceptance-20260830-rerun1/director/montage-v1/`。
+- rerun 指标：素材5，方向3，音乐117.453835 BPM，槽位29，放置29，复用24，推荐区间回退1，未填充0，SFX 29条且全部 silence。
+- 已知重复组相邻冲突0，但同文件相邻21处；唯一修复/rerun 额度已用完，未继续修复，作为下一本地门的硬约束。
+- 渲染：60.000秒，720×1280，H.264/AAC，24 fps，SHA-256 `6a7124f3ceeae65708d2a2a0f1c7acbfa5fd2356027655538a43f8ae3b177aae`。
+- 曲多多保持 `blocked/navigation_timeout`；即梦保持 `unsupported_capability`；Provider-real 与生成 SFX 均 `not_executed`；外部调用0，费用0。
+- 权威验收文档：`local-media-scanner/prototype/ACCEPTANCE.md`；保留摘要：`local-media-scanner/memory_retention/2026-08-28-music-driven-travel-montage-prototype/summary.md`。

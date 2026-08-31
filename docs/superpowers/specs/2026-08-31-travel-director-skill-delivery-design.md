@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：待用户复核
+状态：用户已确认（2026-08-31）
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 

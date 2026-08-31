@@ -289,6 +289,225 @@ def visual_status_command(
     typer.echo(state.model_dump_json(indent=2))
 
 
+@app.command("freeze-visual-evaluation")
+def freeze_visual_evaluation_command(
+    source_manifest: Path = typer.Option(
+        ..., "--source-manifest", exists=True, dir_okay=False
+    ),
+    cv_profile: Path = typer.Option(
+        ..., "--cv-profile", exists=True, dir_okay=False
+    ),
+    probe_root: Path = typer.Option(
+        ..., "--probe-root", exists=True, file_okay=False
+    ),
+    output_dir: Path = typer.Option(..., "--output-dir", file_okay=False),
+) -> None:
+    """Freeze 12/12/6 manifests and blank labels from existing local evidence."""
+
+    from director.evaluation import freeze_evaluation_pack
+
+    paths = freeze_evaluation_pack(
+        source_manifest,
+        cv_profile,
+        probe_root,
+        output_dir,
+    )
+    typer.echo(
+        json.dumps(
+            {name: str(path) for name, path in paths.items()},
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
+@app.command("render-visual-review")
+def render_visual_review_command(
+    observations: Path = typer.Option(
+        ..., "--observations", exists=True, dir_okay=False
+    ),
+    ground_truth_template: Path = typer.Option(
+        ..., "--ground-truth-template", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Render an offline observation confirmation form from saved probe frames."""
+
+    from director.evaluation import DirectorVisualGroundTruth, sha256_file
+    from director.visual_review import render_visual_review
+    from director.visual_schema import ClipObservationBatch
+
+    parsed_observations = ClipObservationBatch.model_validate_json(
+        observations.read_text(encoding="utf-8")
+    )
+    template = DirectorVisualGroundTruth.model_validate_json(
+        ground_truth_template.read_text(encoding="utf-8")
+    )
+    frame_paths = {
+        record.material_id: [
+            (
+                path
+                if path.is_absolute()
+                else ground_truth_template.parent / path
+            )
+            for raw_path in record.frame_paths
+            for path in [Path(raw_path)]
+        ]
+        for record in template.records
+    }
+    render_visual_review(
+        parsed_observations,
+        frame_paths,
+        output,
+        source_observations_sha256=sha256_file(observations),
+    )
+    typer.echo(str(output))
+
+
+@app.command("validate-visual-ground-truth")
+def validate_visual_ground_truth_command(
+    split: Path = typer.Option(..., "--split", exists=True, dir_okay=False),
+    ground_truth: Path = typer.Option(
+        ..., "--ground-truth", exists=True, dir_okay=False
+    ),
+    require_completed: bool = typer.Option(
+        True, "--require-completed/--allow-incomplete"
+    ),
+) -> None:
+    """Validate membership, hashes, enums, and completion of manual labels."""
+
+    from director.evaluation import (
+        DirectorVisualGroundTruth,
+        DirectorVisualSplit,
+        validate_ground_truth,
+    )
+
+    parsed_split = DirectorVisualSplit.model_validate_json(
+        split.read_text(encoding="utf-8")
+    )
+    parsed_ground_truth = DirectorVisualGroundTruth.model_validate_json(
+        ground_truth.read_text(encoding="utf-8")
+    )
+    validate_ground_truth(
+        parsed_ground_truth,
+        parsed_split,
+        require_completed=require_completed,
+    )
+    typer.echo("valid")
+
+
+@app.command("validate-visual-confirmation")
+def validate_visual_confirmation_command(
+    observations: Path = typer.Option(
+        ..., "--observations", exists=True, dir_okay=False
+    ),
+    confirmation: Path = typer.Option(
+        ..., "--confirmation", exists=True, dir_okay=False
+    ),
+) -> None:
+    """Validate a visual confirmation against its immutable draft artifact."""
+
+    from director.evaluation import VisualConfirmation, sha256_file
+    from director.visual_review import (
+        validate_visual_confirmation_against_observations,
+    )
+    from director.visual_schema import ClipObservationBatch
+
+    parsed_observations = ClipObservationBatch.model_validate_json(
+        observations.read_text(encoding="utf-8")
+    )
+    parsed_confirmation = VisualConfirmation.model_validate_json(
+        confirmation.read_text(encoding="utf-8")
+    )
+    validate_visual_confirmation_against_observations(
+        parsed_confirmation,
+        parsed_observations,
+        sha256_file(observations),
+    )
+    typer.echo("valid")
+
+
+@app.command("import-visual-confirmation")
+def import_visual_confirmation_command(
+    observations: Path = typer.Option(
+        ..., "--observations", exists=True, dir_okay=False
+    ),
+    confirmation: Path = typer.Option(
+        ..., "--confirmation", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Create a new assisted observation artifact without overwriting its draft."""
+
+    from director.evaluation import VisualConfirmation, sha256_file
+    from director.visual_review import (
+        apply_visual_confirmation,
+        validate_visual_confirmation_against_observations,
+    )
+    from director.visual_schema import ClipObservationBatch
+
+    parsed_observations = ClipObservationBatch.model_validate_json(
+        observations.read_text(encoding="utf-8")
+    )
+    parsed_confirmation = VisualConfirmation.model_validate_json(
+        confirmation.read_text(encoding="utf-8")
+    )
+    validate_visual_confirmation_against_observations(
+        parsed_confirmation,
+        parsed_observations,
+        sha256_file(observations),
+    )
+    updated = apply_visual_confirmation(
+        parsed_observations,
+        parsed_confirmation,
+        confirmation,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(updated.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("render-director-review")
+def render_director_review_command(
+    treatment: Path = typer.Option(
+        ..., "--treatment", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Render the separate bucket/function override ledger."""
+
+    from director.visual_review import render_director_review
+    from director.visual_schema import DirectorTreatment
+
+    parsed = DirectorTreatment.model_validate_json(
+        treatment.read_text(encoding="utf-8")
+    )
+    render_director_review(parsed, output)
+    typer.echo(str(output))
+
+
+@app.command("validate-director-review")
+def validate_director_review_command(
+    treatment: Path = typer.Option(
+        ..., "--treatment", exists=True, dir_okay=False
+    ),
+    review: Path = typer.Option(..., "--review", exists=True, dir_okay=False),
+) -> None:
+    """Validate an exported director override ledger against its treatment."""
+
+    from director.visual_review import validate_director_review
+    from director.visual_schema import DirectorReview, DirectorTreatment
+
+    parsed_treatment = DirectorTreatment.model_validate_json(
+        treatment.read_text(encoding="utf-8")
+    )
+    parsed_review = DirectorReview.model_validate_json(
+        review.read_text(encoding="utf-8")
+    )
+    validate_director_review(parsed_review, parsed_treatment)
+    typer.echo("valid")
+
+
 @app.command("render-project")
 def render_project_command(
     project: Path = typer.Option(..., "--project", exists=True, file_okay=False),

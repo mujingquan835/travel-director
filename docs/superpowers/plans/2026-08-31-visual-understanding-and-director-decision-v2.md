@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：已批准；Task 1 已完成，待用户复核；Task 2 未开始
+状态：已批准；Task 1、Task 2 已完成，待用户复核；Task 3 未开始
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 
@@ -12,6 +12,8 @@
 > 本计划是对 `2026-08-31-visual-understanding-and-director-decision.md` 的可执行性复审版。V1 保留为讨论记录，后续实施以 V2 为准。本计划本身不授权开发、模型下载、视频推理、浏览器登录、曲多多/即梦调用或任何付费服务。
 
 Task 1 执行证据：严格合同、Provider 接口、V0.1/V0.2 Stage Graph、阻塞停止规则和最小 CLI 已实现；目标测试 `26 passed`，完整回归 `148 passed, 3 warnings`；模型下载、视频推理与外部调用均为 0。
+
+Task 2 执行证据：冻结 12 条开发集、12 条盲测集和 6 条保留集，复用 95 张已有 probe 图；空白标注模板、验证器、可离线导出/导入的画面复核页、独立导演判断复核页及重复素材确定性夹具已实现；定向回归 `27 passed`，真实浏览器检查 24 条素材和 95 张图片全部加载、控制台 0 错误；Scanner、视觉模型、视频解码与外部调用均为 0。
 
 ## 结论
 
@@ -350,7 +352,7 @@ MusicStyleRecommendation =
 
 **文件：**
 
-- 新增：4 个 `benchmark/director_visual_*` 文件
+- 新增：6 个 `benchmark/director_visual_*` 文件
 - 新增：`director/evaluation.py`
 - 新增：`director/visual_review.py`
 - 新增：`tests/director/test_visual_evaluation.py`
@@ -359,16 +361,16 @@ MusicStyleRecommendation =
 
 **步骤：**
 
-- [ ] 从 30 条冻结 manifest 生成 12/12/6 不重叠拆分，记录 seed 和哈希。
-- [ ] 复用已有 probe 图；不得重新批量解码视频。
-- [ ] 先写标注模板和验证器，再生成任何模型预测。
-- [ ] 复核页提供候选值、`unknown`、备注和“需要确认”字段，可离线下载 `visual_confirmation.json`。
-- [ ] CLI 增加 `render-visual-review`、`validate-visual-confirmation`、`import-visual-confirmation`。
-- [ ] 导入时保留原值与修改记录；不允许缺失素材、未知枚举或悬空证据引用。
-- [ ] 增加独立 `director_review.json`：允许改桶位、导演职责、强制保留/排除和备注，但不允许填写时间区间。
-- [ ] 用临时目录生成 exact/near/distinct 重复夹具，单独验证重复指标。
-- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_visual_evaluation.py tests/director/test_visual_review.py -q`；随后在 worktree 根目录运行 `git diff --check`。
-- [ ] 提交：`git commit -m "test: freeze visual evaluation and review workflow"`
+- [x] 从 30 条冻结 manifest 生成 12/12/6 不重叠拆分，记录 seed 和哈希。
+- [x] 复用已有 probe 图；不得重新批量解码视频。
+- [x] 先写标注模板和验证器，再生成任何模型预测。
+- [x] 复核页提供候选值、`unknown`、备注和“需要确认”字段，可离线下载 `visual_confirmation.json`。
+- [x] CLI 增加 `render-visual-review`、`validate-visual-confirmation`、`import-visual-confirmation`。
+- [x] 导入时保留原值与修改记录；不允许缺失素材、未知枚举或悬空证据引用。
+- [x] 增加独立 `director_review.json`：允许改桶位、导演职责、强制保留/排除和备注，但不允许填写时间区间。
+- [x] 用临时目录生成 exact/near/distinct 重复夹具，单独验证重复指标。
+- [x] 运行：`cd local-media-scanner && uv run pytest tests/director/test_visual_evaluation.py tests/director/test_visual_review.py -q`；随后在 worktree 根目录运行 `git diff --check`。
+- [x] 提交：`git commit -m "test: freeze visual evaluation and review workflow"`
 
 **完成门：** 即使没有任何新模型，用户也能查看每条素材、填写最少必要字段、导出并重新导入通过验证的 JSON。
 

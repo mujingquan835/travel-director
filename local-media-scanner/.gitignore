@@ -9,3 +9,7 @@ benchmark/test_selection_files/
 benchmark/manual_review/
 manual_review.html
 prototype/runs/
+benchmark/*.local.json
+benchmark/director_visual_review.html
+benchmark/director_visual_confirmed.json
+benchmark/director_review.html

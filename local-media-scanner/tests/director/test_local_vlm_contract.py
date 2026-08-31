@@ -168,3 +168,18 @@ def test_parser_rejects_people_presence_and_count_contradiction() -> None:
         visual_understanding.parse_local_vlm_response(
             json.dumps(payload, ensure_ascii=False)
         )
+
+
+def test_throughput_gate_projects_warm_batch_against_user_budget() -> None:
+    passing = visual_understanding.assess_warm_throughput(
+        [1.0, 1.2], target_items=100, max_total_seconds=120.0
+    )
+    failing = visual_understanding.assess_warm_throughput(
+        [1.3, 1.5], target_items=100, max_total_seconds=120.0
+    )
+
+    assert passing.mean_item_seconds == pytest.approx(1.1)
+    assert passing.projected_total_seconds == pytest.approx(110.0)
+    assert passing.qualified is True
+    assert failing.projected_total_seconds == pytest.approx(140.0)
+    assert failing.qualified is False

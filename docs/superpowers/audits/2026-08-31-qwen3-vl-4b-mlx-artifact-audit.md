@@ -2,9 +2,9 @@
 
 日期：2026-08-31
 
-状态：`awaiting_explicit_download_approval`
+状态：`executed_not_qualified`
 
-结论：只评估一个候选；当前尚未下载、安装或运行模型。
+结论：用户已批准并完成一次受控下载；冷加载后触发 swap 硬停止，0 条进入推理，候选不合格。实测见 `2026-08-31-qwen3-vl-4b-mlx-smoke-result.md`。
 
 ## 唯一候选
 

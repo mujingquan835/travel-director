@@ -51,6 +51,32 @@ class LocalVlmConfig(VisualStrictModel):
     review_confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
+class WarmThroughputAssessment(VisualStrictModel):
+    measured_items: int = Field(ge=1)
+    mean_item_seconds: float = Field(gt=0.0)
+    target_items: int = Field(ge=1)
+    projected_total_seconds: float = Field(gt=0.0)
+    max_total_seconds: float = Field(gt=0.0)
+    qualified: bool
+
+
+def assess_warm_throughput(
+    item_seconds: list[float], *, target_items: int, max_total_seconds: float
+) -> WarmThroughputAssessment:
+    if not item_seconds or any(value <= 0.0 for value in item_seconds):
+        raise ValueError("warm throughput requires positive item timings")
+    mean_item_seconds = sum(item_seconds) / len(item_seconds)
+    projected_total_seconds = mean_item_seconds * target_items
+    return WarmThroughputAssessment(
+        measured_items=len(item_seconds),
+        mean_item_seconds=mean_item_seconds,
+        target_items=target_items,
+        projected_total_seconds=projected_total_seconds,
+        max_total_seconds=max_total_seconds,
+        qualified=projected_total_seconds <= max_total_seconds,
+    )
+
+
 ContentFamily = Literal[
     "urban",
     "nature",

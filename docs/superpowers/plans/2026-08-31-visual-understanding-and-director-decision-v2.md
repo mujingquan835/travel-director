@@ -46,7 +46,7 @@ Task 4 执行证据：用户明确批准后，唯一候选 `mlx-community/Qwen3-
 
 - `director/project.py` 的阶段顺序、产物路径和 Schema 校验写死为 V0.1；直接加入新阶段会破坏旧项目恢复。
 - `UserCreativeBrief` 只有固定结构化字段，没有“用户原始描述 → 规范化 → 用户确认”的合同。
-- 当前没有明确的 `DirectorReasoningProvider`；不能默认依赖 Codex、云模型或某个尚未验证的本地模型。
+- 当前没有明确的 `DirectorReasoningProvider`；deterministic 基线不能依赖生成模型，增强层改由调用 Skill 的当前智能体执行，不绑定 Codex 型号、云厂商或本地模型。
 - `render_manual_review_sheet()` 只能展示，不能导出人工修订 JSON，也没有导入校验闭环。
 - V1 的 12 条样本同时用于调试和验收，会产生调参泄漏。
 - 现有 30 张中点图未发现可用于验收的近重复对，重复识别不能混在语义盲测中虚假宣称已覆盖。
@@ -83,7 +83,7 @@ ScannerEvidenceBundle
   └─ 每条最多 3—5 张受控尺寸代表图
   ↓
 VisualUnderstandingProvider
-  ├─ automatic：通过能力门的本地 VLM
+  ├─ invoking_agent：调用 Skill 的当前智能体读取受控联系图并输出候选观察
   └─ scanner_only：只整理现有证据并主动弃权
   ↓
 ClipObservationDraft
@@ -96,12 +96,21 @@ ConfirmedObservationSet  [automatic | assisted]
   ↓
 DirectorReasoningProvider
   ├─ deterministic：必须可用的规则与模板基线
-  └─ local_reasoner：可选，只做证据受限的结构化增强
+  └─ invoking_agent：可选，由当前智能体做证据受限的结构化增强
   ↓
 DirectorTreatment
   ↓
 MusicStyleRecommendation（离线，最多 3 项）
 ```
+
+### 调用方智能体模型策略
+
+- 后续 Skill 不配置固定 `model_id`、API endpoint 或供应商；从哪个智能体调用，就使用该智能体当时的默认模型和视觉能力。
+- Skill 不递归启动另一个 Codex 任务，也不在项目代码中调用 Codex API；当前智能体直接读取 Scanner 产物和代表帧。
+- 模型名称如运行环境能够提供，只作为可选审计信息记录；不得成为 Schema 必填项、缓存身份或通过条件。
+- 调用方缺少图片读取能力时，不自动换模型，明确回退 `scanner_only + assisted`。
+- 智能体观察仍是 `candidate`；低置信度、冲突或影响导演判断的未知项必须进入人工确认，不能因调用方是 Codex 就升级成事实。
+- 批量入口把每条视频的 3—5 张代表帧合成一张联系图，每批最多 10 条；每批写入独立 JSON 检查点后再处理下一批。100 条素材默认拆成至少 10 批，避免一次性占满上下文。
 
 ## 运行状态和回退规则
 
@@ -445,7 +454,7 @@ MusicStyleRecommendation =
 
 - [ ] 增加 `raw_description`、规范化草稿、字段来源片段和确认合同。
 - [ ] 必须提供 deterministic 基线：解析明确的时长、横竖屏和枚举关键词，其余字段允许未知。
-- [ ] 若 Task 4 本地模型合格，可用同一运行时做结构化文本增强；不得因此新增第二个模型。
+- [ ] 可由调用 Skill 的当前智能体生成结构化草稿；Skill 不绑定模型，deterministic 基线仍必须独立可用。
 - [ ] 所有模式都展示规范化结果；影响方向的未知/冲突字段必须让用户确认。
 - [ ] CLI 增加 `normalize-brief`、`render-brief-review`、`confirm-brief`。
 - [ ] 测试中文自由描述、字段冲突、空描述、旧 V0.1 brief 和人工修订审计。
@@ -456,7 +465,7 @@ MusicStyleRecommendation =
 
 ### Task 6：证据受限的导演判断
 
-**目标：** 不依赖 Codex 或云模型，也能从确认后的素材观察和 Brief 生成可解释方案。
+**目标：** deterministic 基线不依赖任何生成模型，也能从确认后的素材观察和 Brief 生成可解释方案；调用方智能体只作为可替换增强层。
 
 **文件：**
 
@@ -471,7 +480,7 @@ MusicStyleRecommendation =
 - [ ] 实现必须可用的 deterministic Provider：规则计算五桶、素材职责、覆盖和缺口，用模板生成简洁导演方案。
 - [ ] 每个桶位、职责、章节和情绪判断至少引用一个确认观察或 Brief 字段。
 - [ ] `reject_suggestion` 只接受硬证据；重复项只进 `redundant`，不删除素材。
-- [ ] 可选 local reasoner 只能在 deterministic 结构上改写/排序，不得引入合同外事实。
+- [ ] 可选 invoking-agent reasoner 只能在 deterministic 结构上改写/排序，不得引入合同外事实；不得绑定模型名称。
 - [ ] 运行 6 条 × 3 Brief 锚点，验证预期的职责变化；运行 unsupported assertion 检查。
 - [ ] CLI 增加 `build-director-treatment`。
 - [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_intent_matcher.py tests/director/test_director_treatment.py -q`；随后运行 `git diff --check`。
@@ -540,12 +549,12 @@ MusicStyleRecommendation =
 - 默认只打开该 Task 直接相关的文件，避免反复全文读取规格和历史日志。
 - 每个 Task 先跑目标测试；同一失败类型最多修复并重跑一次。
 - 全套测试只在 Task 1 兼容门和 Task 8 里程碑各运行一次。
-- 真实素材/模型运行只发生在 Task 4：2 条 smoke、12 条开发、12 条盲测，各自最多一次规定重试。
+- 新本地模型的真实运行只发生在已结束的 Task 4；后续 CLI 保持 deterministic。未来 Skill 的调用方智能体识图另设按批门禁，每批最多 10 条并立即落 JSON，不在 CLI 内部再次调用模型。
 - 复用现有 478 张 probe 图；不为评估包重新生成整批帧。
 - 终端保留完整日志，对话只回报通过数、错例数、耗时、峰值内存、外部调用数和阻塞点。
 - 任何 Task 若无法在当前轮形成测试通过的最小闭环，停止在最后一个已通过提交，不跨 Task 留半成品。
 
-无法在开发前精确承诺 Codex token 数，但该拆分把高消耗集中在一次模型能力验证和一次盲测；其余任务主要是小范围 Schema、规则和测试，不需要 Codex 批量观看视频。
+无法在开发前精确承诺调用方智能体的 token 数，因为它继承当前智能体模型。实现通过“一条视频一张联系图、每批最多 10 条、逐批 JSON 检查点”限制上下文；成本与速度必须按实际调用智能体记录，不能在 Skill 中写死某个 Codex 型号的估算。
 
 ## 建议执行顺序
 
@@ -558,9 +567,7 @@ Task 2：评估拆分 + 可回填人工工具
   ↓
 Task 3：Scanner-only 基线
   ├─ 已能进入 assisted 流程
-  └─ 用户另行批准模型下载？
-       ├─ 是 → Task 4 单模型能力门
-       └─ 否 → 跳过 Task 4，保持 assisted
+  └─ Task 4 单模型能力门已执行 → not_qualified，保持 assisted
   ↓
 Task 5：用户描述规范化与确认
   ↓
@@ -570,6 +577,8 @@ Task 7：离线音乐风格推荐
   ↓
 Task 8：一次盲测 + 静态交付
   ↓ 用户复核
+后续 Skill 封装：继承调用方智能体默认模型，不绑定型号
+  ↓
 另行规划具体音乐搜索、AI 生成、剪辑时间线和音效
 ```
 

@@ -24,3 +24,9 @@
 - 实验原始结果保留在 `local-media-scanner/benchmark/runs/task4-local-vlm/`，已忽略，不提交。
 - 详细报告：`docs/superpowers/audits/2026-08-31-qwen3-vl-4b-mlx-smoke-result.md`。
 - 下一实施任务：Task 5 用户描述规范化与确认；不依赖本地 VLM。
+
+## 后续模型策略决定
+
+- 用户决定后续 Skill 不绑定任何具体模型：由哪个智能体调用，就使用该智能体的默认模型和视觉能力。
+- 项目不新增 Codex API、固定模型名或供应商配置；调用方智能体输出仍受严格 JSON、候选状态、弃权和人工确认约束。
+- 批量画面理解采用每条一张联系图、每批最多 10 条、逐批 JSON 检查点；调用方不能读图时回退 `scanner_only + assisted`。

@@ -289,6 +289,83 @@ def visual_status_command(
     typer.echo(state.model_dump_json(indent=2))
 
 
+@app.command("normalize-brief")
+def normalize_brief_command(
+    brief: Path = typer.Option(..., "--brief", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Normalize an explicit V0.2 description or migrate a V0.1 brief."""
+
+    from director.brief_interpreter import DeterministicBriefInterpreter
+    from director.visual_schema import RawCreativeBrief
+
+    payload = json.loads(brief.read_text(encoding="utf-8"))
+    version = payload.get("schema_version")
+    interpreter = DeterministicBriefInterpreter()
+    if version == "0.1.0":
+        draft = interpreter.normalize_legacy(UserCreativeBrief.model_validate(payload))
+    elif version == "0.2.0":
+        draft = interpreter.normalize(RawCreativeBrief.model_validate(payload))
+    else:
+        raise typer.BadParameter(
+            "brief must use schema_version 0.1.0 or 0.2.0",
+            param_hint="--brief",
+        )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(draft.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("render-brief-review")
+def render_brief_review_command(
+    draft: Path = typer.Option(..., "--draft", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Render an offline form for reviewing normalized user intent."""
+
+    from director.brief_interpreter import render_brief_review, sha256_file
+    from director.visual_schema import NormalizedIntentDraft
+
+    parsed = NormalizedIntentDraft.model_validate_json(
+        draft.read_text(encoding="utf-8")
+    )
+    render_brief_review(parsed, output, draft_sha256=sha256_file(draft))
+    typer.echo(str(output))
+
+
+@app.command("confirm-brief")
+def confirm_brief_command(
+    draft: Path = typer.Option(..., "--draft", exists=True, dir_okay=False),
+    confirmation: Path = typer.Option(
+        ..., "--confirmation", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Validate and record a hash-bound brief confirmation."""
+
+    from director.brief_interpreter import sha256_file, validate_brief_confirmation
+    from director.visual_schema import BriefConfirmation, NormalizedIntentDraft
+
+    if output.resolve() == draft.resolve():
+        raise typer.BadParameter("output cannot overwrite the draft", param_hint="--output")
+    parsed_draft = NormalizedIntentDraft.model_validate_json(
+        draft.read_text(encoding="utf-8")
+    )
+    parsed_confirmation = BriefConfirmation.model_validate_json(
+        confirmation.read_text(encoding="utf-8")
+    )
+    validate_brief_confirmation(
+        parsed_confirmation,
+        parsed_draft,
+        sha256_file(draft),
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        parsed_confirmation.model_dump_json(indent=2), encoding="utf-8"
+    )
+    typer.echo(str(output))
+
+
 @app.command("freeze-visual-evaluation")
 def freeze_visual_evaluation_command(
     source_manifest: Path = typer.Option(

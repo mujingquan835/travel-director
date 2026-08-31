@@ -83,9 +83,19 @@ def visual_payload(stage: str) -> dict:
         "intent_brief": base
         | {
             "raw_description": "做一条明亮、有推进感的开封旅行短片",
-            "normalized_fields": {"location": "开封", "style": "明亮"},
+            "normalized_fields": {
+                "location": "开封",
+                "travel_type": "城市漫游",
+                "target_duration_seconds": 60,
+                "orientation": "portrait",
+                "style": "明亮",
+                "mood": "探索",
+                "rhythm": "medium",
+                "vocals": "instrumental_preferred",
+                "instrument_preferences": [],
+            },
             "source_spans": [
-                {"field": "location", "text": "开封", "start": 10, "end": 12}
+                {"field": "location", "text": "开封", "start": 11, "end": 13}
             ],
             "unknown_fields": [],
             "review_required_fields": [],
@@ -93,7 +103,17 @@ def visual_payload(stage: str) -> dict:
         "brief_confirmation": base
         | {
             "draft_sha256": "c" * 64,
-            "normalized_fields": {"location": "开封", "style": "明亮"},
+            "normalized_fields": {
+                "location": "开封",
+                "travel_type": "城市漫游",
+                "target_duration_seconds": 60,
+                "orientation": "portrait",
+                "style": "明亮",
+                "mood": "探索",
+                "rhythm": "medium",
+                "vocals": "instrumental_preferred",
+                "instrument_preferences": [],
+            },
             "changed_fields": [],
             "confirmed_at": "2026-08-31T12:00:00+08:00",
         },

@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：已批准；Task 1、Task 2、Task 3 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
+状态：已批准；Task 1、Task 2、Task 3、Task 5 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 
@@ -18,6 +18,8 @@ Task 2 执行证据：冻结 12 条开发集、12 条盲测集和 6 条保留集
 Task 3 执行证据：保存的 3 条 Scanner JSON fixture 已映射为 V0.2 `scanner_only` 观察；技术/CV 原始证据保持 `measured`，人物下界及弱 scene/action/object 只允许 `candidate` 或 `abstained`，影响导演判断的未知字段进入逐素材复核；V0.2 画面理解产物不含 `recommended_ranges/source_in/source_out`，时间线放置从整条源素材选择，V0.1 默认行为保持不变；指定回归 `21 passed`，Scanner、视觉模型、真实视频解码与外部调用均为 0。
 
 Task 4 执行证据：用户明确批准后，唯一候选 `mlx-community/Qwen3-VL-4B-Instruct-4bit@2fd8dacbdb8f1e54b8c005f081ec5bf79c56376b` 已下载到项目隔离缓存，真实权重 `3,093,767,283 bytes`、隔离目录约 `3.5 GB`。冷加载耗时 `2.4554s`，但在首条提示词构造前，swap 从 `1,343,162,941 bytes` 增至观测值 `2,732,190,597 bytes`，增量 `1,389,027,656 bytes / 1324.68 MiB`，超过 `512 MiB` 硬停止门；因此 0 条进入推理，100 条速度门无法实测，12 条开发集和盲测均未运行。候选记为 `not_qualified`，不安装缺失的 `jinja2` 后重试、不尝试第二模型；详细证据见 `docs/superpowers/audits/2026-08-31-qwen3-vl-4b-mlx-smoke-result.md`。
+
+Task 5 执行证据：已实现原始中文描述、强类型规范化字段、精确来源片段、未知/冲突弃权和哈希绑定确认合同；deterministic 基线不调用模型，调用方智能体只预留 `invoking_agent` 来源类型且不绑定模型。V0.1 Brief 可迁移；离线复核页可导出人工确认 JSON；CLI 已提供 `normalize-brief`、`render-brief-review`、`confirm-brief`。定向回归 `23 passed`，完整回归 `183 passed, 3 warnings`，`git diff --check` 通过；模型、视频解码、浏览器、曲库与外部调用均为 0。
 
 ## 结论
 
@@ -447,19 +449,19 @@ MusicStyleRecommendation =
 
 - 新增：`director/brief_interpreter.py`
 - 新增：`tests/director/test_brief_interpreter.py`
-- 修改：`director/schema.py`
+- 修改：`director/visual_schema.py`
 - 修改：`director/cli.py`
 
 **步骤：**
 
-- [ ] 增加 `raw_description`、规范化草稿、字段来源片段和确认合同。
-- [ ] 必须提供 deterministic 基线：解析明确的时长、横竖屏和枚举关键词，其余字段允许未知。
-- [ ] 可由调用 Skill 的当前智能体生成结构化草稿；Skill 不绑定模型，deterministic 基线仍必须独立可用。
-- [ ] 所有模式都展示规范化结果；影响方向的未知/冲突字段必须让用户确认。
-- [ ] CLI 增加 `normalize-brief`、`render-brief-review`、`confirm-brief`。
-- [ ] 测试中文自由描述、字段冲突、空描述、旧 V0.1 brief 和人工修订审计。
-- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_brief_interpreter.py tests/director/test_schema.py tests/director/test_project.py -q`；随后运行 `git diff --check`。
-- [ ] 提交：`git commit -m "feat: normalize and confirm creative brief"`。
+- [x] 增加 `raw_description`、规范化草稿、字段来源片段和确认合同。
+- [x] 必须提供 deterministic 基线：解析明确的时长、横竖屏和枚举关键词，其余字段允许未知。
+- [x] 可由调用 Skill 的当前智能体生成结构化草稿；Skill 不绑定模型，deterministic 基线仍必须独立可用。
+- [x] 所有模式都展示规范化结果；影响方向的未知/冲突字段必须让用户确认。
+- [x] CLI 增加 `normalize-brief`、`render-brief-review`、`confirm-brief`。
+- [x] 测试中文自由描述、字段冲突、空描述、旧 V0.1 brief 和人工修订审计。
+- [x] 运行：`cd local-media-scanner && uv run pytest tests/director/test_brief_interpreter.py tests/director/test_schema.py tests/director/test_project.py -q`；随后运行 `git diff --check`。
+- [x] 提交：`git commit -m "feat: normalize and confirm creative brief"`。
 
 **完成门：** 系统能说明每个结构化字段来自哪段用户文字；未确认的关键字段不会进入导演推理。
 

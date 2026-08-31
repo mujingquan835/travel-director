@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from director.schema import StageStatus
 
@@ -129,17 +129,88 @@ class RawCreativeBrief(VisualStrictModel):
     raw_description: str = Field(min_length=1)
     optional_structured_hints: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("raw_description")
+    @classmethod
+    def description_is_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("raw_description cannot be blank")
+        return stripped
+
+
+BriefFieldName = Literal[
+    "location",
+    "travel_type",
+    "target_duration_seconds",
+    "orientation",
+    "style",
+    "mood",
+    "rhythm",
+    "vocals",
+    "instrument_preferences",
+]
+BRIEF_FIELD_NAMES = (
+    "location",
+    "travel_type",
+    "target_duration_seconds",
+    "orientation",
+    "style",
+    "mood",
+    "rhythm",
+    "vocals",
+    "instrument_preferences",
+)
+REQUIRED_BRIEF_FIELDS = (
+    "location",
+    "travel_type",
+    "target_duration_seconds",
+    "orientation",
+    "style",
+    "mood",
+    "rhythm",
+)
+
+
+class NormalizedBriefFields(VisualStrictModel):
+    location: str | None = Field(default=None, min_length=1)
+    travel_type: str | None = Field(default=None, min_length=1)
+    target_duration_seconds: int | None = Field(default=None, ge=30, le=180)
+    orientation: Literal["landscape", "portrait"] | None = None
+    style: str | None = Field(default=None, min_length=1)
+    mood: str | None = Field(default=None, min_length=1)
+    rhythm: Literal["low", "medium", "high"] | None = None
+    vocals: Literal[
+        "instrumental_only", "instrumental_preferred", "allowed"
+    ] | None = None
+    instrument_preferences: list[str] = Field(default_factory=list)
+
+    @field_validator("instrument_preferences")
+    @classmethod
+    def instruments_are_unique_and_nonblank(cls, value: list[str]) -> list[str]:
+        cleaned = [item.strip() for item in value]
+        if any(not item for item in cleaned):
+            raise ValueError("instrument preferences cannot be blank")
+        if len(cleaned) != len(set(cleaned)):
+            raise ValueError("instrument preferences must be unique")
+        return cleaned
+
 
 class SourceSpan(VisualStrictModel):
-    field: str = Field(min_length=1)
+    field: BriefFieldName
+    source_kind: Literal[
+        "raw_description", "structured_hint", "legacy_structured_brief", "invoking_agent"
+    ] = "raw_description"
     text: str = Field(min_length=1)
-    start: int = Field(ge=0)
-    end: int = Field(gt=0)
+    start: int | None = Field(default=None, ge=0)
+    end: int | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def end_follows_start(self) -> "SourceSpan":
-        if self.end <= self.start:
-            raise ValueError("source span end must follow start")
+        if self.source_kind == "raw_description":
+            if self.start is None or self.end is None or self.end <= self.start:
+                raise ValueError("raw source span must have ordered offsets")
+        elif self.start is not None or self.end is not None:
+            raise ValueError("non-raw source evidence cannot carry raw offsets")
         return self
 
 
@@ -147,19 +218,70 @@ class NormalizedIntentDraft(VisualStrictModel):
     schema_version: VisualSchemaVersion = "0.2.0"
     status: StageStatus
     raw_description: str = Field(min_length=1)
-    normalized_fields: dict[str, Any]
+    provider: str = Field(default="deterministic", min_length=1)
+    normalized_fields: NormalizedBriefFields
     source_spans: list[SourceSpan] = Field(default_factory=list)
     unknown_fields: list[str] = Field(default_factory=list)
+    conflicting_fields: list[str] = Field(default_factory=list)
     review_required_fields: list[str] = Field(default_factory=list)
+    issues: list[ProviderIssue] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def completion_and_sources_are_consistent(self) -> "NormalizedIntentDraft":
+        supported = set(BRIEF_FIELD_NAMES)
+        unknown = set(self.unknown_fields)
+        conflicts = set(self.conflicting_fields)
+        review = set(self.review_required_fields)
+        if not unknown.issubset(supported):
+            raise ValueError("unknown_fields contains unsupported fields")
+        if not conflicts.issubset(supported):
+            raise ValueError("conflicting_fields contains unsupported fields")
+        if not review.issubset(supported):
+            raise ValueError("review_required_fields contains unsupported fields")
+        if not conflicts.issubset(unknown & review):
+            raise ValueError("conflicting fields must be unknown and review required")
+        required_missing = {
+            field
+            for field in REQUIRED_BRIEF_FIELDS
+            if getattr(self.normalized_fields, field) is None
+        }
+        if not required_missing.issubset(unknown & review):
+            raise ValueError("missing required brief fields must require review")
+        if self.status == "completed" and review:
+            raise ValueError("completed intent draft cannot require review")
+        for source in self.source_spans:
+            if source.source_kind != "raw_description":
+                continue
+            assert source.start is not None and source.end is not None
+            if self.raw_description[source.start : source.end] != source.text:
+                raise ValueError("source span does not match raw_description")
+        return self
 
 
 class BriefConfirmation(VisualStrictModel):
     schema_version: VisualSchemaVersion = "0.2.0"
     status: StageStatus
     draft_sha256: Sha256 = Field(pattern=r"^[0-9a-f]{64}$")
-    normalized_fields: dict[str, Any]
+    normalized_fields: NormalizedBriefFields
     changed_fields: list[str] = Field(default_factory=list)
     confirmed_at: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def completed_confirmation_has_required_fields(self) -> "BriefConfirmation":
+        unsupported = set(self.changed_fields) - set(BRIEF_FIELD_NAMES)
+        if unsupported:
+            raise ValueError("changed_fields contains unsupported fields")
+        if self.status == "completed":
+            missing = [
+                field
+                for field in REQUIRED_BRIEF_FIELDS
+                if getattr(self.normalized_fields, field) is None
+            ]
+            if missing:
+                raise ValueError(
+                    "completed brief confirmation is missing: " + ", ".join(missing)
+                )
+        return self
 
 
 class IntentConditionedDecision(VisualStrictModel):

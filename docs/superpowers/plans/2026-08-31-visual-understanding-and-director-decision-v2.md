@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：已批准；Task 1、Task 2、Task 3 已完成，待用户复核；Task 4 未开始且仍需单独授权
+状态：已批准；Task 1、Task 2、Task 3 已完成；Task 4 已完成授权前检查，等待模型下载与 2 条 smoke 的明确批准
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 
@@ -16,6 +16,8 @@ Task 1 执行证据：严格合同、Provider 接口、V0.1/V0.2 Stage Graph、�
 Task 2 执行证据：冻结 12 条开发集、12 条盲测集和 6 条保留集，复用 95 张已有 probe 图；空白标注模板、验证器、可离线导出/导入的画面复核页、独立导演判断复核页及重复素材确定性夹具已实现；定向回归 `27 passed`，真实浏览器检查 24 条素材和 95 张图片全部加载、控制台 0 错误；Scanner、视觉模型、视频解码与外部调用均为 0。
 
 Task 3 执行证据：保存的 3 条 Scanner JSON fixture 已映射为 V0.2 `scanner_only` 观察；技术/CV 原始证据保持 `measured`，人物下界及弱 scene/action/object 只允许 `candidate` 或 `abstained`，影响导演判断的未知字段进入逐素材复核；V0.2 画面理解产物不含 `recommended_ranges/source_in/source_out`，时间线放置从整条源素材选择，V0.1 默认行为保持不变；指定回归 `21 passed`，Scanner、视觉模型、真实视频解码与外部调用均为 0。
+
+Task 4 授权前证据：唯一候选锁定为 `mlx-community/Qwen3-VL-4B-Instruct-4bit@2fd8dacbdb8f1e54b8c005f081ec5bf79c56376b`，模型仓库精确体积 `3,109,732,071 bytes`；`mlx-vlm==0.6.17` 的空环境依赖解析为 52 个包；严格假响应解析、禁区字段拒绝、低置信度回退和 Provider 合同测试已实现。模型权重、运行时安装和真实推理仍为 0，后续步骤必须以 `docs/superpowers/audits/2026-08-31-qwen3-vl-4b-mlx-artifact-audit.md` 获得明确批准后才执行。
 
 ## 结论
 
@@ -416,8 +418,8 @@ MusicStyleRecommendation =
 
 **步骤：**
 
-- [ ] 只评估一个精确模型制品；不并行下载第二个候选。
-- [ ] 先做无权重的 Provider 合同测试和假响应解析测试。
+- [x] 只评估一个精确模型制品；不并行下载第二个候选。
+- [x] 先做无权重的 Provider 合同测试和假响应解析测试。
 - [ ] 获批后下载一次，先跑 2 条多图 smoke，记录 wall time、峰值内存、swap 变化和 JSON 成功率。
 - [ ] smoke 通过后跑 12 条开发集，最多修正一次提示词/阈值。
 - [ ] 冻结后只跑一次 12 条盲测，不按盲测结果继续调参。

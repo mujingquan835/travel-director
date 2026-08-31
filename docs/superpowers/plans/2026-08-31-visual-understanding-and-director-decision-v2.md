@@ -28,7 +28,7 @@ Task 6 执行证据：已实现 `build_intent_decisions`、`build_project_covera
 第一阶段可以实现，但不能把“某个本地视觉模型一定能在当前 Mac 上稳定运行”当作前提。可交付方案必须同时满足以下条件：
 
 1. 自动识别优先，但它只是可替换 Provider，不是整条链路的单点依赖。
-2. 自动结果低置信度、模型不可用或能力验收失败时，转为本地人工确认；确认后的流程仍能生成导演方案和音乐风格推荐。
+2. 自动结果低置信度、模型不可用或能力验收失败时，转为本地人工确认；确认后的流程仍能生成导演方案和三条可直接使用的音乐生成提示词。
 3. `automatic` 和 `assisted` 必须在结果中明确区分，不能把人工确认结果冒充成自动识别成功。
 4. 先落版本化编排、人工回填和盲测框架，再接模型；不能把集成风险留到最后。
 5. 第一阶段只理解整条素材，不推荐“最佳区间”；`source_in/source_out` 延后到音乐结构和时间线阶段。
@@ -64,7 +64,7 @@ Task 6 执行证据：已实现 `build_intent_decisions`、`build_project_covera
 - 用户自然语言描述的规范化结果和确认记录。
 - 素材与用户意图的匹配判断。
 - 项目级导演主线、章节、情绪推进、素材职责与缺口。
-- 最多三个离线音乐风格方向。
+- 三个可直接交给音乐生成智能体使用的离线提示词，每条不超过 200 个字符。
 - 可在本地浏览器修改并导出 JSON 的人工复核页。
 - 自动、人工辅助、阻塞三种状态的完整证据。
 
@@ -104,7 +104,7 @@ DirectorReasoningProvider
   ↓
 DirectorTreatment
   ↓
-MusicStyleRecommendation（离线，最多 3 项）
+MusicGenerationPromptRecommendation（离线，固定 3 项，每项 ≤ 200 字符）
 ```
 
 ### 调用方智能体模型策略
@@ -196,10 +196,12 @@ EditorialOverride =
   director_function_overrides[], force_include, force_exclude,
   user_note?, changed_at
 
-MusicStyleRecommendation =
-  direction_id, plain_description, genres[], moods[],
-  bpm_min, bpm_max, instruments[], drum_density, vocals,
-  energy_curve[], fit_reason, director_evidence_refs[]
+MusicGenerationPromptRecommendation =
+  direction_id, title, generation_prompt(max_length=200),
+  difference_axes[], fit_reason, director_evidence_refs[]
+
+MusicGenerationPromptRecommendationBatch =
+  status, items(exact_length=3), external_call_count=0
 ```
 
 枚举边界：
@@ -492,28 +494,31 @@ MusicStyleRecommendation =
 
 **完成门：** 关闭所有本地生成模型后仍可完成导演方案；打开增强层也不能越过证据边界。
 
-### Task 7：离线音乐风格推荐
+### Task 7：直接输出三个离线音乐生成提示词
 
-**目标：** 只从已确认的导演方案推导风格，不访问音乐平台。
+**目标：** 只从已确认的导演方案一次性输出三个可复制使用的音乐生成提示词，省去“先选风格、再生成提示词”的额外对话；不访问音乐平台、不生成音乐。
 
 **文件：**
 
-- 新增：`director/music_style_recommender.py`
-- 新增：`tests/director/test_music_style_recommender.py`
+- 新增：`director/music_prompt_recommender.py`
+- 新增：`tests/director/test_music_prompt_recommender.py`
 - 修改：`director/search_planner.py`
+- 修改：`director/visual_schema.py`
 - 修改：`director/cli.py`
 
 **步骤：**
 
 - [ ] 输入必须是已完成 `DirectorTreatment + BriefConfirmation + ProjectCoverage`。
-- [ ] 用可审计规则矩阵输出最多三个方向：流派、情绪、BPM 区间、配器、鼓点密度、能量曲线和适配理由。
-- [ ] 三个方向至少在节奏、配器或情绪策略中的两项存在实质差异。
-- [ ] 记录 `external_call_count=0`；不得输出具体歌曲、试听链接或伪造平台结果。
-- [ ] CLI 增加 `recommend-music-styles`。
-- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_music_style_recommender.py tests/director/test_search_planner.py -q`；随后运行 `git diff --check`。
-- [ ] 提交：`git commit -m "feat: recommend offline music styles"`。
+- [ ] 固定输出三个风格不同的 `generation_prompt`；每条不超过 200 个字符，可直接复制给用户选定的音乐生成智能体或服务。
+- [ ] 每条提示词在正文内写明时长、风格/情绪、BPM 或节奏、核心配器、鼓点密度、分段能量、人声要求和禁止模仿具体作品；不能依赖额外解释才能使用。
+- [ ] 三条提示词至少在节奏、配器或情绪策略中的两项存在实质差异；`difference_axes` 必须可验证，不允许只换形容词。
+- [ ] 同一批结果同时给出简短适配理由和导演证据，但不要求用户先选风格后才能看到提示词。
+- [ ] 记录 `external_call_count=0`；不得输出具体歌曲、艺人、试听链接、平台结果或伪造已生成音乐。
+- [ ] CLI 增加 `recommend-music-prompts`，一次写出三条提示词。
+- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_music_prompt_recommender.py tests/director/test_search_planner.py -q`；随后运行 `git diff --check`。
+- [ ] 提交：`git commit -m "feat: recommend offline music generation prompts"`。
 
-**完成门：** 用户能从导演方案理解为什么推荐这些风格；没有发生网络或付费调用。
+**完成门：** 用户无需追加一轮“把风格改成提示词”的对话，即可拿到三条 ≤200 字符、差异明确、可直接使用的提示词；没有发生网络、音乐生成或付费调用。
 
 ### Task 8：全链路盲测与第一阶段交付
 
@@ -528,9 +533,9 @@ MusicStyleRecommendation =
 
 **步骤：**
 
-- [ ] CLI 串联：`init → understand-materials → review/import → normalize/confirm-brief → build-treatment → recommend-styles → render-review`。
+- [ ] CLI 串联：`init → understand-materials → review/import → normalize/confirm-brief → build-treatment → recommend-music-prompts → render-review`。
 - [ ] 对 12 条盲测只运行一次完整本地流程；模型未合格时明确走 assisted。
-- [ ] 静态报告展示素材观察、未知项、人工改动、导演主线、章节、缺口和三个音乐方向。
+- [ ] 静态报告展示素材观察、未知项、人工改动、导演主线、章节、缺口和三条可复制音乐生成提示词。
 - [ ] 报告同时导出经验证的 `director_review.json`，并保证未来可以把低置信度、重复警告和用户备注映射成编辑器 Marker。
 - [ ] 本地浏览器验收一次：图片可见、表单可改、JSON 可下载/导入、无远程依赖。
 - [ ] 运行一次完整测试：`cd local-media-scanner && uv run pytest -q`，再于 worktree 根目录运行 `git diff --check`。
@@ -577,7 +582,7 @@ Task 5：用户描述规范化与确认
   ↓
 Task 6：deterministic 导演方案
   ↓
-Task 7：离线音乐风格推荐
+Task 7：三个离线音乐生成提示词
   ↓
 Task 8：一次盲测 + 静态交付
   ↓ 用户复核

@@ -43,6 +43,17 @@ def _unique(values: list[str], limit: int) -> list[str]:
     return output
 
 
+def prompt_bpm_anchors(rhythm: str) -> tuple[int, int, int]:
+    """Return three distinct in-band BPM anchors for prompt alternatives."""
+
+    try:
+        low, high = BPM_BY_RHYTHM[rhythm]
+    except KeyError as exc:
+        raise ValueError(f"unsupported rhythm: {rhythm}") from exc
+    quarter = max(1, (high - low) // 4)
+    return low + quarter, (low + high) // 2, high - quarter
+
+
 def build_music_search_brief(
     profile: MaterialLibraryProfile,
     brief: UserCreativeBrief,

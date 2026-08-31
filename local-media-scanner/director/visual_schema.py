@@ -403,34 +403,116 @@ class DirectorReview(VisualStrictModel):
     confirmed_at: str | None = None
 
 
-class MusicStyleRecommendation(VisualStrictModel):
-    direction_id: str = Field(min_length=1)
-    plain_description: str = Field(min_length=1)
-    genres: list[str] = Field(min_length=1)
-    moods: list[str] = Field(min_length=1)
-    bpm_min: int = Field(ge=40, le=240)
-    bpm_max: int = Field(ge=40, le=240)
-    instruments: list[str] = Field(default_factory=list)
+MusicDifferenceAxis = Literal[
+    "genre",
+    "mood",
+    "rhythm",
+    "instrumentation",
+    "drum_density",
+    "energy_structure",
+]
+
+
+class MusicPromptParameters(VisualStrictModel):
+    duration_seconds: int = Field(ge=30, le=180)
+    genre: str = Field(min_length=1)
+    mood: str = Field(min_length=1)
+    bpm: int = Field(ge=40, le=240)
+    instruments: list[str] = Field(min_length=1, max_length=4)
     drum_density: Literal["low", "medium", "high"]
     vocals: Literal["instrumental_only", "instrumental_preferred", "allowed"]
-    energy_curve: list[float] = Field(min_length=1)
+    energy_structure: str = Field(min_length=1)
+
+    @field_validator("instruments")
+    @classmethod
+    def instruments_are_unique(cls, value: list[str]) -> list[str]:
+        cleaned = [item.strip() for item in value]
+        if any(not item for item in cleaned) or len(cleaned) != len(set(cleaned)):
+            raise ValueError("prompt instruments must be unique and nonblank")
+        return cleaned
+
+
+class MusicGenerationPromptRecommendation(VisualStrictModel):
+    direction_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    generation_prompt: str = Field(min_length=1, max_length=200)
+    parameters: MusicPromptParameters
+    difference_axes: list[MusicDifferenceAxis] = Field(min_length=2)
     fit_reason: str = Field(min_length=1)
     director_evidence_refs: list[EvidenceRef] = Field(min_length=1)
 
+    @field_validator("difference_axes")
+    @classmethod
+    def axes_are_unique(cls, value: list[MusicDifferenceAxis]) -> list[MusicDifferenceAxis]:
+        if len(value) != len(set(value)):
+            raise ValueError("difference_axes must be unique")
+        return value
+
     @model_validator(mode="after")
-    def bpm_range_is_ordered(self) -> "MusicStyleRecommendation":
-        if self.bpm_min >= self.bpm_max:
-            raise ValueError("bpm_min must be lower than bpm_max")
-        if any(value < 0.0 or value > 1.0 for value in self.energy_curve):
-            raise ValueError("energy_curve values must be between zero and one")
+    def prompt_is_self_contained(self) -> "MusicGenerationPromptRecommendation":
+        parameters = self.parameters
+        required = [
+            f"{parameters.duration_seconds}秒",
+            f"{parameters.bpm} BPM",
+            parameters.genre,
+            parameters.mood,
+            *parameters.instruments,
+            parameters.energy_structure,
+            {"low": "低密度鼓点", "medium": "中密度鼓点", "high": "高密度鼓点"}[
+                parameters.drum_density
+            ],
+            {
+                "instrumental_only": "纯器乐，无人声",
+                "instrumental_preferred": "器乐为主，无清晰歌词",
+                "allowed": "可用轻量无语义哼唱",
+            }[parameters.vocals],
+            "不模仿具体歌曲或艺人",
+        ]
+        missing = [token for token in required if token not in self.generation_prompt]
+        if missing:
+            raise ValueError("generation_prompt is missing required parameters")
         return self
 
 
-class MusicStyleRecommendationBatch(VisualStrictModel):
+class MusicGenerationPromptRecommendationBatch(VisualStrictModel):
     schema_version: VisualSchemaVersion = "0.2.0"
     status: StageStatus
-    items: list[MusicStyleRecommendation] = Field(max_length=3)
+    items: list[MusicGenerationPromptRecommendation] = Field(
+        min_length=3, max_length=3
+    )
     external_call_count: Literal[0] = 0
+
+    @model_validator(mode="after")
+    def directions_are_unique_and_materially_different(
+        self,
+    ) -> "MusicGenerationPromptRecommendationBatch":
+        if len({item.direction_id for item in self.items}) != 3:
+            raise ValueError("music prompt direction_ids must be unique")
+        if len({item.generation_prompt for item in self.items}) != 3:
+            raise ValueError("music generation prompts must be unique")
+        axis_getters = {
+            "genre": lambda item: item.parameters.genre,
+            "mood": lambda item: item.parameters.mood,
+            "rhythm": lambda item: item.parameters.bpm,
+            "instrumentation": lambda item: tuple(item.parameters.instruments),
+            "drum_density": lambda item: item.parameters.drum_density,
+            "energy_structure": lambda item: item.parameters.energy_structure,
+        }
+        for index, left in enumerate(self.items):
+            actual_axes = {
+                axis
+                for axis, getter in axis_getters.items()
+                if any(getter(left) != getter(right) for right in self.items if right is not left)
+            }
+            if set(left.difference_axes) != actual_axes:
+                raise ValueError("difference_axes do not match prompt parameters")
+            for right in self.items[index + 1 :]:
+                pairwise = sum(
+                    getter(left) != getter(right) for getter in axis_getters.values()
+                )
+                if pairwise < 2:
+                    raise ValueError("music prompts must differ on at least two axes")
+        return self
 
 
 class VisualReviewArtifact(VisualStrictModel):
@@ -468,7 +550,7 @@ VISUAL_STAGE_MODELS: dict[str, type[VisualStrictModel]] = {
     "project_coverage": ProjectCoverage,
     "director_treatment": DirectorTreatment,
     "director_review": DirectorReview,
-    "music_style_recommendations": MusicStyleRecommendationBatch,
+    "music_style_recommendations": MusicGenerationPromptRecommendationBatch,
     "visual_review": VisualReviewArtifact,
 }
 

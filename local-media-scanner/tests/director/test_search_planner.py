@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from director.cli import app
 from director.schema import MaterialLibraryProfile, UserCreativeBrief
-from director.search_planner import build_music_search_brief
+from director.search_planner import build_music_search_brief, prompt_bpm_anchors
 from scanner.schema import ScannerResult, TestManifest as ScannerManifest
 
 
@@ -55,6 +55,18 @@ def test_search_brief_does_not_claim_unmeasured_catalog_filters() -> None:
 
     assert all("曲多多" not in rule for rule in result.evidence.rules)
     assert result.vocals == "instrumental_preferred"
+
+
+def test_prompt_bpm_anchors_stay_inside_the_selected_rhythm_band() -> None:
+    for rhythm, expected_range in {
+        "low": (80, 105),
+        "medium": (105, 125),
+        "high": (125, 150),
+    }.items():
+        anchors = prompt_bpm_anchors(rhythm)
+        assert len(anchors) == 3
+        assert len(set(anchors)) == 3
+        assert all(expected_range[0] <= value <= expected_range[1] for value in anchors)
 
 
 def test_plan_search_cli_serializes_local_result(tmp_path: Path) -> None:

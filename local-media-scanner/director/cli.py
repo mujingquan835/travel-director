@@ -606,6 +606,48 @@ def build_director_treatment_command(
     typer.echo(str(output))
 
 
+@app.command("recommend-music-prompts")
+def recommend_music_prompts_command(
+    treatment: Path = typer.Option(
+        ..., "--treatment", exists=True, dir_okay=False
+    ),
+    brief_confirmation: Path = typer.Option(
+        ..., "--brief-confirmation", exists=True, dir_okay=False
+    ),
+    coverage: Path = typer.Option(..., "--coverage", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Write three offline, ready-to-use music generation prompts."""
+
+    from director.music_prompt_recommender import recommend_music_prompts
+    from director.visual_schema import (
+        BriefConfirmation,
+        DirectorTreatment,
+        ProjectCoverage,
+    )
+
+    inputs = {treatment.resolve(), brief_confirmation.resolve(), coverage.resolve()}
+    if output.resolve() in inputs:
+        raise typer.BadParameter("output cannot overwrite an input artifact")
+    parsed_treatment = DirectorTreatment.model_validate_json(
+        treatment.read_text(encoding="utf-8")
+    )
+    parsed_brief = BriefConfirmation.model_validate_json(
+        brief_confirmation.read_text(encoding="utf-8")
+    )
+    parsed_coverage = ProjectCoverage.model_validate_json(
+        coverage.read_text(encoding="utf-8")
+    )
+    recommendations = recommend_music_prompts(
+        parsed_treatment,
+        parsed_brief,
+        parsed_coverage,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(recommendations.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
 @app.command("validate-director-review")
 def validate_director_review_command(
     treatment: Path = typer.Option(

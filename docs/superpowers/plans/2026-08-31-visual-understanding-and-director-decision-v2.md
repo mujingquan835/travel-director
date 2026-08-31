@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：已批准；Task 1、Task 2、Task 3、Task 5、Task 6 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
+状态：已批准；Task 1、Task 2、Task 3、Task 5、Task 6、Task 7 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 
@@ -22,6 +22,8 @@ Task 4 执行证据：用户明确批准后，唯一候选 `mlx-community/Qwen3-
 Task 5 执行证据：已实现原始中文描述、强类型规范化字段、精确来源片段、未知/冲突弃权和哈希绑定确认合同；deterministic 基线不调用模型，调用方智能体只预留 `invoking_agent` 来源类型且不绑定模型。V0.1 Brief 可迁移；离线复核页可导出人工确认 JSON；CLI 已提供 `normalize-brief`、`render-brief-review`、`confirm-brief`。定向回归 `23 passed`，完整回归 `183 passed, 3 warnings`，`git diff --check` 通过；模型、视频解码、浏览器、曲库与外部调用均为 0。
 
 Task 6 执行证据：已实现 `build_intent_decisions`、`build_project_coverage` 和 `build_director_treatment` deterministic 链路；确认后的观察按五桶归类，弱语义不触发硬淘汰，重复组只进入 `redundant`，章节、情绪弧线、节奏和素材职责均保留证据引用。6 条素材 × 3 个 Brief 锚点产生三个不同职责签名；合同外 assertion 不进入输出。CLI 已提供 `build-director-treatment`，一次写出 decisions、coverage、treatment 三个 Stage 制品且拒绝覆盖输入。调用方智能体增强只预留结构与证据验证门，未绑定或调用模型。定向回归 `13 passed`，完整回归 `196 passed, 3 warnings`，`git diff --check` 通过；视频解码、模型、浏览器、曲库与外部调用均为 0。
+
+Task 7 执行证据：已将旧“风格元数据”输出替换为固定三条 `MusicGenerationPromptRecommendation`，每条同时保存结构化参数和可直接复制的 `generation_prompt`。Schema 强制每条不超过 200 个字符、自带时长、BPM、流派、情绪、配器、鼓点、能量结构、人声与版权安全约束，并验证三条提示词两两至少存在两个实质差异维度。城市漫游样例实际为 `91 / 98 / 99` 个字符；Brief 未指定人声时采用并明确记录“器乐为主、无清晰歌词”的安全默认，不追加询问。CLI 已提供 `recommend-music-prompts`；定向及兼容回归 `28 passed`，`git diff --check` 通过；网络、模型、音乐平台、音乐生成与付费调用均为 0。
 
 ## 结论
 
@@ -198,7 +200,9 @@ EditorialOverride =
 
 MusicGenerationPromptRecommendation =
   direction_id, title, generation_prompt(max_length=200),
-  difference_axes[], fit_reason, director_evidence_refs[]
+  parameters(duration_seconds, genre, mood, bpm, instruments[],
+  drum_density, vocals, energy_structure), difference_axes[],
+  fit_reason, director_evidence_refs[]
 
 MusicGenerationPromptRecommendationBatch =
   status, items(exact_length=3), external_call_count=0
@@ -508,15 +512,15 @@ MusicGenerationPromptRecommendationBatch =
 
 **步骤：**
 
-- [ ] 输入必须是已完成 `DirectorTreatment + BriefConfirmation + ProjectCoverage`。
-- [ ] 固定输出三个风格不同的 `generation_prompt`；每条不超过 200 个字符，可直接复制给用户选定的音乐生成智能体或服务。
-- [ ] 每条提示词在正文内写明时长、风格/情绪、BPM 或节奏、核心配器、鼓点密度、分段能量、人声要求和禁止模仿具体作品；不能依赖额外解释才能使用。
-- [ ] 三条提示词至少在节奏、配器或情绪策略中的两项存在实质差异；`difference_axes` 必须可验证，不允许只换形容词。
-- [ ] 同一批结果同时给出简短适配理由和导演证据，但不要求用户先选风格后才能看到提示词。
-- [ ] 记录 `external_call_count=0`；不得输出具体歌曲、艺人、试听链接、平台结果或伪造已生成音乐。
-- [ ] CLI 增加 `recommend-music-prompts`，一次写出三条提示词。
-- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_music_prompt_recommender.py tests/director/test_search_planner.py -q`；随后运行 `git diff --check`。
-- [ ] 提交：`git commit -m "feat: recommend offline music generation prompts"`。
+- [x] 输入必须是已完成 `DirectorTreatment + BriefConfirmation + ProjectCoverage`。
+- [x] 固定输出三个风格不同的 `generation_prompt`；每条不超过 200 个字符，可直接复制给用户选定的音乐生成智能体或服务。
+- [x] 每条提示词在正文内写明时长、风格/情绪、BPM 或节奏、核心配器、鼓点密度、分段能量、人声要求和禁止模仿具体作品；不能依赖额外解释才能使用。
+- [x] 三条提示词至少在节奏、配器或情绪策略中的两项存在实质差异；`difference_axes` 必须可验证，不允许只换形容词。
+- [x] 同一批结果同时给出简短适配理由和导演证据，但不要求用户先选风格后才能看到提示词。
+- [x] 记录 `external_call_count=0`；不得输出具体歌曲、艺人、试听链接、平台结果或伪造已生成音乐。
+- [x] CLI 增加 `recommend-music-prompts`，一次写出三条提示词。
+- [x] 运行：`cd local-media-scanner && uv run pytest tests/director/test_music_prompt_recommender.py tests/director/test_search_planner.py -q`；随后运行 `git diff --check`。
+- [x] 提交：`git commit -m "feat: recommend offline music generation prompts"`。
 
 **完成门：** 用户无需追加一轮“把风格改成提示词”的对话，即可拿到三条 ≤200 字符、差异明确、可直接使用的提示词；没有发生网络、音乐生成或付费调用。
 

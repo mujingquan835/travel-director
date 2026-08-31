@@ -1,0 +1,41 @@
+# 旅行导演 Task 7 音乐生成提示词上下文
+
+日期：2026-08-31
+
+权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+
+分支：`feature/local-media-scanner-v0.1`
+
+## 阶段结论
+
+- Task 7 已把“先推荐音乐风格、再转换提示词”合并为一次输出：固定给出三条可直接复制给音乐生成智能体或服务的提示词。
+- 每条提示词不超过 200 个字符，并在正文中包含时长、流派、情绪、BPM、配器、鼓点密度、分段能量、人声要求，以及“原创、不模仿具体歌曲或艺人”的约束。
+- 三条结果必须两两在至少两个结构化轴上不同；当前规则实际区分流派、情绪、BPM、配器、鼓点密度和能量结构六个轴，不允许只换形容词。
+- Brief 未填写可选人声字段时，不新增一轮追问，采用“器乐为主、无清晰歌词”的安全默认，并写入适配理由。
+
+## 已实现接口
+
+- `recommend_music_prompts(treatment, brief, coverage)`：输入三个已完成的上游制品，固定返回三条提示词。
+- `MusicPromptParameters`：保存可验证的提示词参数。
+- `MusicGenerationPromptRecommendationBatch`：强制三项、200 字符上限、参数正文一致性、差异轴真实性和 `external_call_count=0`。
+- `travel-director recommend-music-prompts`：一次写出完整 JSON，拒绝覆盖任一输入制品。
+- 为兼容既有 V0.2 Stage Graph，项目制品键和默认路径仍保留 `music_style_recommendations`，但其条目已升级为提示词合同。
+
+## 样例检查
+
+- 平衡推进：91 个字符。
+- 原声呼吸：98 个字符。
+- 电影渐进：99 个字符。
+- 三条均可独立复制，不依赖额外的风格解释轮次。
+
+## 验证证据
+
+- Task 7 定向测试、旧搜索规划兼容、V0.2 Schema、项目编排和 E2E fixture 合计：`28 passed in 0.28s`。
+- `git diff --check` 通过。
+- 本任务按额度控制只运行相关回归；完整套件留在 Task 8 全链路里程碑统一执行。
+- 网络、视频解码、模型调用、浏览器、曲多多、即梦、音乐平台、音乐生成和付费服务调用均为 0。
+
+## 下一步
+
+- 下一实施任务是 Task 8：串联现有 Stage、执行一次冻结盲测和本地静态交付验收。
+- Task 8 仍不生成音乐；静态报告只展示三条可复制提示词和其证据。

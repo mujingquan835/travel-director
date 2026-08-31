@@ -196,8 +196,12 @@ def test_director_review_form_has_overrides_but_no_ranges(tmp_path: Path) -> Non
                 evidence_refs=[evidence],
             )
         ],
-        emotional_arc=["期待", "探索"],
+        emotional_arc=[
+            {"text": "期待", "evidence_refs": [evidence]},
+            {"text": "探索", "evidence_refs": [evidence]},
+        ],
         pacing_strategy="逐步加速",
+        pacing_evidence_refs=[evidence],
         candidate_materials=[MATERIAL_ID],
         coverage_gaps=["ending"],
         evidence_refs=[evidence],
@@ -277,8 +281,12 @@ def test_director_review_cli_validates_hash_and_membership(tmp_path: Path) -> No
                 evidence_refs=[evidence],
             )
         ],
-        emotional_arc=["期待", "探索"],
+        emotional_arc=[
+            {"text": "期待", "evidence_refs": [evidence]},
+            {"text": "探索", "evidence_refs": [evidence]},
+        ],
         pacing_strategy="逐步加速",
+        pacing_evidence_refs=[evidence],
         candidate_materials=[MATERIAL_ID],
         coverage_gaps=["ending"],
         evidence_refs=[evidence],

@@ -300,6 +300,13 @@ class IntentDecisionBatch(VisualStrictModel):
     status: StageStatus
     items: list[IntentConditionedDecision] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def materials_are_unique(self) -> "IntentDecisionBatch":
+        material_ids = [item.material_id for item in self.items]
+        if len(material_ids) != len(set(material_ids)):
+            raise ValueError("intent decisions contain duplicate materials")
+        return self
+
 
 class ProjectCoverage(VisualStrictModel):
     schema_version: VisualSchemaVersion = "0.2.0"
@@ -313,6 +320,11 @@ class ProjectCoverage(VisualStrictModel):
     missing_director_functions: list[DirectorFunction] = Field(default_factory=list)
     uncertainty_summary: list[str] = Field(default_factory=list)
     evidence_refs: list[EvidenceRef] = Field(default_factory=list)
+
+
+class EvidenceBackedStatement(VisualStrictModel):
+    text: str = Field(min_length=1)
+    evidence_refs: list[EvidenceRef] = Field(min_length=1)
 
 
 class TreatmentChapter(VisualStrictModel):
@@ -330,8 +342,9 @@ class DirectorTreatment(VisualStrictModel):
     logline: str = Field(min_length=1)
     narrative_spine: str = Field(min_length=1)
     chapters: list[TreatmentChapter] = Field(min_length=1)
-    emotional_arc: list[str] = Field(min_length=1)
+    emotional_arc: list[EvidenceBackedStatement] = Field(min_length=1)
     pacing_strategy: str = Field(min_length=1)
+    pacing_evidence_refs: list[EvidenceRef] = Field(min_length=1)
     core_materials: list[MaterialId] = Field(default_factory=list)
     candidate_materials: list[MaterialId] = Field(default_factory=list)
     redundant_materials: list[MaterialId] = Field(default_factory=list)
@@ -340,6 +353,28 @@ class DirectorTreatment(VisualStrictModel):
     coverage_gaps: list[str] = Field(default_factory=list)
     evidence_refs: list[EvidenceRef] = Field(min_length=1)
     unsupported_inferences: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def memberships_are_disjoint_and_chapters_are_grounded(self) -> "DirectorTreatment":
+        groups = (
+            self.core_materials,
+            self.candidate_materials,
+            self.redundant_materials,
+            self.reject_suggestions,
+            self.review_required,
+        )
+        flattened = [material_id for group in groups for material_id in group]
+        if len(flattened) != len(set(flattened)):
+            raise ValueError("director treatment bucket memberships must be disjoint")
+        known = set(flattened)
+        chapter_materials = {
+            material_id
+            for chapter in self.chapters
+            for material_id in chapter.material_ids
+        }
+        if not chapter_materials.issubset(known):
+            raise ValueError("chapter references material outside treatment buckets")
+        return self
 
 
 class EditorialOverride(VisualStrictModel):

@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：已批准；Task 1、Task 2、Task 3、Task 5 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
+状态：已批准；Task 1、Task 2、Task 3、Task 5、Task 6 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 
@@ -20,6 +20,8 @@ Task 3 执行证据：保存的 3 条 Scanner JSON fixture 已映射为 V0.2 `sc
 Task 4 执行证据：用户明确批准后，唯一候选 `mlx-community/Qwen3-VL-4B-Instruct-4bit@2fd8dacbdb8f1e54b8c005f081ec5bf79c56376b` 已下载到项目隔离缓存，真实权重 `3,093,767,283 bytes`、隔离目录约 `3.5 GB`。冷加载耗时 `2.4554s`，但在首条提示词构造前，swap 从 `1,343,162,941 bytes` 增至观测值 `2,732,190,597 bytes`，增量 `1,389,027,656 bytes / 1324.68 MiB`，超过 `512 MiB` 硬停止门；因此 0 条进入推理，100 条速度门无法实测，12 条开发集和盲测均未运行。候选记为 `not_qualified`，不安装缺失的 `jinja2` 后重试、不尝试第二模型；详细证据见 `docs/superpowers/audits/2026-08-31-qwen3-vl-4b-mlx-smoke-result.md`。
 
 Task 5 执行证据：已实现原始中文描述、强类型规范化字段、精确来源片段、未知/冲突弃权和哈希绑定确认合同；deterministic 基线不调用模型，调用方智能体只预留 `invoking_agent` 来源类型且不绑定模型。V0.1 Brief 可迁移；离线复核页可导出人工确认 JSON；CLI 已提供 `normalize-brief`、`render-brief-review`、`confirm-brief`。定向回归 `23 passed`，完整回归 `183 passed, 3 warnings`，`git diff --check` 通过；模型、视频解码、浏览器、曲库与外部调用均为 0。
+
+Task 6 执行证据：已实现 `build_intent_decisions`、`build_project_coverage` 和 `build_director_treatment` deterministic 链路；确认后的观察按五桶归类，弱语义不触发硬淘汰，重复组只进入 `redundant`，章节、情绪弧线、节奏和素材职责均保留证据引用。6 条素材 × 3 个 Brief 锚点产生三个不同职责签名；合同外 assertion 不进入输出。CLI 已提供 `build-director-treatment`，一次写出 decisions、coverage、treatment 三个 Stage 制品且拒绝覆盖输入。调用方智能体增强只预留结构与证据验证门，未绑定或调用模型。定向回归 `13 passed`，完整回归 `196 passed, 3 warnings`，`git diff --check` 通过；视频解码、模型、浏览器、曲库与外部调用均为 0。
 
 ## 结论
 
@@ -479,14 +481,14 @@ MusicStyleRecommendation =
 
 **步骤：**
 
-- [ ] 实现必须可用的 deterministic Provider：规则计算五桶、素材职责、覆盖和缺口，用模板生成简洁导演方案。
-- [ ] 每个桶位、职责、章节和情绪判断至少引用一个确认观察或 Brief 字段。
-- [ ] `reject_suggestion` 只接受硬证据；重复项只进 `redundant`，不删除素材。
-- [ ] 可选 invoking-agent reasoner 只能在 deterministic 结构上改写/排序，不得引入合同外事实；不得绑定模型名称。
-- [ ] 运行 6 条 × 3 Brief 锚点，验证预期的职责变化；运行 unsupported assertion 检查。
-- [ ] CLI 增加 `build-director-treatment`。
-- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_intent_matcher.py tests/director/test_director_treatment.py -q`；随后运行 `git diff --check`。
-- [ ] 提交：`git commit -m "feat: build evidence-bound director treatment"`。
+- [x] 实现必须可用的 deterministic Provider：规则计算五桶、素材职责、覆盖和缺口，用模板生成简洁导演方案。
+- [x] 每个桶位、职责、章节和情绪判断至少引用一个确认观察或 Brief 字段。
+- [x] `reject_suggestion` 只接受硬证据；重复项只进 `redundant`，不删除素材。
+- [x] 未启用 invoking-agent reasoner；仅预留结构与证据漂移校验且不绑定模型。未来若开放自由文本改写，必须先增加语义支持校验，不能仅凭现有结构校验上线。
+- [x] 运行 6 条 × 3 Brief 锚点，验证预期的职责变化；运行 unsupported assertion 检查。
+- [x] CLI 增加 `build-director-treatment`。
+- [x] 运行：`cd local-media-scanner && uv run pytest tests/director/test_intent_matcher.py tests/director/test_director_treatment.py -q`；随后运行 `git diff --check`。
+- [x] 提交：`git commit -m "feat: build evidence-bound director treatment"`。
 
 **完成门：** 关闭所有本地生成模型后仍可完成导演方案；打开增强层也不能越过证据边界。
 

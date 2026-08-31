@@ -563,6 +563,49 @@ def render_director_review_command(
     typer.echo(str(output))
 
 
+@app.command("build-director-treatment")
+def build_director_treatment_command(
+    observations: Path = typer.Option(
+        ..., "--observations", exists=True, dir_okay=False
+    ),
+    brief_confirmation: Path = typer.Option(
+        ..., "--brief-confirmation", exists=True, dir_okay=False
+    ),
+    decisions_output: Path = typer.Option(..., "--decisions-output", dir_okay=False),
+    coverage_output: Path = typer.Option(..., "--coverage-output", dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Build deterministic decisions, project coverage, and director treatment."""
+
+    from director.director_treatment import build_director_treatment
+    from director.intent_matcher import build_intent_decisions, build_project_coverage
+    from director.visual_schema import BriefConfirmation, ClipObservationBatch
+
+    destinations = [decisions_output.resolve(), coverage_output.resolve(), output.resolve()]
+    if len(destinations) != len(set(destinations)):
+        raise typer.BadParameter("output paths must be distinct")
+    inputs = {observations.resolve(), brief_confirmation.resolve()}
+    if any(path in inputs for path in destinations):
+        raise typer.BadParameter("outputs cannot overwrite input artifacts")
+    parsed_observations = ClipObservationBatch.model_validate_json(
+        observations.read_text(encoding="utf-8")
+    )
+    parsed_brief = BriefConfirmation.model_validate_json(
+        brief_confirmation.read_text(encoding="utf-8")
+    )
+    decisions = build_intent_decisions(parsed_observations, parsed_brief)
+    coverage = build_project_coverage(parsed_observations, decisions)
+    treatment = build_director_treatment(decisions, coverage, parsed_brief)
+    for path, artifact in (
+        (decisions_output, decisions),
+        (coverage_output, coverage),
+        (output, treatment),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(artifact.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
 @app.command("validate-director-review")
 def validate_director_review_command(
     treatment: Path = typer.Option(

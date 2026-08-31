@@ -158,8 +158,12 @@ def visual_payload(stage: str) -> dict:
                     "evidence_refs": [evidence],
                 }
             ],
-            "emotional_arc": ["期待", "探索"],
+            "emotional_arc": [
+                {"text": "期待", "evidence_refs": [evidence]},
+                {"text": "探索", "evidence_refs": [evidence]},
+            ],
             "pacing_strategy": "逐步加速",
+            "pacing_evidence_refs": [evidence],
             "core_materials": [],
             "candidate_materials": [material_id],
             "redundant_materials": [],

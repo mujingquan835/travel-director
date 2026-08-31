@@ -125,3 +125,19 @@ def test_grounded_visible_object_creates_only_an_sfx_candidate(tmp_path: Path) -
         ("water", 0.5)
     ]
     assert enriched.sfx_candidates[0].evidence_source == "scanner_object_candidate"
+
+
+def test_v02_enrichment_does_not_create_recommended_ranges(tmp_path: Path) -> None:
+    item = material(
+        "missing.mov",
+        [FrameRecord(timestamp=1.0, reasons=["temporal"], thumbnail_relpath="missing.jpg")],
+    )
+
+    enriched = enrich_materials(
+        [item],
+        tmp_path / "input",
+        tmp_path / "run",
+        generate_recommended_ranges=False,
+    )[0]
+
+    assert enriched.recommended_ranges == []

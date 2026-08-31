@@ -229,7 +229,11 @@ def _sfx_candidates(material: MaterialScanResult) -> list[SfxCandidate]:
 
 
 def enrich_materials(
-    materials: Iterable[MaterialScanResult], input_root: Path, run_dir: Path
+    materials: Iterable[MaterialScanResult],
+    input_root: Path,
+    run_dir: Path,
+    *,
+    generate_recommended_ranges: bool = True,
 ) -> list[MaterialScanResult]:
     output = [material.model_copy(deep=True) for material in materials]
     groups = _duplicate_groups(output, input_root, run_dir)
@@ -239,6 +243,8 @@ def enrich_materials(
             input_root / material.source.relative_path,
             material.technical.duration,
         )
-        material.recommended_ranges = _recommended_ranges(material)
+        material.recommended_ranges = (
+            _recommended_ranges(material) if generate_recommended_ranges else []
+        )
         material.sfx_candidates = _sfx_candidates(material)
     return output

@@ -10,6 +10,9 @@ from typing import TypeVar
 from scanner.schema import ScannerCard, ScannerResult, TestManifest
 
 from director.material_enrichment import enrich_materials
+from director.visual_understanding.scanner_evidence import (
+    build_scanner_only_observations,
+)
 from director.schema import (
     MaterialLibraryProfile,
     MaterialScanResult,

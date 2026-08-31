@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import director.clip_selector as clip_selector
 from director.clip_selector import ClipSelectionConfig, place_clips
 from director.schema import (
     MaterialScanResult,
@@ -163,3 +164,29 @@ def test_long_slot_relaxes_recommendation_only_when_source_is_long_enough() -> N
     assert placements[0].source_in == 0
     assert placements[0].source_out == 5.5
     assert "recommended_range_unavailable" in placements[0].relaxed_constraints
+
+
+def test_v02_placement_uses_whole_source_instead_of_recommended_range() -> None:
+    one_slot = TimelineSlot(
+        slot_id="slot-v02",
+        start=0,
+        end=2,
+        section_role="opening",
+        energy=0.3,
+        content_need="context",
+        desired_motion="low",
+    )
+    source = material(
+        "whole-source.mp4",
+        impact=0.2,
+        duplicate_group="whole-source",
+        motion="low",
+    )
+
+    placements = clip_selector.place_clips_v0_2(
+        [one_slot], [source], ClipSelectionConfig()
+    )
+
+    assert placements[0].source_in == 0
+    assert placements[0].source_out == 2
+    assert "recommended_range_unavailable" not in placements[0].relaxed_constraints

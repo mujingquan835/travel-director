@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-状态：已批准；Task 1、Task 2 已完成，待用户复核；Task 3 未开始
+状态：已批准；Task 1、Task 2、Task 3 已完成，待用户复核；Task 4 未开始且仍需单独授权
 
 权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
 
@@ -14,6 +14,8 @@
 Task 1 执行证据：严格合同、Provider 接口、V0.1/V0.2 Stage Graph、阻塞停止规则和最小 CLI 已实现；目标测试 `26 passed`，完整回归 `148 passed, 3 warnings`；模型下载、视频推理与外部调用均为 0。
 
 Task 2 执行证据：冻结 12 条开发集、12 条盲测集和 6 条保留集，复用 95 张已有 probe 图；空白标注模板、验证器、可离线导出/导入的画面复核页、独立导演判断复核页及重复素材确定性夹具已实现；定向回归 `27 passed`，真实浏览器检查 24 条素材和 95 张图片全部加载、控制台 0 错误；Scanner、视觉模型、视频解码与外部调用均为 0。
+
+Task 3 执行证据：保存的 3 条 Scanner JSON fixture 已映射为 V0.2 `scanner_only` 观察；技术/CV 原始证据保持 `measured`，人物下界及弱 scene/action/object 只允许 `candidate` 或 `abstained`，影响导演判断的未知字段进入逐素材复核；V0.2 画面理解产物不含 `recommended_ranges/source_in/source_out`，时间线放置从整条源素材选择，V0.1 默认行为保持不变；指定回归 `21 passed`，Scanner、视觉模型、真实视频解码与外部调用均为 0。
 
 ## 结论
 
@@ -389,14 +391,14 @@ MusicStyleRecommendation =
 
 **步骤：**
 
-- [ ] 将技术/CV 证据映射为 `measured`，弱 scene/action/object 映射为 `candidate` 或 `abstained`。
-- [ ] 人物下界不得变成精确人数；候选地点不得变成确定地点。
-- [ ] 新 V0.2 产物不生成 `recommended_ranges`；V0.1 JSON 仍可读取。
-- [ ] V0.2 clip placement 始终从整条源素材选择，只有时间线阶段才生成 in/out。
-- [ ] 用保存的 JSON fixture 跑基线，不解码视频、不加载模型。
-- [ ] 把所有会影响导演判断的未知项送入人工复核，不阻塞无关素材。
-- [ ] 运行：`cd local-media-scanner && uv run pytest tests/director/test_scanner_evidence_understanding.py tests/director/test_material_enrichment.py tests/director/test_clip_selector.py tests/director/test_scanner_bridge.py -q`；随后运行 `git diff --check`。
-- [ ] 提交：`git commit -m "feat: add scanner-only observation baseline"`。
+- [x] 将技术/CV 证据映射为 `measured`，弱 scene/action/object 映射为 `candidate` 或 `abstained`。
+- [x] 人物下界不得变成精确人数；候选地点不得变成确定地点。
+- [x] 新 V0.2 产物不生成 `recommended_ranges`；V0.1 JSON 仍可读取。
+- [x] V0.2 clip placement 始终从整条源素材选择，只有时间线阶段才生成 in/out。
+- [x] 用保存的 JSON fixture 跑基线，不解码视频、不加载模型。
+- [x] 把所有会影响导演判断的未知项送入人工复核，不阻塞无关素材。
+- [x] 运行：`cd local-media-scanner && uv run pytest tests/director/test_scanner_evidence_understanding.py tests/director/test_material_enrichment.py tests/director/test_clip_selector.py tests/director/test_scanner_bridge.py -q`；随后运行 `git diff --check`。
+- [x] 提交：`git commit -m "feat: add scanner-only observation baseline"`。
 
 **完成门：** Scanner-only 能生成诚实的草稿和人工确认任务；旧 V0.1 行为没有被静默改写。
 

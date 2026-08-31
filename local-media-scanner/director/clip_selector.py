@@ -43,12 +43,14 @@ class PlacementResult(list[ClipPlacement]):
 def _available_ranges(
     material: MaterialScanResult,
     required_seconds: float,
+    *,
+    use_recommended_ranges: bool = True,
 ) -> tuple[list[tuple[float, float]], bool]:
     if material.analysis_status == "failed":
         return [], False
     ranges = (
         [(row.start, row.end) for row in material.recommended_ranges]
-        if material.recommended_ranges
+        if use_recommended_ranges and material.recommended_ranges
         else [(0.0, material.technical.duration)]
     )
     available = [
@@ -58,7 +60,11 @@ def _available_ranges(
     ]
     if available:
         return available, False
-    if material.recommended_ranges and material.technical.duration >= required_seconds:
+    if (
+        use_recommended_ranges
+        and material.recommended_ranges
+        and material.technical.duration >= required_seconds
+    ):
         return [(0.0, material.technical.duration)], True
     return [], False
 
@@ -146,6 +152,8 @@ def place_clips(
     slots: list[TimelineSlot],
     materials: list[MaterialScanResult],
     config: ClipSelectionConfig,
+    *,
+    use_recommended_ranges: bool = True,
 ) -> PlacementResult:
     """Choose deterministic source ranges while preserving Scanner uncertainty."""
 
@@ -159,7 +167,11 @@ def place_clips(
     for slot in slots:
         eligible = []
         for item in materials:
-            ranges, relaxed_range = _available_ranges(item, slot.duration)
+            ranges, relaxed_range = _available_ranges(
+                item,
+                slot.duration,
+                use_recommended_ranges=use_recommended_ranges,
+            )
             if ranges:
                 eligible.append((item, ranges[0], relaxed_range))
         relaxed: list[str] = []
@@ -262,4 +274,19 @@ def place_clips(
         placements,
         status="partial" if errors else "completed",
         errors=errors,
+    )
+
+
+def place_clips_v0_2(
+    slots: list[TimelineSlot],
+    materials: list[MaterialScanResult],
+    config: ClipSelectionConfig,
+) -> PlacementResult:
+    """Place V0.2 clips from whole sources; in/out exists only at this timeline step."""
+
+    return place_clips(
+        slots,
+        materials,
+        config,
+        use_recommended_ranges=False,
     )

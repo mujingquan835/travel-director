@@ -252,6 +252,43 @@ def run_local_command(
     typer.echo(state.model_dump_json(indent=2))
 
 
+@app.command("init-visual-project")
+def init_visual_project_command(
+    project_id: str = typer.Option(..., "--project-id"),
+    raw_brief: Path = typer.Option(
+        ..., "--raw-brief", exists=True, dir_okay=False
+    ),
+    run_root: Path = typer.Option(Path("prototype/runs"), "--run-root"),
+) -> None:
+    """Initialize or reopen a V0.2 visual project without running providers."""
+
+    from director.project import create_visual_project
+    from director.visual_schema import RawCreativeBrief
+
+    parsed_brief = RawCreativeBrief.model_validate_json(
+        raw_brief.read_text(encoding="utf-8")
+    )
+    paths = create_visual_project(run_root, project_id, parsed_brief)
+    typer.echo(str(paths.root))
+
+
+@app.command("visual-status")
+def visual_status_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
+) -> None:
+    """Read V0.2 visual project state without mutating it."""
+
+    from director.project import load_project_state, open_project
+
+    paths = open_project(project.resolve())
+    state = load_project_state(paths)
+    if state.schema_version != "0.2.0":
+        raise typer.BadParameter(
+            "project is not a V0.2 visual project", param_hint="--project"
+        )
+    typer.echo(state.model_dump_json(indent=2))
+
+
 @app.command("render-project")
 def render_project_command(
     project: Path = typer.Option(..., "--project", exists=True, file_okay=False),

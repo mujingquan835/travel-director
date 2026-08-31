@@ -12,9 +12,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from director.schema import ProjectState, UserCreativeBrief
+from director.visual_schema import (
+    RawCreativeBrief,
+    VisualProjectState,
+    validate_visual_stage_artifact,
+)
 
 
 LOCAL_STAGE_ORDER = (
@@ -27,6 +32,23 @@ LOCAL_STAGE_ORDER = (
     "clip_placements",
     "sfx_plan",
 )
+
+VISUAL_STAGE_ORDER = (
+    "clip_observations",
+    "intent_brief",
+    "brief_confirmation",
+    "intent_decisions",
+    "project_coverage",
+    "director_treatment",
+    "director_review",
+    "music_style_recommendations",
+    "visual_review",
+)
+
+STAGE_GRAPHS = {
+    "0.1.0": LOCAL_STAGE_ORDER,
+    "0.2.0": VISUAL_STAGE_ORDER,
+}
 
 
 class ProjectConflict(RuntimeError):
@@ -53,6 +75,16 @@ class ProjectPaths:
     render_dir: Path
     render_result: Path
     external_calls: Path
+    visual_dir: Path
+    clip_observations: Path
+    intent_brief: Path
+    brief_confirmation: Path
+    intent_decisions: Path
+    project_coverage: Path
+    director_treatment: Path
+    director_review: Path
+    music_style_recommendations: Path
+    visual_review: Path
 
     def artifact_for(self, stage: str) -> Path:
         mapping = {
@@ -65,6 +97,15 @@ class ProjectPaths:
             "clip_placements": self.clip_placements,
             "sfx_plan": self.sfx_plan,
             "render": self.render_result,
+            "clip_observations": self.clip_observations,
+            "intent_brief": self.intent_brief,
+            "brief_confirmation": self.brief_confirmation,
+            "intent_decisions": self.intent_decisions,
+            "project_coverage": self.project_coverage,
+            "director_treatment": self.director_treatment,
+            "director_review": self.director_review,
+            "music_style_recommendations": self.music_style_recommendations,
+            "visual_review": self.visual_review,
         }
         try:
             return mapping[stage]
@@ -95,6 +136,18 @@ def _paths(root: Path) -> ProjectPaths:
         render_dir=root / "render",
         render_result=root / "render" / "render_result.json",
         external_calls=root / "external_calls.json",
+        visual_dir=root / "visual",
+        clip_observations=root / "visual" / "clip_observations.json",
+        intent_brief=root / "visual" / "intent_brief.json",
+        brief_confirmation=root / "visual" / "brief_confirmation.json",
+        intent_decisions=root / "visual" / "intent_decisions.json",
+        project_coverage=root / "visual" / "project_coverage.json",
+        director_treatment=root / "visual" / "director_treatment.json",
+        director_review=root / "visual" / "director_review.json",
+        music_style_recommendations=(
+            root / "visual" / "music_style_recommendations.json"
+        ),
+        visual_review=root / "visual" / "review.json",
     )
 
 
@@ -145,32 +198,71 @@ def _json_value(value: BaseModel | dict[str, Any] | list[Any] | Path) -> Any:
     return value
 
 
-def _validate_schema_version(value: Any) -> None:
+def _validate_schema_version(value: Any, expected: str) -> None:
     records = value if isinstance(value, list) else [value]
     if not records:
         return
     if not all(
-        isinstance(record, dict) and record.get("schema_version") == "0.1.0"
+        isinstance(record, dict) and record.get("schema_version") == expected
         for record in records
     ):
-        raise ProjectConflict("stage artifact does not use schema_version 0.1.0")
+        raise ProjectConflict(f"stage artifact does not use schema_version {expected}")
 
 
-def _artifact_paths(paths: ProjectPaths) -> dict[str, str]:
+def _validated_stage_value(stage: str, value: Any, expected: str) -> Any:
+    _validate_schema_version(value, expected)
+    if expected != "0.2.0":
+        return value
+    try:
+        return validate_visual_stage_artifact(stage, value)
+    except (ValidationError, ValueError) as exc:
+        raise ProjectConflict(f"invalid V0.2 artifact for stage {stage}: {exc}") from exc
+
+
+def _artifact_paths(paths: ProjectPaths, schema_version: str) -> dict[str, str]:
+    try:
+        stage_order = STAGE_GRAPHS[schema_version]
+    except KeyError as exc:
+        raise ValueError(f"unsupported project schema_version: {schema_version}") from exc
     return {
         stage: str(paths.artifact_for(stage).relative_to(paths.root))
-        for stage in LOCAL_STAGE_ORDER
+        for stage in stage_order
     } | {
         "brief": "brief.json",
         "input_manifest": "input_manifest.json",
         "external_calls": "external_calls.json",
-        "generation": "generation/music_asset.json",
-        "render": "render/render_result.json",
-    }
+    } | (
+        {
+            "generation": "generation/music_asset.json",
+            "render": "render/render_result.json",
+        }
+        if schema_version == "0.1.0"
+        else {}
+    )
 
 
-def _write_state(paths: ProjectPaths, state: ProjectState) -> None:
+ProjectStateModel = ProjectState | VisualProjectState
+
+
+def _write_state(paths: ProjectPaths, state: ProjectStateModel) -> None:
     _atomic_write(paths.project_state, _canonical_bytes(state.model_dump(mode="json")))
+
+
+def load_project_state(paths: ProjectPaths | Path) -> ProjectStateModel:
+    """Load a supported state model without rewriting its schema version."""
+
+    state_path = (
+        paths.project_state
+        if isinstance(paths, ProjectPaths)
+        else paths / "project_state.json"
+    )
+    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    schema_version = payload.get("schema_version")
+    if schema_version == "0.1.0":
+        return ProjectState.model_validate(payload)
+    if schema_version == "0.2.0":
+        return VisualProjectState.model_validate(payload)
+    raise ProjectConflict(f"unsupported project schema_version: {schema_version}")
 
 
 def create_project(
@@ -192,9 +284,9 @@ def create_project(
             raise ProjectConflict("existing project is missing required root evidence")
         if _sha256_file(paths.brief) != brief_hash:
             raise ProjectConflict("existing project brief hash does not match")
-        state = ProjectState.model_validate_json(
-            paths.project_state.read_text(encoding="utf-8")
-        )
+        state = load_project_state(paths)
+        if state.schema_version != "0.1.0":
+            raise ProjectConflict("existing project is not a V0.1 project")
         if state.project_id != project_id:
             raise ProjectConflict("existing project id does not match state")
         if state.completed_artifact_hashes.get("brief") != brief_hash:
@@ -219,7 +311,61 @@ def create_project(
         project_id=project_id,
         status="pending",
         current_stage="initialized",
-        artifact_paths=_artifact_paths(paths),
+        artifact_paths=_artifact_paths(paths, "0.1.0"),
+        completed_artifact_hashes={
+            "brief": brief_hash,
+            "external_calls": _sha256_bytes(external_calls_payload),
+        },
+    )
+    _write_state(paths, state)
+    return paths
+
+
+def create_visual_project(
+    run_root: Path,
+    project_id: str,
+    brief: RawCreativeBrief,
+) -> ProjectPaths:
+    """Create or reopen a V0.2 visual project with an immutable raw brief."""
+
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", project_id):
+        raise ValueError("project_id must be a simple filesystem-safe identifier")
+    root = run_root.resolve() / project_id
+    paths = _paths(root)
+    brief_payload = _canonical_bytes(brief.model_dump(mode="json"))
+    brief_hash = _sha256_bytes(brief_payload)
+
+    if paths.brief.exists() or paths.project_state.exists():
+        if not paths.brief.exists() or not paths.project_state.exists():
+            raise ProjectConflict("existing project is missing required root evidence")
+        if _sha256_file(paths.brief) != brief_hash:
+            raise ProjectConflict("existing project brief hash does not match")
+        state = load_project_state(paths)
+        if state.schema_version != "0.2.0":
+            raise ProjectConflict("existing project is not a V0.2 visual project")
+        if state.project_id != project_id:
+            raise ProjectConflict("existing project id does not match state")
+        if state.completed_artifact_hashes.get("brief") != brief_hash:
+            raise ProjectConflict("state brief hash does not match brief evidence")
+        external_calls_hash = state.completed_artifact_hashes.get("external_calls")
+        if (
+            external_calls_hash is None
+            or not paths.external_calls.exists()
+            or _sha256_file(paths.external_calls) != external_calls_hash
+        ):
+            raise ProjectConflict("external call ledger drifted")
+        return paths
+
+    root.mkdir(parents=True, exist_ok=True)
+    paths.visual_dir.mkdir(exist_ok=True)
+    _atomic_write(paths.brief, brief_payload)
+    external_calls_payload = _canonical_bytes([])
+    _atomic_write(paths.external_calls, external_calls_payload)
+    state = VisualProjectState(
+        project_id=project_id,
+        status="pending",
+        current_stage="initialized",
+        artifact_paths=_artifact_paths(paths, "0.2.0"),
         completed_artifact_hashes={
             "brief": brief_hash,
             "external_calls": _sha256_bytes(external_calls_payload),
@@ -235,6 +381,7 @@ def open_project(root: Path) -> ProjectPaths:
     paths = _paths(root.resolve())
     if not paths.project_state.is_file() or not paths.brief.is_file():
         raise FileNotFoundError("project_state.json and brief.json are required")
+    load_project_state(paths)
     return paths
 
 
@@ -253,14 +400,12 @@ def record_project_inputs(
             "path": str(resolved),
             "sha256": _sha256_file(resolved),
         }
+    state = load_project_state(paths)
     payload = _canonical_bytes(
-        {"schema_version": "0.1.0", "inputs": records}
+        {"schema_version": state.schema_version, "inputs": records}
     )
     payload_hash = _sha256_bytes(payload)
 
-    state = ProjectState.model_validate_json(
-        paths.project_state.read_text(encoding="utf-8")
-    )
     recorded_hash = state.completed_artifact_hashes.get("input_manifest")
     if recorded_hash is not None:
         if (
@@ -286,12 +431,10 @@ def record_stage_artifact(
 
     artifact_path = paths.artifact_for(stage)
     json_value = _json_value(value)
-    _validate_schema_version(json_value)
+    state = load_project_state(paths)
+    json_value = _validated_stage_value(stage, json_value, state.schema_version)
     payload = _canonical_bytes(json_value)
     payload_hash = _sha256_bytes(payload)
-    state = ProjectState.model_validate_json(
-        paths.project_state.read_text(encoding="utf-8")
-    )
     recorded_hash = state.completed_artifact_hashes.get(stage)
     if recorded_hash is not None:
         if (
@@ -308,6 +451,8 @@ def record_stage_artifact(
     state.current_stage = stage
     result_status = json_value.get("status") if isinstance(json_value, dict) else None
     state.status = result_status if result_status in {"completed", "failed", "blocked", "partial"} else "completed"
+    if isinstance(state, VisualProjectState) and stage == "director_review":
+        state.completion_mode = json_value["mode"]
     _write_state(paths, state)
     return payload_hash
 
@@ -316,37 +461,50 @@ def advance_project(
     paths: ProjectPaths,
     target_stage: str,
     adapters: Mapping[str, StageAdapter],
-) -> ProjectState:
+) -> ProjectStateModel:
     """Advance through local stages, verifying completed artifacts before skipping."""
 
-    if target_stage not in LOCAL_STAGE_ORDER:
+    state = load_project_state(paths)
+    stage_order = STAGE_GRAPHS[state.schema_version]
+    if target_stage not in stage_order:
         raise ValueError(f"unknown target stage: {target_stage}")
-    state = ProjectState.model_validate_json(
-        paths.project_state.read_text(encoding="utf-8")
-    )
-    target_index = LOCAL_STAGE_ORDER.index(target_stage)
+    target_index = stage_order.index(target_stage)
 
-    for stage in LOCAL_STAGE_ORDER[: target_index + 1]:
+    for stage in stage_order[: target_index + 1]:
         artifact_path = paths.artifact_for(stage)
         recorded_hash = state.completed_artifact_hashes.get(stage)
         if recorded_hash is not None:
             if not artifact_path.exists() or _sha256_file(artifact_path) != recorded_hash:
                 raise ProjectConflict(f"completed artifact drifted: {stage}")
             value = json.loads(artifact_path.read_text(encoding="utf-8"))
-            _validate_schema_version(value)
+            _validated_stage_value(stage, value, state.schema_version)
+            if value.get("status") in {"blocked", "failed"}:
+                state.current_stage = stage
+                state.status = value["status"]
+                _write_state(paths, state)
+                return state
             continue
 
         adapter = adapters.get(stage)
         if adapter is None:
             raise ValueError(f"missing adapter for stage: {stage}")
         value = _json_value(adapter(paths))
-        _validate_schema_version(value)
+        value = _validated_stage_value(stage, value, state.schema_version)
         payload = _canonical_bytes(value)
         _atomic_write(artifact_path, payload)
         state.completed_artifact_hashes[stage] = _sha256_bytes(payload)
         state.current_stage = stage
-        state.status = "completed" if stage == target_stage else "partial"
+        result_status = value.get("status")
+        state.status = (
+            result_status
+            if result_status in {"blocked", "failed"}
+            else "completed" if stage == target_stage else "partial"
+        )
+        if isinstance(state, VisualProjectState) and stage == "director_review":
+            state.completion_mode = value["mode"]
         _write_state(paths, state)
+        if result_status in {"blocked", "failed"}:
+            return state
 
     state.current_stage = target_stage
     state.status = "completed"

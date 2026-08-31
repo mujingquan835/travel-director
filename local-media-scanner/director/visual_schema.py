@@ -1,0 +1,326 @@
+"""Strict V0.2 contracts for visual understanding and director decisions."""
+
+from __future__ import annotations
+
+import re
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from director.schema import StageStatus
+
+
+VisualSchemaVersion = Literal["0.2.0"]
+Sha256 = str
+MaterialId = str
+CompletionMode = Literal["unresolved", "automatic", "assisted"]
+AssertionStatus = Literal["measured", "candidate", "confirmed", "abstained", "unavailable"]
+EvidenceSourceKind = Literal[
+    "scanner",
+    "visual_provider",
+    "user_brief",
+    "user_confirmation",
+    "director_rule",
+]
+Bucket = Literal["core", "candidate", "redundant", "reject_suggestion", "review_required"]
+DirectorFunction = Literal[
+    "opening",
+    "context",
+    "progression",
+    "emotion",
+    "contrast",
+    "breathing",
+    "climax",
+    "ending",
+]
+
+
+class VisualStrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+def _validate_sha256(value: str, field: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ValueError(f"{field} must be a lowercase SHA-256 hex digest")
+    return value
+
+
+def derive_material_id(source_sha256: str) -> str:
+    """Create a path-independent material identity from immutable source bytes."""
+
+    return f"sha256:{_validate_sha256(source_sha256, 'source_sha256')}"
+
+
+class MaterialRef(VisualStrictModel):
+    material_id: MaterialId = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    relative_path: str = Field(min_length=1)
+    source_sha256: Sha256 = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=0)
+    mtime_ns: int = Field(ge=0)
+    duration_seconds: float = Field(ge=0.0)
+    fps: float = Field(ge=0.0)
+    orientation: Literal["landscape", "portrait", "square", "unknown"]
+    rotation: int | None = None
+
+    @model_validator(mode="after")
+    def identity_matches_source(self) -> "MaterialRef":
+        if self.material_id != derive_material_id(self.source_sha256):
+            raise ValueError("material_id must be derived from source_sha256")
+        return self
+
+
+class EvidenceRef(VisualStrictModel):
+    material_id: MaterialId | None = Field(
+        default=None, pattern=r"^sha256:[0-9a-f]{64}$"
+    )
+    artifact_path: str = Field(min_length=1)
+    field_path: str = Field(min_length=1)
+    frame_timestamp: float | None = Field(default=None, ge=0.0)
+    source_kind: EvidenceSourceKind
+    status: AssertionStatus
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    sha256: Sha256 | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ProviderIssue(VisualStrictModel):
+    code: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    field: str | None = None
+
+
+class ObservationAssertion(VisualStrictModel):
+    field: str = Field(min_length=1)
+    value: Any = None
+    status: AssertionStatus
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    evidence_refs: list[EvidenceRef] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def supported_values_have_evidence(self) -> "ObservationAssertion":
+        if self.status in {"measured", "candidate", "confirmed"} and not self.evidence_refs:
+            raise ValueError("supported assertion requires evidence_refs")
+        if self.status == "candidate" and self.confidence is None:
+            raise ValueError("candidate assertion requires confidence")
+        if self.status in {"abstained", "unavailable"} and self.value is not None:
+            raise ValueError("abstained or unavailable assertion must not carry a value")
+        return self
+
+
+class ClipObservation(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    material: MaterialRef
+    provider: str = Field(min_length=1)
+    observation_status: Literal["automatic", "assisted", "abstained", "unavailable"]
+    assertions: list[ObservationAssertion] = Field(default_factory=list)
+    unknown_fields: list[str] = Field(default_factory=list)
+    review_required_fields: list[str] = Field(default_factory=list)
+    errors: list[ProviderIssue] = Field(default_factory=list)
+
+
+class ClipObservationBatch(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    mode: Literal["automatic", "assisted", "scanner_only"]
+    items: list[ClipObservation] = Field(default_factory=list)
+
+
+class RawCreativeBrief(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    raw_description: str = Field(min_length=1)
+    optional_structured_hints: dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceSpan(VisualStrictModel):
+    field: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def end_follows_start(self) -> "SourceSpan":
+        if self.end <= self.start:
+            raise ValueError("source span end must follow start")
+        return self
+
+
+class NormalizedIntentDraft(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    raw_description: str = Field(min_length=1)
+    normalized_fields: dict[str, Any]
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+    unknown_fields: list[str] = Field(default_factory=list)
+    review_required_fields: list[str] = Field(default_factory=list)
+
+
+class BriefConfirmation(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    draft_sha256: Sha256 = Field(pattern=r"^[0-9a-f]{64}$")
+    normalized_fields: dict[str, Any]
+    changed_fields: list[str] = Field(default_factory=list)
+    confirmed_at: str = Field(min_length=1)
+
+
+class IntentConditionedDecision(VisualStrictModel):
+    material_id: MaterialId = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    bucket: Bucket
+    relevance_score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    director_function_candidates: list[DirectorFunction] = Field(default_factory=list)
+    reasons: list[str] = Field(min_length=1)
+    evidence_refs: list[EvidenceRef] = Field(min_length=1)
+    user_confirmation_required: bool
+
+
+class IntentDecisionBatch(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    items: list[IntentConditionedDecision] = Field(default_factory=list)
+
+
+class ProjectCoverage(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    content_distribution: dict[str, int] = Field(default_factory=dict)
+    lighting_distribution: dict[str, int] = Field(default_factory=dict)
+    people_distribution: dict[str, int] = Field(default_factory=dict)
+    motion_distribution: dict[str, int] = Field(default_factory=dict)
+    duplicate_groups: dict[str, list[MaterialId]] = Field(default_factory=dict)
+    available_director_functions: list[DirectorFunction] = Field(default_factory=list)
+    missing_director_functions: list[DirectorFunction] = Field(default_factory=list)
+    uncertainty_summary: list[str] = Field(default_factory=list)
+    evidence_refs: list[EvidenceRef] = Field(default_factory=list)
+
+
+class TreatmentChapter(VisualStrictModel):
+    chapter_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    director_functions: list[DirectorFunction] = Field(min_length=1)
+    material_ids: list[MaterialId] = Field(default_factory=list)
+    evidence_refs: list[EvidenceRef] = Field(min_length=1)
+
+
+class DirectorTreatment(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    mode: Literal["automatic", "assisted", "deterministic"]
+    logline: str = Field(min_length=1)
+    narrative_spine: str = Field(min_length=1)
+    chapters: list[TreatmentChapter] = Field(min_length=1)
+    emotional_arc: list[str] = Field(min_length=1)
+    pacing_strategy: str = Field(min_length=1)
+    core_materials: list[MaterialId] = Field(default_factory=list)
+    candidate_materials: list[MaterialId] = Field(default_factory=list)
+    redundant_materials: list[MaterialId] = Field(default_factory=list)
+    reject_suggestions: list[MaterialId] = Field(default_factory=list)
+    review_required: list[MaterialId] = Field(default_factory=list)
+    coverage_gaps: list[str] = Field(default_factory=list)
+    evidence_refs: list[EvidenceRef] = Field(min_length=1)
+    unsupported_inferences: list[str] = Field(default_factory=list)
+
+
+class EditorialOverride(VisualStrictModel):
+    material_id: MaterialId = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    original_bucket: Bucket
+    bucket_override: Bucket | None = None
+    director_function_overrides: list[DirectorFunction] = Field(default_factory=list)
+    force_include: bool = False
+    force_exclude: bool = False
+    user_note: str | None = None
+    changed_at: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def include_and_exclude_are_exclusive(self) -> "EditorialOverride":
+        if self.force_include and self.force_exclude:
+            raise ValueError("force_include and force_exclude cannot both be true")
+        return self
+
+
+class DirectorReview(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    treatment_sha256: Sha256 = Field(pattern=r"^[0-9a-f]{64}$")
+    status: StageStatus
+    mode: Literal["automatic", "assisted"]
+    overrides: list[EditorialOverride] = Field(default_factory=list)
+    confirmed_at: str | None = None
+
+
+class MusicStyleRecommendation(VisualStrictModel):
+    direction_id: str = Field(min_length=1)
+    plain_description: str = Field(min_length=1)
+    genres: list[str] = Field(min_length=1)
+    moods: list[str] = Field(min_length=1)
+    bpm_min: int = Field(ge=40, le=240)
+    bpm_max: int = Field(ge=40, le=240)
+    instruments: list[str] = Field(default_factory=list)
+    drum_density: Literal["low", "medium", "high"]
+    vocals: Literal["instrumental_only", "instrumental_preferred", "allowed"]
+    energy_curve: list[float] = Field(min_length=1)
+    fit_reason: str = Field(min_length=1)
+    director_evidence_refs: list[EvidenceRef] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def bpm_range_is_ordered(self) -> "MusicStyleRecommendation":
+        if self.bpm_min >= self.bpm_max:
+            raise ValueError("bpm_min must be lower than bpm_max")
+        if any(value < 0.0 or value > 1.0 for value in self.energy_curve):
+            raise ValueError("energy_curve values must be between zero and one")
+        return self
+
+
+class MusicStyleRecommendationBatch(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    items: list[MusicStyleRecommendation] = Field(max_length=3)
+    external_call_count: Literal[0] = 0
+
+
+class VisualReviewArtifact(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    status: StageStatus
+    report_path: str = Field(min_length=1)
+    source_artifact_hashes: dict[str, Sha256]
+    external_call_count: Literal[0] = 0
+
+
+class VisualProjectState(VisualStrictModel):
+    schema_version: VisualSchemaVersion = "0.2.0"
+    project_id: str
+    status: StageStatus
+    completion_mode: CompletionMode = "unresolved"
+    current_stage: str
+    artifact_paths: dict[str, str]
+    completed_artifact_hashes: dict[str, str] = Field(default_factory=dict)
+    errors: list[ProviderIssue] = Field(default_factory=list)
+
+
+class ProviderCapabilities(VisualStrictModel):
+    provider_name: str = Field(min_length=1)
+    local_only: bool
+    supports_abstention: bool
+    requires_model_weights: bool
+    output_schema_version: VisualSchemaVersion = "0.2.0"
+
+
+VISUAL_STAGE_MODELS: dict[str, type[VisualStrictModel]] = {
+    "clip_observations": ClipObservationBatch,
+    "intent_brief": NormalizedIntentDraft,
+    "brief_confirmation": BriefConfirmation,
+    "intent_decisions": IntentDecisionBatch,
+    "project_coverage": ProjectCoverage,
+    "director_treatment": DirectorTreatment,
+    "director_review": DirectorReview,
+    "music_style_recommendations": MusicStyleRecommendationBatch,
+    "visual_review": VisualReviewArtifact,
+}
+
+
+def validate_visual_stage_artifact(stage: str, value: Any) -> dict[str, Any]:
+    """Validate and normalize one V0.2 stage artifact."""
+
+    try:
+        model = VISUAL_STAGE_MODELS[stage]
+    except KeyError as exc:
+        raise ValueError(f"unknown visual stage: {stage}") from exc
+    return model.model_validate(value).model_dump(mode="json")

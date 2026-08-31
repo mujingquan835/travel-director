@@ -6,6 +6,21 @@
 分支：`feature/local-media-scanner-v0.1`  
 编写时基线：`a3875df2569bcd977b99f3028bd687cd2d3bdf06`
 
+## 2026-08-31 V0.2 产品修正
+
+以下修正优先于本文后续的 V0.1 音乐驱动流程；旧内容保留作为历史背景，不再作为当前第一阶段的开发顺序。
+
+1. 当前主链路改为：`整条素材事实观察 → 用户描述规范化与确认 → 意图条件化素材判断 → 项目级导演方案 → 离线音乐风格推荐`。
+2. Scanner 只提供证据，不在扫描或素材理解阶段生成、消费“最佳区间”；`source_in/source_out` 只属于后续音乐时间线阶段。
+3. 自动视觉识别是可替换增强层。低置信度、模型不可用或能力门失败时，必须通过本地人工确认完成 assisted 流程，不能填充伪确定事实。
+4. 每条素材使用由源文件 SHA-256 派生的稳定 `material_id`；相对路径只用于展示和编辑器重连。
+5. 画面事实修订记录在 `visual_confirmation.json`，导演桶位/职责/强制保留或排除记录在独立 `director_review.json`；两者都保留原值、修改值、时间和理由。
+6. `director_review.json` 不包含时间区间，避免重新引入已取消的“最佳区间”。
+7. 曲多多、即梦、具体曲目搜索、音乐生成、剪辑时间线、音效和编辑器集成都不属于本阶段。
+8. 后续时间线形成后，可以通过 OpenTimelineIO 把内部 JSON 映射到 Kdenlive 人工精剪；不得让 `.kdenlive`、LosslessCut 或任何 GUI 工具替代内部证据链和 FFmpeg 自动预览。
+
+V0.2 的完整合同、能力门、开发/盲测拆分和实施顺序以 `docs/superpowers/plans/2026-08-31-visual-understanding-and-director-decision-v2.md` 为准。
+
 ## 1. 产品定义
 
 旅行导演面向“已经拍摄了大量旅行素材，但不会选音乐、踩点和组织节奏”的普通用户。
@@ -412,4 +427,3 @@ a3875df feat: freeze independent people validation cohort
 - 即梦 CLI 能力和付费调用验证。
 - 音乐结构分析、Director 时间线和 SFX Plan 实现。
 - 端到端生成可播放混剪。
-

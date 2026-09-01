@@ -47,6 +47,9 @@ def choose_review_route(
         entry = fields_by_material.setdefault(
             material_id, (item.material.relative_path, set())
         )
+        if item.material.relative_path < entry[0]:
+            entry = (item.material.relative_path, entry[1])
+            fields_by_material[material_id] = entry
         entry[1].update(item.review_required_fields)
 
     questions = [

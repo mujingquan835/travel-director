@@ -84,3 +84,50 @@ def test_explicit_page_request_overrides_small_review(observation_batch):
     pending = with_pending(observation_batch, count=1, materials=1)
     route = choose_review_route(pending, force_local_page=True)
     assert route.channel == "local_page"
+
+
+def test_duplicate_materials_are_permutation_invariant(observation_batch):
+    duplicate = observation_batch.items[0].model_copy(
+        update={
+            "material": observation_batch.items[0].material.model_copy(
+                update={"relative_path": "trip/zzz.mov"}
+            ),
+            "review_required_fields": ["z_field", "a_field", "a_field"],
+        }
+    )
+    first = observation_batch.model_copy(
+        update={"items": [observation_batch.items[0].model_copy(update={"review_required_fields": ["z_field"]}), duplicate]}
+    )
+    second = first.model_copy(update={"items": list(reversed(first.items))})
+
+    assert choose_review_route(first) == choose_review_route(second)
+    assert choose_review_route(first).questions[0].relative_path == "trip/clip-01.mov"
+    assert choose_review_route(first).questions[0].fields == ["a_field", "z_field"]
+    assert choose_review_route(first).pending_field_count == 2
+
+
+def test_materials_and_fields_are_lexically_sorted(observation_batch):
+    pending = with_pending(observation_batch, count=2, materials=2)
+    pending.items.reverse()
+    route = choose_review_route(pending)
+    assert [question.relative_path for question in route.questions] == [
+        "trip/clip-01.mov",
+        "trip/clip-02.mov",
+    ]
+    assert all(question.fields == sorted(question.fields) for question in route.questions)
+
+
+@pytest.mark.parametrize("fields,materials", [(0, 1), (1, 0)])
+def test_review_thresholds_must_be_positive(observation_batch, fields, materials):
+    with pytest.raises(ValueError, match="thresholds must be positive"):
+        choose_review_route(
+            observation_batch,
+            max_chat_fields=fields,
+            max_chat_materials=materials,
+        )
+
+
+def test_force_local_page_does_not_override_no_pending_fields(observation_batch):
+    route = choose_review_route(observation_batch, force_local_page=True)
+    assert route.channel == "none"
+    assert route.questions == []

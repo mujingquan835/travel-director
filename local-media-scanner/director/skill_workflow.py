@@ -27,6 +27,18 @@ class ReviewRoute(VisualStrictModel):
     reasons: list[str]
 
 
+class ChatReviewBatch(VisualStrictModel):
+    material_ids: list[str] = Field(min_length=1, max_length=3)
+    questions: list[ReviewQuestion]
+
+
+class PreparedVisualReview(VisualStrictModel):
+    route: ReviewRoute
+    chat_batches: list[ChatReviewBatch]
+    html_path: str | None = None
+    confirmation_path: str | None = None
+
+
 def choose_review_route(
     observations: ClipObservationBatch,
     *,

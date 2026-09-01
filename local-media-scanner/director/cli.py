@@ -189,6 +189,32 @@ def plan_review_command(
     typer.echo(str(output))
 
 
+@app.command("prepare-visual-review")
+def prepare_visual_review_command(
+    observations: Path = typer.Option(
+        ..., "--observations", exists=True, dir_okay=False
+    ),
+    frame_map: Path = typer.Option(
+        ..., "--frame-map", exists=True, dir_okay=False
+    ),
+    output_dir: Path = typer.Option(..., "--output-dir", file_okay=False),
+    force_local_page: bool = typer.Option(False, "--force-local-page"),
+) -> None:
+    """Prepare chat batches or a local visual review page without opening it."""
+
+    from director.agent_batches import MaterialFrameMap
+    from director.visual_review import prepare_visual_review
+    from director.visual_schema import ClipObservationBatch
+
+    prepare_visual_review(
+        ClipObservationBatch.model_validate_json(observations.read_text(encoding="utf-8")),
+        MaterialFrameMap.model_validate_json(frame_map.read_text(encoding="utf-8")),
+        output_dir,
+        force_local_page=force_local_page,
+    )
+    typer.echo(str(output_dir.resolve() / "review_route.json"))
+
+
 @app.command("plan-search")
 def plan_search(
     scanner_result: Path = typer.Option(

@@ -9,7 +9,13 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from director.agent_batches import MaterialFrameMap
 from director.evaluation import VisualConfirmation, sha256_file
+from director.skill_workflow import (
+    ChatReviewBatch,
+    PreparedVisualReview,
+    choose_review_route,
+)
 from director.visual_schema import (
     ClipObservationBatch,
     DirectorReview,
@@ -116,6 +122,53 @@ document.getElementById('download').addEventListener('click',()=>{{
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")
     return output
+
+
+def prepare_visual_review(
+    observations: ClipObservationBatch,
+    frame_map: MaterialFrameMap,
+    output_dir: Path,
+    *,
+    force_local_page: bool = False,
+) -> PreparedVisualReview:
+    """Prepare the selected local review channel without opening a browser."""
+
+    route = choose_review_route(
+        observations, force_local_page=force_local_page
+    )
+    root = output_dir.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    chat_batches = [
+        ChatReviewBatch(
+            material_ids=[question.material_id for question in questions],
+            questions=questions,
+        )
+        for start in range(0, len(route.questions), 3)
+        for questions in [route.questions[start : start + 3]]
+    ] if route.channel == "chat" else []
+
+    html_path: str | None = None
+    confirmation_path: str | None = None
+    if route.channel == "local_page":
+        html = root / "visual_review.html"
+        frames = {
+            item.material.material_id: [Path(frame.path) for frame in item.frames]
+            for item in frame_map.items
+        }
+        render_visual_review(observations, frames, html)
+        html_path = str(html)
+        confirmation_path = str(root / "visual_confirmation.json")
+
+    prepared = PreparedVisualReview(
+        route=route,
+        chat_batches=chat_batches,
+        html_path=html_path,
+        confirmation_path=confirmation_path,
+    )
+    (root / "review_route.json").write_text(
+        prepared.model_dump_json(indent=2), encoding="utf-8"
+    )
+    return prepared
 
 
 def validate_visual_confirmation_against_observations(

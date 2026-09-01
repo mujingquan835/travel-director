@@ -14,10 +14,12 @@ from director.evaluation import (
 )
 from director.visual_review import (
     apply_visual_confirmation,
+    prepare_visual_review,
     render_director_review,
     render_visual_review,
     validate_visual_confirmation_against_observations,
 )
+from director.agent_batches import MaterialFrameMap, MaterialFrameSet, RepresentativeFrame
 from director.visual_schema import (
     ClipObservation,
     ClipObservationBatch,
@@ -73,6 +75,104 @@ def observations() -> ClipObservationBatch:
             )
         ],
     )
+
+
+@pytest.fixture
+def clean_observations() -> ClipObservationBatch:
+    return observations().model_copy(
+        update={
+            "items": [
+                observations().items[0].model_copy(
+                    update={"review_required_fields": []}
+                )
+            ]
+        }
+    )
+
+
+@pytest.fixture
+def small_review_observations() -> ClipObservationBatch:
+    return observations()
+
+
+@pytest.fixture
+def large_review_observations() -> ClipObservationBatch:
+    base = observations().items[0]
+    return observations().model_copy(
+        update={
+            "items": [
+                base.model_copy(
+                    update={
+                        "review_required_fields": [
+                            "content_families",
+                            "setting",
+                            "lighting",
+                            "people_presence",
+                            "people_count_band",
+                            "technical_usability",
+                        ]
+                    }
+                )
+            ]
+        }
+    )
+
+
+@pytest.fixture
+def frame_map(tmp_path: Path) -> MaterialFrameMap:
+    frame = tmp_path / "probe.jpg"
+    frame.write_bytes(b"jpeg-placeholder")
+    source = observations().items[0].material
+    return MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=source,
+                frames=[RepresentativeFrame(path=str(frame), timestamp=0.0)],
+            )
+        ]
+    )
+
+
+@pytest.fixture
+def output_dir(tmp_path: Path) -> Path:
+    return tmp_path / "review"
+
+
+def test_none_route_creates_no_html(
+    clean_observations: ClipObservationBatch,
+    frame_map: MaterialFrameMap,
+    output_dir: Path,
+) -> None:
+    artifact = prepare_visual_review(clean_observations, frame_map, output_dir)
+
+    assert artifact.html_path is None
+    assert not list(output_dir.glob("*.html"))
+
+
+def test_chat_route_emits_questions_but_no_html(
+    small_review_observations: ClipObservationBatch,
+    frame_map: MaterialFrameMap,
+    output_dir: Path,
+) -> None:
+    artifact = prepare_visual_review(small_review_observations, frame_map, output_dir)
+
+    assert artifact.route.channel == "chat"
+    assert artifact.chat_batches
+    assert max(len(batch.material_ids) for batch in artifact.chat_batches) <= 3
+    assert artifact.html_path is None
+    assert not list(output_dir.glob("*.html"))
+
+
+def test_local_page_route_emits_self_contained_html(
+    large_review_observations: ClipObservationBatch,
+    frame_map: MaterialFrameMap,
+    output_dir: Path,
+) -> None:
+    artifact = prepare_visual_review(large_review_observations, frame_map, output_dir)
+
+    html = Path(artifact.html_path).read_text(encoding="utf-8")
+    assert "http://" not in html and "https://" not in html
+    assert "visual_confirmation.json" in html
 
 
 def confirmation(source_hash: str) -> VisualConfirmation:

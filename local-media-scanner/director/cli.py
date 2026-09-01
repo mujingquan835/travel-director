@@ -40,6 +40,30 @@ def version() -> None:
     typer.echo(__version__)
 
 
+@app.command("plan-review")
+def plan_review_command(
+    observations: Path = typer.Option(
+        ..., "--observations", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+    force_local_page: bool = typer.Option(False, "--force-local-page"),
+) -> None:
+    """Plan deterministic offline review routing from clip observations."""
+
+    from director.skill_workflow import choose_review_route
+    from director.visual_schema import ClipObservationBatch
+
+    parsed_observations = ClipObservationBatch.model_validate_json(
+        observations.read_text(encoding="utf-8")
+    )
+    route = choose_review_route(
+        parsed_observations, force_local_page=force_local_page
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(route.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
 @app.command("plan-search")
 def plan_search(
     scanner_result: Path = typer.Option(

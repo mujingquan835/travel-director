@@ -33,15 +33,28 @@ def _manifest_batch_index(manifest: AgentBatchManifest) -> dict[str, AgentBatch]
         raise ValueError("manifest items contain duplicate material membership")
     if len({packet.material_id for packet in manifest.items}) != len(manifest.items):
         raise ValueError("manifest items contain duplicate material IDs")
+    batch_ids = [batch.batch_id for batch in manifest.batches]
+    batch_indexes = [batch.batch_index for batch in manifest.batches]
+    result_paths = [Path(batch.result_path).resolve() for batch in manifest.batches]
+    if (
+        len(batch_ids) != len(set(batch_ids))
+        or set(batch_indexes) != set(range(len(manifest.batches)))
+        or len(result_paths) != len(set(result_paths))
+        or any(batch.batch_id != f"batch-{batch.batch_index:03d}" for batch in manifest.batches)
+        or any(Path(batch.result_path).name != f"{batch.batch_id}.json" for batch in manifest.batches)
+    ):
+        raise ValueError("manifest batch reservations are not unique and consistent")
+    canonical_packets = {packet.material_id: packet for packet in manifest.items}
     by_material: dict[str, AgentBatch] = {}
-    seen_batch_ids: set[str] = set()
     for batch in manifest.batches:
-        if batch.batch_id in seen_batch_ids:
-            raise ValueError("manifest batches contain duplicate batch IDs")
-        seen_batch_ids.add(batch.batch_id)
         for packet in batch.items:
             key = _packet_key(packet)
-            if key not in expected or packet.material_id in by_material:
+            if (
+                key not in expected
+                or canonical_packets.get(packet.material_id) != packet
+            ):
+                raise ValueError("batch packet must exactly match canonical manifest packet")
+            if packet.material_id in by_material:
                 raise ValueError("manifest batches must partition manifest items exactly once")
             by_material[packet.material_id] = batch
     if set(by_material) != {packet.material_id for packet in manifest.items}:

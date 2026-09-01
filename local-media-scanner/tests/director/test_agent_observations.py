@@ -198,6 +198,38 @@ def test_merge_rejects_manifest_batches_that_do_not_partition_items(
         merge_agent_batch_results(_scanner_batch(2), malformed, [])
 
 
+def test_merge_rejects_batch_packet_that_changes_canonical_status_and_sheet(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 1)
+    altered_packet = manifest.items[0].model_copy(
+        update={"status": "review_required", "contact_sheet_path": None}
+    )
+    altered_batch = manifest.batches[0].model_copy(update={"items": [altered_packet]})
+    malformed = manifest.model_copy(update={"batches": [altered_batch]})
+
+    with pytest.raises(ValueError, match="exactly match canonical manifest packet"):
+        merge_agent_batch_results(_scanner_batch(1), malformed, [])
+
+
+@pytest.mark.parametrize("kind", ["batch_id", "batch_index", "result_path"])
+def test_merge_rejects_duplicate_or_inconsistent_batch_reservations(
+    tmp_path: Path, kind: str
+) -> None:
+    manifest = _manifest(tmp_path, 11)
+    second = manifest.batches[1]
+    first = manifest.batches[0]
+    updates = {
+        "batch_id": {"batch_id": first.batch_id},
+        "batch_index": {"batch_index": first.batch_index},
+        "result_path": {"result_path": first.result_path},
+    }[kind]
+    malformed = manifest.model_copy(
+        update={"batches": [first, second.model_copy(update=updates)]}
+    )
+
+    with pytest.raises(ValueError, match="batch reservations"):
+        merge_agent_batch_results(_scanner_batch(11), malformed, [])
+
+
 def _merge_cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
     paths = create_visual_project(
         tmp_path / "runs", "visual", RawCreativeBrief(raw_description="test")

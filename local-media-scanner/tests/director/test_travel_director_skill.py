@@ -41,6 +41,12 @@ def _observation_text() -> str:
     return OBSERVATION_REF.read_text(encoding="utf-8")
 
 
+def _index_or_fail(text: str, needle: str) -> int:
+    index = text.find(needle)
+    assert index >= 0, needle
+    return index
+
+
 def _manifest(root: Path) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -290,3 +296,40 @@ def test_workflow_reference_lists_required_commands():
         "uv run travel-director prepare-agent-batches --frame-map <project>/visual/material_frame_map.json --output-dir <project>/visual/agent_batches",
     ):
         assert command in workflow_text
+
+
+def test_workflow_reference_orders_brief_before_merge_and_review():
+    workflow_text = _workflow_text()
+
+    brief_section = _index_or_fail(workflow_text, "## Brief Normalization And Confirmation")
+    review_section = _index_or_fail(workflow_text, "## Review Routing")
+    normalize_brief = _index_or_fail(
+        workflow_text,
+        "uv run travel-director normalize-brief --brief <project>/brief.json --output <project>/visual/drafts/intent_brief.json",
+    )
+    merge_batches = _index_or_fail(
+        workflow_text,
+        "uv run travel-director merge-agent-batches --project <project> --scanner-observations <project>/visual/scanner_only.json --manifest <project>/visual/agent_batches/manifest.json --result-dir <project>/visual/agent_batches/results --output <project>/visual/drafts/clip_observations.merged.json",
+    )
+
+    assert brief_section < review_section
+    assert normalize_brief < merge_batches
+
+
+def test_workflow_reference_includes_manual_director_review_command_sequence():
+    workflow_text = _workflow_text()
+
+    render_review = _index_or_fail(
+        workflow_text,
+        "uv run travel-director render-director-review --treatment <project>/visual/director_treatment.json --output <project>/visual/review/director_review.html",
+    )
+    validate_review = _index_or_fail(
+        workflow_text,
+        "uv run travel-director validate-director-review --treatment <project>/visual/director_treatment.json --review <project>/visual/review/director_review.json",
+    )
+    record_review = _index_or_fail(
+        workflow_text,
+        "uv run travel-director record-visual-stage --project <project> --stage director_review --artifact <project>/visual/review/director_review.json",
+    )
+
+    assert render_review < validate_review < record_review

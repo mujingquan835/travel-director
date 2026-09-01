@@ -45,7 +45,28 @@ Validate each saved batch result:
 uv run travel-director validate-agent-batch --manifest <project>/visual/agent_batches/manifest.json --result <project>/visual/agent_batches/results/batch-000.json
 ```
 
-After all available batches are validated, merge them into a draft artifact. `merge-agent-batches` requires `--project`, and the output must be strictly under `<project>/visual/drafts/`.
+## Brief Normalization And Confirmation
+
+Resolve blocking brief conflicts before observation merge or visual review routing. Normalize the raw brief first:
+
+```bash
+uv run travel-director normalize-brief --brief <project>/brief.json --output <project>/visual/drafts/intent_brief.json
+uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json
+```
+
+If the normalized brief has blocking conflicts or missing required fields, render the offline confirmation form and wait for the user’s `brief_confirmation.json`:
+
+```bash
+uv run travel-director render-brief-review --draft <project>/visual/intent_brief.json --output <project>/visual/review/brief_review.html
+uv run travel-director confirm-brief --draft <project>/visual/intent_brief.json --confirmation <project>/visual/review/brief_confirmation.json --output <project>/visual/drafts/brief_confirmation.confirmed.json
+uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json
+```
+
+If the normalized brief is already complete and conflict-free, the agent may write a matching `brief_confirmation.json` with the required draft hash and immediately validate it with `confirm-brief` before recording the stage.
+
+## Review Routing
+
+After the brief is confirmed, merge the saved agent batches into a draft observation artifact. `merge-agent-batches` requires `--project`, and the output must be strictly under `<project>/visual/drafts/`.
 
 ```bash
 uv run travel-director merge-agent-batches --project <project> --scanner-observations <project>/visual/scanner_only.json --manifest <project>/visual/agent_batches/manifest.json --result-dir <project>/visual/agent_batches/results --output <project>/visual/drafts/clip_observations.merged.json
@@ -53,8 +74,6 @@ uv run travel-director record-visual-stage --project <project> --stage clip_obse
 ```
 
 If no agent batches are available, keep the Scanner artifact as the working observation set, mark the outcome `scanner_only + assisted`, and surface that status in the final response.
-
-## Review Routing
 
 Plan or prepare review from the canonical `clip_observations.json`:
 
@@ -84,25 +103,6 @@ uv run travel-director record-visual-stage --project <project> --stage clip_obse
 
 If required visual confirmation is declined, stop with `blocked` and report the preserved Scanner and draft artifacts instead of guessing.
 
-## Brief Normalization And Confirmation
-
-Normalize the raw brief first:
-
-```bash
-uv run travel-director normalize-brief --brief <project>/brief.json --output <project>/visual/drafts/intent_brief.json
-uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json
-```
-
-If the normalized brief has blocking conflicts or missing required fields, render the offline confirmation form and wait for the user’s `brief_confirmation.json`:
-
-```bash
-uv run travel-director render-brief-review --draft <project>/visual/intent_brief.json --output <project>/visual/review/brief_review.html
-uv run travel-director confirm-brief --draft <project>/visual/intent_brief.json --confirmation <project>/visual/review/brief_confirmation.json --output <project>/visual/drafts/brief_confirmation.confirmed.json
-uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json
-```
-
-If the normalized brief is already complete and conflict-free, the agent may write a matching `brief_confirmation.json` with the required draft hash and immediately validate it with `confirm-brief` before recording the stage.
-
 ## Treatment, Director Review, And Prompts
 
 Build the deterministic downstream artifacts from canonical inputs:
@@ -130,7 +130,15 @@ uv run travel-director validate-director-review --treatment <project>/visual/dir
 uv run travel-director record-visual-stage --project <project> --stage director_review --artifact <project>/visual/drafts/director_review.json
 ```
 
-If the user wants manual bucket overrides instead, render the page, wait for the exported file, then validate and publish it with the same `validate-director-review` and `record-visual-stage` commands.
+If the user wants manual bucket overrides instead, render the review page first:
+
+```bash
+uv run travel-director render-director-review --treatment <project>/visual/director_treatment.json --output <project>/visual/review/director_review.html
+uv run travel-director validate-director-review --treatment <project>/visual/director_treatment.json --review <project>/visual/review/director_review.json
+uv run travel-director record-visual-stage --project <project> --stage director_review --artifact <project>/visual/review/director_review.json
+```
+
+The current CLI does not provide an import command for manual Director review. The exported `director_review.json` is itself the stage artifact: validate it, then publish it with `record-visual-stage`.
 
 Finally write the prompt batch:
 

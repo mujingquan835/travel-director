@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
-import os
+import mimetypes
 from html import escape
 from pathlib import Path
 from typing import Any
 
-from director.agent_batches import MaterialFrameMap
+from director.agent_batches import MaterialFrameMap, RepresentativeFrame
 from director.evaluation import VisualConfirmation, sha256_file
 from director.skill_workflow import (
     ChatReviewBatch,
@@ -36,13 +37,20 @@ def _json_for_script(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
 
 
-def _relative_asset(path: Path, output: Path) -> str:
-    return Path(os.path.relpath(path.resolve(), output.parent.resolve())).as_posix()
+def _embed_frame(frame: RepresentativeFrame) -> tuple[str, str]:
+    path = Path(frame.path)
+    if not path.is_absolute() or not path.is_file():
+        raise ValueError(f"missing local representative frame: {frame.path}")
+    mime_type, _ = mimetypes.guess_type(path.name)
+    if mime_type is None or not mime_type.startswith("image/"):
+        raise ValueError(f"representative frame must be a local image: {frame.path}")
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}", f"t={frame.timestamp:.3f}s"
 
 
 def render_visual_review(
     observations: ClipObservationBatch,
-    frame_paths: dict[str, list[Path]],
+    frame_paths: dict[str, list[Path | RepresentativeFrame]],
     output: Path,
     *,
     source_observations_sha256: str | None = None,
@@ -58,8 +66,16 @@ def render_visual_review(
         material_id = item.material.material_id
         assertions = {row.field: row for row in item.assertions}
         images = "".join(
-            f'<img src="{escape(_relative_asset(path, output))}" alt="representative frame">'
-            for path in frame_paths.get(material_id, [])
+            (
+                f'<figure><img src="{escape(src)}" alt="representative frame">'
+                f'<figcaption>{escape(label)}</figcaption></figure>'
+            )
+            for src, label in [
+                _embed_frame(
+                    frame if isinstance(frame, RepresentativeFrame) else RepresentativeFrame(path=str(frame), timestamp=0.0)
+                )
+                for frame in frame_paths.get(material_id, [])
+            ]
         )
         fields = sorted(set(item.review_required_fields) | set(item.unknown_fields))
         controls: list[str] = []
@@ -97,7 +113,7 @@ def render_visual_review(
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>旅行导演 · 画面人工确认</title>
 <style>
-body{{font-family:system-ui,-apple-system,sans-serif;background:#101114;color:#f3f4f6;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}article{{background:#1b1d22;border:1px solid #30333a;border-radius:14px;padding:18px;margin:18px 0}}h1{{margin-top:0}}h2{{font-size:17px;word-break:break-all}}.meta,.original{{color:#aeb4c0;font-size:12px}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:14px 0}}.frames img{{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:8px}}.field{{display:grid;grid-template-columns:180px 150px 1fr 1fr;gap:8px;align-items:center;padding:10px 0;border-top:1px solid #30333a}}select,textarea,input{{box-sizing:border-box;width:100%;background:#111318;color:#f3f4f6;border:1px solid #444954;border-radius:7px;padding:8px}}textarea{{min-height:44px}}button{{background:#6d5dfc;color:white;border:0;border-radius:9px;padding:11px 16px;cursor:pointer}}.toolbar{{position:sticky;top:0;background:#101114ee;padding:12px 0;z-index:2}}.warning{{color:#f0b45a}}@media(max-width:800px){{.field{{grid-template-columns:1fr}}}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#101114;color:#f3f4f6;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}article{{background:#1b1d22;border:1px solid #30333a;border-radius:14px;padding:18px;margin:18px 0}}h1{{margin-top:0}}h2{{font-size:17px;word-break:break-all}}.meta,.original{{color:#aeb4c0;font-size:12px}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:14px 0}}.frames figure{{margin:0}}.frames img{{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:8px}}figcaption{{margin-top:4px;color:#aeb4c0;font-size:12px}}.field{{display:grid;grid-template-columns:180px 150px 1fr 1fr;gap:8px;align-items:center;padding:10px 0;border-top:1px solid #30333a}}select,textarea,input{{box-sizing:border-box;width:100%;background:#111318;color:#f3f4f6;border:1px solid #444954;border-radius:7px;padding:8px}}textarea{{min-height:44px}}button{{background:#6d5dfc;color:white;border:0;border-radius:9px;padding:11px 16px;cursor:pointer}}.toolbar{{position:sticky;top:0;background:#101114ee;padding:12px 0;z-index:2}}.warning{{color:#f0b45a}}@media(max-width:800px){{.field{{grid-template-columns:1fr}}}}
 </style></head><body><main>
 <div class="toolbar"><label>复核人 <input id="reviewer" value="manual-review"></label> <button id="download">下载 visual_confirmation.json</button></div>
 <h1>画面人工确认</h1><p>只修正画面观察；不填写剪辑起止区间。候选或未知字段必须保留确认理由。</p>
@@ -130,6 +146,7 @@ def prepare_visual_review(
     output_dir: Path,
     *,
     force_local_page: bool = False,
+    source_observations_sha256: str | None = None,
 ) -> PreparedVisualReview:
     """Prepare the selected local review channel without opening a browser."""
 
@@ -152,10 +169,15 @@ def prepare_visual_review(
     if route.channel == "local_page":
         html = root / "visual_review.html"
         frames = {
-            item.material.material_id: [Path(frame.path) for frame in item.frames]
+            item.material.material_id: item.frames
             for item in frame_map.items
         }
-        render_visual_review(observations, frames, html)
+        render_visual_review(
+            observations,
+            frames,
+            html,
+            source_observations_sha256=source_observations_sha256,
+        )
         html_path = str(html)
         confirmation_path = str(root / "visual_confirmation.json")
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from typer.testing import CliRunner
 
 from director.cli import app
@@ -77,26 +79,7 @@ def observations() -> ClipObservationBatch:
     )
 
 
-@pytest.fixture
-def clean_observations() -> ClipObservationBatch:
-    return observations().model_copy(
-        update={
-            "items": [
-                observations().items[0].model_copy(
-                    update={"review_required_fields": []}
-                )
-            ]
-        }
-    )
-
-
-@pytest.fixture
-def small_review_observations() -> ClipObservationBatch:
-    return observations()
-
-
-@pytest.fixture
-def large_review_observations() -> ClipObservationBatch:
+def large_review_batch() -> ClipObservationBatch:
     base = observations().items[0]
     return observations().model_copy(
         update={
@@ -119,15 +102,38 @@ def large_review_observations() -> ClipObservationBatch:
 
 
 @pytest.fixture
+def clean_observations() -> ClipObservationBatch:
+    return observations().model_copy(
+        update={
+            "items": [
+                observations().items[0].model_copy(
+                    update={"review_required_fields": []}
+                )
+            ]
+        }
+    )
+
+
+@pytest.fixture
+def small_review_observations() -> ClipObservationBatch:
+    return observations()
+
+
+@pytest.fixture
+def large_review_observations() -> ClipObservationBatch:
+    return large_review_batch()
+
+
+@pytest.fixture
 def frame_map(tmp_path: Path) -> MaterialFrameMap:
     frame = tmp_path / "probe.jpg"
-    frame.write_bytes(b"jpeg-placeholder")
+    Image.new("RGB", (4, 3), "red").save(frame, format="JPEG")
     source = observations().items[0].material
     return MaterialFrameMap(
         items=[
             MaterialFrameSet(
                 material=source,
-                frames=[RepresentativeFrame(path=str(frame), timestamp=0.0)],
+                frames=[RepresentativeFrame(path=str(frame), timestamp=12.345)],
             )
         ]
     )
@@ -173,6 +179,47 @@ def test_local_page_route_emits_self_contained_html(
     html = Path(artifact.html_path).read_text(encoding="utf-8")
     assert "http://" not in html and "https://" not in html
     assert "visual_confirmation.json" in html
+    assert "data:image/jpeg;base64," in html
+    assert "t=12.345s" in html
+    assert str(Path(frame_map.items[0].frames[0].path).resolve()) not in html
+
+
+def test_local_page_route_rejects_missing_or_nonlocal_frames(
+    large_review_observations: ClipObservationBatch,
+    output_dir: Path,
+) -> None:
+    source = observations().items[0].material
+    missing = MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=source,
+                frames=[
+                    RepresentativeFrame(
+                        path=str((output_dir.parent / "missing.jpg").resolve()),
+                        timestamp=1.0,
+                    )
+                ],
+            )
+        ]
+    )
+    with pytest.raises(ValueError, match="missing local representative frame"):
+        prepare_visual_review(large_review_observations, missing, output_dir)
+
+    remote = MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=source,
+                frames=[
+                    RepresentativeFrame(
+                        path="https://example.com/frame.jpg",
+                        timestamp=1.0,
+                    )
+                ],
+            )
+        ]
+    )
+    with pytest.raises(ValueError, match="missing local representative frame"):
+        prepare_visual_review(large_review_observations, remote, output_dir)
 
 
 def confirmation(source_hash: str) -> VisualConfirmation:
@@ -197,21 +244,25 @@ def confirmation(source_hash: str) -> VisualConfirmation:
 
 def test_review_page_is_offline_and_exports_confirmation(tmp_path: Path) -> None:
     probe = tmp_path / "probe.jpg"
-    probe.write_bytes(b"jpeg-placeholder")
+    Image.new("RGB", (4, 3), "blue").save(probe, format="JPEG")
     output = tmp_path / "review.html"
     render_visual_review(
         observations(),
-        {MATERIAL_ID: [probe]},
+        {MATERIAL_ID: [RepresentativeFrame(path=str(probe), timestamp=7.25)]},
         output,
     )
 
     html = output.read_text(encoding="utf-8")
+    encoded = base64.b64encode(probe.read_bytes()).decode("ascii")
     assert "trip/clip-01.mov" in html
     assert "content_families" in html
     assert "下载 visual_confirmation.json" in html
     assert "https://" not in html
     assert "source_in" not in html
     assert "source_out" not in html
+    assert f"data:image/jpeg;base64,{encoded}" in html
+    assert "t=7.250s" in html
+    assert str(probe.resolve()) not in html
 
 
 def test_confirmation_validation_and_import_preserve_original(tmp_path: Path) -> None:
@@ -235,6 +286,91 @@ def test_confirmation_validation_and_import_preserve_original(tmp_path: Path) ->
     assert assertion.value == ["culture_architecture"]
     assert assertion.evidence_refs[0].source_kind == "user_confirmation"
     assert "content_families" not in updated.items[0].review_required_fields
+
+
+def test_prepare_visual_review_uses_original_file_bytes_for_confirmation_hash(
+    large_review_observations: ClipObservationBatch,
+    frame_map: MaterialFrameMap,
+    output_dir: Path,
+) -> None:
+    observations_path = output_dir.parent / "observations.json"
+    observations_path.write_text(
+        large_review_observations.model_dump_json(indent=2), encoding="utf-8"
+    )
+
+    artifact = prepare_visual_review(
+        large_review_observations,
+        frame_map,
+        output_dir,
+        source_observations_sha256=__import__("hashlib").sha256(
+            observations_path.read_bytes()
+        ).hexdigest(),
+    )
+    html = Path(artifact.html_path).read_text(encoding="utf-8")
+    source_hash = __import__("hashlib").sha256(observations_path.read_bytes()).hexdigest()
+
+    assert f"source_observations_sha256:'{source_hash}'" in html
+
+    confirmation_payload = {
+        "schema_version": "0.2.0",
+        "source_observations_sha256": source_hash,
+        "status": "partial",
+        "reviewer": "manual-review",
+        "items": [
+            {
+                "material_id": MATERIAL_ID,
+                "field": "content_families",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": ["culture_architecture"],
+                "confirmed_status": "confirmed",
+                "reviewer_note": "matches bytes hash",
+                "changed_at": "2026-09-01T12:00:00+08:00",
+            }
+        ],
+    }
+    confirmed = VisualConfirmation.model_validate(confirmation_payload)
+    validate_visual_confirmation_against_observations(
+        confirmed, large_review_observations, source_hash
+    )
+
+
+def test_prepare_visual_review_cli_passes_original_file_hash(tmp_path: Path) -> None:
+    draft = large_review_batch()
+    draft_path = tmp_path / "observations.json"
+    draft_path.write_text(draft.model_dump_json(indent=2), encoding="utf-8")
+    frame = tmp_path / "probe.jpg"
+    Image.new("RGB", (4, 3), "green").save(frame, format="JPEG")
+    frame_map = MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=draft.items[0].material,
+                frames=[RepresentativeFrame(path=str(frame), timestamp=2.5)],
+            )
+        ]
+    )
+    frame_map_path = tmp_path / "frame_map.json"
+    frame_map_path.write_text(frame_map.model_dump_json(indent=2), encoding="utf-8")
+    output_dir = tmp_path / "review"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "prepare-visual-review",
+            "--observations",
+            str(draft_path),
+            "--frame-map",
+            str(frame_map_path),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads((output_dir / "review_route.json").read_text(encoding="utf-8"))
+    html = Path(payload["html_path"]).read_text(encoding="utf-8")
+    source_hash = __import__("hashlib").sha256(draft_path.read_bytes()).hexdigest()
+    assert f"source_observations_sha256:'{source_hash}'" in html
 
 
 def test_confirmation_rejects_wrong_hash_or_unknown_field(tmp_path: Path) -> None:

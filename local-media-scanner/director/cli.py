@@ -203,6 +203,7 @@ def prepare_visual_review_command(
     """Prepare chat batches or a local visual review page without opening it."""
 
     from director.agent_batches import MaterialFrameMap
+    from director.evaluation import sha256_file
     from director.visual_review import prepare_visual_review
     from director.visual_schema import ClipObservationBatch
 
@@ -211,6 +212,7 @@ def prepare_visual_review_command(
         MaterialFrameMap.model_validate_json(frame_map.read_text(encoding="utf-8")),
         output_dir,
         force_local_page=force_local_page,
+        source_observations_sha256=sha256_file(observations),
     )
     typer.echo(str(output_dir.resolve() / "review_route.json"))
 

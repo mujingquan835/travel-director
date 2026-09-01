@@ -111,6 +111,7 @@ def validate_agent_batch_command(
 
 @app.command("merge-agent-batches")
 def merge_agent_batches_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
     scanner_observations: Path = typer.Option(..., "--scanner-observations", exists=True, dir_okay=False),
     manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
     result_dir: Path = typer.Option(..., "--result-dir", exists=True, file_okay=False),
@@ -120,10 +121,20 @@ def merge_agent_batches_command(
 
     from director.agent_batches import AgentBatchManifest
     from director.agent_observations import merge_agent_batch_results
-    from director.project import _atomic_write, _canonical_bytes
+    from director.project import _atomic_write, _canonical_bytes, load_project_state, open_project
     from director.visual_schema import ClipObservationBatch
 
-    if output.resolve() == scanner_observations.resolve():
+    paths = open_project(project.resolve())
+    if load_project_state(paths).schema_version != "0.2.0":
+        raise typer.BadParameter("project is not a V0.2 visual project", param_hint="--project")
+    draft_root = paths.visual_drafts.resolve()
+    destination = output.resolve()
+    if destination == draft_root or not destination.is_relative_to(draft_root):
+        raise typer.BadParameter(
+            "output must be strictly under project visual/drafts",
+            param_hint="--output",
+        )
+    if destination == scanner_observations.resolve():
         raise typer.BadParameter("output cannot overwrite scanner observations", param_hint="--output")
     parsed_manifest = AgentBatchManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
     checkpoints = [
@@ -136,8 +147,8 @@ def merge_agent_batches_command(
         parsed_manifest,
         checkpoints,
     )
-    _atomic_write(output, _canonical_bytes(merged.model_dump(mode="json")))
-    typer.echo(str(output))
+    _atomic_write(destination, _canonical_bytes(merged.model_dump(mode="json")))
+    typer.echo(str(destination))
 
 
 @app.command("record-visual-stage")

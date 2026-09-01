@@ -4,10 +4,13 @@ import hashlib
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
 from director.agent_batches import AgentBatchManifest, AgentMaterialPacket
 from director.agent_observations import AgentBatchResult, merge_agent_batch_results, validate_agent_batch_result, write_agent_batch_checkpoint
-from director.visual_schema import ClipObservation, ClipObservationBatch, EvidenceRef, MaterialRef, ObservationAssertion, derive_material_id
+from director.cli import app
+from director.project import create_visual_project
+from director.visual_schema import ClipObservation, ClipObservationBatch, EvidenceRef, MaterialRef, ObservationAssertion, RawCreativeBrief, derive_material_id
 
 
 def _material(index: int) -> MaterialRef:
@@ -163,3 +166,76 @@ def test_missing_or_failed_batch_keeps_agent_fields_for_review(tmp_path: Path) -
     failed_last = next(item for item in failed_merge.items if item.material.relative_path == "trip/clip-10.mov")
     assert failed_merge.status == "partial"
     assert "lighting" in failed_last.review_required_fields
+
+
+def test_merge_rejects_scanner_material_set_that_omits_manifest_item(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 2)
+
+    with pytest.raises(ValueError, match="exactly match manifest"):
+        merge_agent_batch_results(_scanner_batch(1), manifest, [])
+
+
+def test_merge_rejects_duplicate_scanner_material_id(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 1)
+    duplicate = _scanner_batch(1).items[0]
+    scanner = _scanner_batch(1).model_copy(update={"items": [duplicate, duplicate]})
+
+    with pytest.raises(ValueError, match="duplicate scanner material"):
+        merge_agent_batch_results(scanner, manifest, [])
+
+
+@pytest.mark.parametrize("batch_items", [[0, 0], [0]], ids=["duplicate", "missing"])
+def test_merge_rejects_manifest_batches_that_do_not_partition_items(
+    tmp_path: Path, batch_items: list[int]
+) -> None:
+    manifest = _manifest(tmp_path, 2)
+    bad_batch = manifest.batches[0].model_copy(
+        update={"items": [manifest.items[index] for index in batch_items]}
+    )
+    malformed = manifest.model_copy(update={"batches": [bad_batch]})
+
+    with pytest.raises(ValueError, match="partition manifest items"):
+        merge_agent_batch_results(_scanner_batch(2), malformed, [])
+
+
+def _merge_cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
+    paths = create_visual_project(
+        tmp_path / "runs", "visual", RawCreativeBrief(raw_description="test")
+    )
+    manifest = _manifest(tmp_path, 1)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(manifest.model_dump_json(), encoding="utf-8")
+    scanner_path = tmp_path / "scanner.json"
+    scanner_path.write_text(_scanner_batch(1).model_dump_json(), encoding="utf-8")
+    result_dir = tmp_path / "results"
+    result_dir.mkdir()
+    (result_dir / "batch-000.json").write_text(_result(manifest).model_dump_json(), encoding="utf-8")
+    args = [
+        "merge-agent-batches", "--project", str(paths.root),
+        "--scanner-observations", str(scanner_path), "--manifest", str(manifest_path),
+        "--result-dir", str(result_dir),
+    ]
+    return args, paths.root, paths.clip_observations, paths.visual_drafts
+
+
+def test_merge_cli_rejects_canonical_stage_output(tmp_path: Path) -> None:
+    args, _project, canonical, _drafts = _merge_cli_fixture(tmp_path)
+    canonical.write_bytes(b"published canonical evidence")
+
+    result = CliRunner().invoke(app, [*args, "--output", str(canonical)])
+
+    assert result.exit_code != 0
+    assert "visual/drafts" in result.output
+    assert canonical.read_bytes() == b"published canonical evidence"
+
+
+def test_merge_cli_rejects_output_outside_project_drafts_and_traversal(tmp_path: Path) -> None:
+    args, _project, _canonical, drafts = _merge_cli_fixture(tmp_path)
+    outside = tmp_path / "outside.json"
+    traversal = drafts / ".." / "clip_observations.json"
+
+    for output in (outside, traversal):
+        result = CliRunner().invoke(app, [*args, "--output", str(output)])
+        assert result.exit_code != 0
+        assert "visual/drafts" in result.output
+        assert not output.exists()

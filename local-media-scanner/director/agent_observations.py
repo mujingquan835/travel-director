@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import Field, ValidationError
 
-from director.agent_batches import AGENT_VISUAL_FIELDS, AgentBatchManifest, AgentMaterialPacket
+from director.agent_batches import AGENT_VISUAL_FIELDS, AgentBatch, AgentBatchManifest, AgentMaterialPacket
 from director.project import _atomic_write, _canonical_bytes
 from director.visual_schema import ClipObservation, ClipObservationBatch, ProviderIssue, VisualStrictModel
 
@@ -23,7 +23,34 @@ class AgentBatchResult(VisualStrictModel):
     errors: list[ProviderIssue] = Field(default_factory=list)
 
 
-def _batch(manifest: AgentBatchManifest, batch_id: str):
+def _packet_key(packet: AgentMaterialPacket) -> tuple[str, str]:
+    return packet.material_id, packet.relative_path
+
+
+def _manifest_batch_index(manifest: AgentBatchManifest) -> dict[str, AgentBatch]:
+    expected = {_packet_key(packet) for packet in manifest.items}
+    if len(expected) != len(manifest.items):
+        raise ValueError("manifest items contain duplicate material membership")
+    if len({packet.material_id for packet in manifest.items}) != len(manifest.items):
+        raise ValueError("manifest items contain duplicate material IDs")
+    by_material: dict[str, AgentBatch] = {}
+    seen_batch_ids: set[str] = set()
+    for batch in manifest.batches:
+        if batch.batch_id in seen_batch_ids:
+            raise ValueError("manifest batches contain duplicate batch IDs")
+        seen_batch_ids.add(batch.batch_id)
+        for packet in batch.items:
+            key = _packet_key(packet)
+            if key not in expected or packet.material_id in by_material:
+                raise ValueError("manifest batches must partition manifest items exactly once")
+            by_material[packet.material_id] = batch
+    if set(by_material) != {packet.material_id for packet in manifest.items}:
+        raise ValueError("manifest batches must partition manifest items exactly once")
+    return by_material
+
+
+def _batch(manifest: AgentBatchManifest, batch_id: str) -> AgentBatch:
+    _manifest_batch_index(manifest)
     for batch in manifest.batches:
         if batch.batch_id == batch_id:
             return batch
@@ -142,6 +169,18 @@ def merge_agent_batch_results(
 ) -> ClipObservationBatch:
     """Merge immutable checkpoints without changing Scanner measurements."""
 
+    batch_by_material = _manifest_batch_index(manifest)
+    manifest_keys = {_packet_key(packet) for packet in manifest.items}
+    scanner_ids = [item.material.material_id for item in scanner_observations.items]
+    if len(scanner_ids) != len(set(scanner_ids)):
+        raise ValueError("duplicate scanner material ID")
+    scanner_keys = {
+        (item.material.material_id, item.material.relative_path)
+        for item in scanner_observations.items
+    }
+    if scanner_keys != manifest_keys:
+        raise ValueError("scanner observations must exactly match manifest materials")
+
     results: dict[str, AgentBatchResult] = {}
     for path in result_paths:
         result = _load_checkpoint(path)
@@ -168,7 +207,7 @@ def merge_agent_batch_results(
         packet = packets.get(scanner_item.material.material_id)
         if packet is None or packet.relative_path != scanner_item.material.relative_path:
             raise ValueError("scanner observation is not represented by the agent manifest")
-        batch = next(batch for batch in manifest.batches if packet in batch.items)
+        batch = batch_by_material[packet.material_id]
         agent_item = agent_items.get(packet.material_id)
         measured_fields = {
             assertion.field for assertion in scanner_item.assertions if assertion.status == "measured"

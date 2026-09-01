@@ -76,6 +76,11 @@ class ProjectPaths:
     render_result: Path
     external_calls: Path
     visual_dir: Path
+    visual_drafts: Path
+    agent_batch_manifest: Path
+    agent_batch_results: Path
+    review_route: Path
+    final_summary: Path
     clip_observations: Path
     intent_brief: Path
     brief_confirmation: Path
@@ -137,6 +142,11 @@ def _paths(root: Path) -> ProjectPaths:
         render_result=root / "render" / "render_result.json",
         external_calls=root / "external_calls.json",
         visual_dir=root / "visual",
+        visual_drafts=root / "visual" / "drafts",
+        agent_batch_manifest=root / "visual" / "agent_batches" / "manifest.json",
+        agent_batch_results=root / "visual" / "agent_batches" / "results",
+        review_route=root / "visual" / "review_route.json",
+        final_summary=root / "visual" / "final_summary.json",
         clip_observations=root / "visual" / "clip_observations.json",
         intent_brief=root / "visual" / "intent_brief.json",
         brief_confirmation=root / "visual" / "brief_confirmation.json",
@@ -354,10 +364,14 @@ def create_visual_project(
             or _sha256_file(paths.external_calls) != external_calls_hash
         ):
             raise ProjectConflict("external call ledger drifted")
+        paths.visual_drafts.mkdir(parents=True, exist_ok=True)
+        paths.agent_batch_results.mkdir(parents=True, exist_ok=True)
         return paths
 
     root.mkdir(parents=True, exist_ok=True)
     paths.visual_dir.mkdir(exist_ok=True)
+    paths.visual_drafts.mkdir(exist_ok=True)
+    paths.agent_batch_results.mkdir(parents=True, exist_ok=True)
     _atomic_write(paths.brief, brief_payload)
     external_calls_payload = _canonical_bytes([])
     _atomic_write(paths.external_calls, external_calls_payload)
@@ -455,6 +469,43 @@ def record_stage_artifact(
         state.completion_mode = json_value["mode"]
     _write_state(paths, state)
     return payload_hash
+
+
+def record_visual_stage_checked(paths: ProjectPaths, stage: str, artifact: Path) -> str:
+    """Publish one checked V0.2 draft only after all predecessors are complete."""
+
+    state = load_project_state(paths)
+    if state.schema_version != "0.2.0":
+        raise ProjectConflict("record-visual-stage requires a V0.2 visual project")
+    if stage not in VISUAL_STAGE_ORDER:
+        raise ValueError(f"unknown visual stage: {stage}")
+    draft = artifact.resolve()
+    canonical = paths.artifact_for(stage).resolve()
+    if draft == canonical:
+        raise ProjectConflict("canonical artifact cannot be its own draft input")
+    if not draft.is_file():
+        raise FileNotFoundError(draft)
+    drafts_root = paths.visual_drafts.resolve()
+    if not draft.is_relative_to(drafts_root):
+        raise ProjectConflict("visual stage draft must be under visual/drafts")
+    for predecessor in VISUAL_STAGE_ORDER[: VISUAL_STAGE_ORDER.index(stage)]:
+        predecessor_path = paths.artifact_for(predecessor)
+        recorded_hash = state.completed_artifact_hashes.get(predecessor)
+        if recorded_hash is None or not predecessor_path.is_file():
+            raise ProjectConflict(f"predecessor is not recorded: {predecessor}")
+        if _sha256_file(predecessor_path) != recorded_hash:
+            raise ProjectConflict(f"predecessor artifact hash drifted: {predecessor}")
+        try:
+            predecessor_value = _validated_stage_value(
+                predecessor,
+                json.loads(predecessor_path.read_text(encoding="utf-8")),
+                "0.2.0",
+            )
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ProjectConflict(f"predecessor artifact is invalid: {predecessor}") from exc
+        if predecessor_value.get("status") != "completed":
+            raise ProjectConflict(f"predecessor is not completed: {predecessor}")
+    return record_stage_artifact(paths, stage, draft)
 
 
 def advance_project(

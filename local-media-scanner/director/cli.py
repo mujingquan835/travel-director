@@ -92,6 +92,68 @@ def prepare_agent_batches_command(
     typer.echo(str(output))
 
 
+@app.command("validate-agent-batch")
+def validate_agent_batch_command(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
+    result: Path = typer.Option(..., "--result", exists=True, dir_okay=False),
+) -> None:
+    """Validate an invoking-agent checkpoint without regenerating it."""
+
+    from director.agent_batches import AgentBatchManifest
+    from director.agent_observations import AgentBatchResult, validate_agent_batch_result, write_agent_batch_checkpoint
+
+    parsed_manifest = AgentBatchManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    parsed_result = AgentBatchResult.model_validate_json(result.read_text(encoding="utf-8"))
+    validate_agent_batch_result(parsed_manifest, parsed_result)
+    write_agent_batch_checkpoint(parsed_result, result)
+    typer.echo(str(result))
+
+
+@app.command("merge-agent-batches")
+def merge_agent_batches_command(
+    scanner_observations: Path = typer.Option(..., "--scanner-observations", exists=True, dir_okay=False),
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
+    result_dir: Path = typer.Option(..., "--result-dir", exists=True, file_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Merge saved invoking-agent checkpoints with Scanner-only observations."""
+
+    from director.agent_batches import AgentBatchManifest
+    from director.agent_observations import merge_agent_batch_results
+    from director.project import _atomic_write, _canonical_bytes
+    from director.visual_schema import ClipObservationBatch
+
+    if output.resolve() == scanner_observations.resolve():
+        raise typer.BadParameter("output cannot overwrite scanner observations", param_hint="--output")
+    parsed_manifest = AgentBatchManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    checkpoints = [
+        result_dir / Path(batch.result_path).name
+        for batch in parsed_manifest.batches
+        if (result_dir / Path(batch.result_path).name).is_file()
+    ]
+    merged = merge_agent_batch_results(
+        ClipObservationBatch.model_validate_json(scanner_observations.read_text(encoding="utf-8")),
+        parsed_manifest,
+        checkpoints,
+    )
+    _atomic_write(output, _canonical_bytes(merged.model_dump(mode="json")))
+    typer.echo(str(output))
+
+
+@app.command("record-visual-stage")
+def record_visual_stage_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
+    stage: str = typer.Option(..., "--stage"),
+    artifact: Path = typer.Option(..., "--artifact", exists=True, dir_okay=False),
+) -> None:
+    """Publish one validated V0.2 draft to its canonical project stage path."""
+
+    from director.project import open_project, record_visual_stage_checked
+
+    paths = open_project(project.resolve())
+    typer.echo(record_visual_stage_checked(paths, stage, artifact))
+
+
 @app.command("plan-review")
 def plan_review_command(
     observations: Path = typer.Option(

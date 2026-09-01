@@ -10,6 +10,7 @@ from director.agent_batches import (
     AGENT_VISUAL_FIELDS,
     MaterialFrameMap,
     MaterialFrameSet,
+    RepresentativeFrame,
     build_agent_batch_manifest,
     build_contact_sheet,
 )
@@ -53,23 +54,26 @@ def frame_images(tmp_path: Path) -> list[Path]:
 
 @pytest.fixture
 def material_frame_map(frame_images: list[Path]) -> MaterialFrameMap:
-    return MaterialFrameMap(items=[MaterialFrameSet(material=_material("clip-a.mov", "a"), frame_paths=[str(path) for path in frame_images[:3]])])
+    return MaterialFrameMap(items=[MaterialFrameSet(material=_material("clip-a.mov", "a"), frames=[RepresentativeFrame(path=str(path), timestamp=float(index)) for index, path in enumerate(frame_images[:3])])])
 
 
 def test_contact_sheet_uses_three_to_five_frames(tmp_path: Path, frame_images: list[Path]) -> None:
-    sheet = build_contact_sheet(frame_images[:5], tmp_path / "sheet.jpg", "clip-a")
+    sheet = build_contact_sheet([RepresentativeFrame(path=str(path), timestamp=float(index)) for index, path in enumerate(frame_images[:5])], tmp_path / "sheet.jpg", "clip-a")
     assert sheet.exists()
     assert Image.open(sheet).mode == "RGB"
 
 
-def test_contact_sheet_rejects_more_than_five_input_frames(tmp_path: Path, frame_images: list[Path]) -> None:
-    with pytest.raises(ValueError, match="three to five"):
-        build_contact_sheet(frame_images, tmp_path / "sheet.jpg", "clip-a")
+def test_contact_sheet_caps_more_than_five_input_frames(tmp_path: Path, frame_images: list[Path]) -> None:
+    sheet = build_contact_sheet(
+        [RepresentativeFrame(path=str(path), timestamp=float(index)) for index, path in enumerate(frame_images)],
+        tmp_path / "sheet.jpg", "clip-a",
+    )
+    assert Image.open(sheet).size == (680, 814)
 
 
 def test_batch_manifest_caps_every_batch_at_ten(material_frame_map: MaterialFrameMap, tmp_path: Path) -> None:
     frame_map = MaterialFrameMap(items=[
-        MaterialFrameSet(material=_material(f"clip-{index:02d}.mov", str(index)), frame_paths=material_frame_map.items[0].frame_paths)
+        MaterialFrameSet(material=_material(f"clip-{index:02d}.mov", str(index)), frames=material_frame_map.items[0].frames)
         for index in range(23)
     ])
     manifest = build_agent_batch_manifest(frame_map, tmp_path)
@@ -78,7 +82,7 @@ def test_batch_manifest_caps_every_batch_at_ten(material_frame_map: MaterialFram
 
 
 def test_missing_representative_frames_is_recorded_not_invented(material_frame_map: MaterialFrameMap, tmp_path: Path) -> None:
-    frame_map = MaterialFrameMap(items=[MaterialFrameSet(material=_material("clip-a.mov", "a"), frame_paths=[])])
+    frame_map = MaterialFrameMap(items=[MaterialFrameSet(material=_material("clip-a.mov", "a"), frames=[])])
     manifest = build_agent_batch_manifest(frame_map, tmp_path)
     item = manifest.item_by_relative_path("clip-a.mov")
     assert item.status == "review_required"
@@ -87,8 +91,8 @@ def test_missing_representative_frames_is_recorded_not_invented(material_frame_m
 
 def test_batch_manifest_orders_packets_by_relative_path_and_keeps_local_outputs(material_frame_map: MaterialFrameMap, tmp_path: Path) -> None:
     frame_map = MaterialFrameMap(items=[
-        MaterialFrameSet(material=_material("z.mov", "z"), frame_paths=material_frame_map.items[0].frame_paths),
-        MaterialFrameSet(material=_material("a.mov", "a"), frame_paths=material_frame_map.items[0].frame_paths),
+        MaterialFrameSet(material=_material("z.mov", "z"), frames=material_frame_map.items[0].frames),
+        MaterialFrameSet(material=_material("a.mov", "a"), frames=material_frame_map.items[0].frames),
     ])
     manifest = build_agent_batch_manifest(frame_map, tmp_path)
     assert [item.relative_path for item in manifest.items] == ["a.mov", "z.mov"]
@@ -99,6 +103,46 @@ def test_batch_manifest_orders_packets_by_relative_path_and_keeps_local_outputs(
 def test_empty_material_map_is_rejected() -> None:
     with pytest.raises(ValueError):
         MaterialFrameMap(items=[])
+
+
+def test_frame_set_rejects_duplicate_resolved_paths(frame_images: list[Path]) -> None:
+    duplicate = frame_images[0]
+    with pytest.raises(ValueError, match="duplicate representative frame paths"):
+        MaterialFrameSet(
+            material=_material("clip-a.mov", "a"),
+            frames=[
+                RepresentativeFrame(path=str(duplicate), timestamp=0.0),
+                RepresentativeFrame(path=str(duplicate.resolve()), timestamp=1.0),
+                RepresentativeFrame(path=str(frame_images[1]), timestamp=2.0),
+            ],
+        )
+
+
+def test_batch_manifest_defensively_deduplicates_duplicate_frames(
+    frame_images: list[Path], tmp_path: Path
+) -> None:
+    duplicate = RepresentativeFrame(path=str(frame_images[0]), timestamp=0.0)
+    frame_set = MaterialFrameSet.model_construct(
+        material=_material("clip-a.mov", "a"), frames=[duplicate, duplicate, duplicate]
+    )
+    frame_map = MaterialFrameMap.model_construct(schema_version="0.2.0", items=[frame_set])
+    packet = build_agent_batch_manifest(frame_map, tmp_path).items[0]
+    assert packet.status == "review_required"
+    assert packet.contact_sheet_path is None
+
+
+def test_contact_sheet_timestamp_labels_change_rendered_output(
+    frame_images: list[Path], tmp_path: Path
+) -> None:
+    early = build_contact_sheet(
+        [RepresentativeFrame(path=str(path), timestamp=float(index)) for index, path in enumerate(frame_images[:3])],
+        tmp_path / "early.jpg", "clip-a",
+    )
+    late = build_contact_sheet(
+        [RepresentativeFrame(path=str(path), timestamp=float(index + 100)) for index, path in enumerate(frame_images[:3])],
+        tmp_path / "late.jpg", "clip-a",
+    )
+    assert early.read_bytes() != late.read_bytes()
 
 
 def _card(relative_path: str, frames: list[FrameRecord]) -> ScannerCard:
@@ -125,8 +169,31 @@ def test_build_material_frame_map_resolves_saved_frames_and_preserves_missing(tm
         ClipObservation(material=second, provider="scanner_only", observation_status="abstained"),
     ])
     frame_map = build_material_frame_map(result, observations, run_dir)
-    assert frame_map.items[0].frame_paths == [str(saved.resolve())]
-    assert frame_map.items[1].frame_paths == []
+    assert frame_map.items[0].frames == [RepresentativeFrame(path=str(saved.resolve()), timestamp=2.0)]
+    assert frame_map.items[1].frames == []
+
+
+def test_build_material_frame_map_degrades_when_one_thumbnail_is_missing(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    saved = []
+    for name in ("a.jpg", "b.jpg"):
+        path = run_dir / "frames" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (20, 20), "red").save(path)
+        saved.append(path)
+    material = _material("a.mov", "a")
+    result = ScannerResult(run_id="run", requested_device="cpu", actual_device="cpu", items=[
+        _card("a.mov", [
+            FrameRecord(timestamp=0.0, reasons=["temporal"], thumbnail_relpath="frames/a.jpg"),
+            FrameRecord(timestamp=1.0, reasons=["temporal"], thumbnail_relpath="frames/missing.jpg"),
+            FrameRecord(timestamp=2.0, reasons=["temporal"], thumbnail_relpath="frames/b.jpg"),
+        ])
+    ])
+    observations = ClipObservationBatch(status="partial", mode="scanner_only", items=[ClipObservation(material=material, provider="scanner_only", observation_status="abstained")])
+    frame_map = build_material_frame_map(result, observations, run_dir)
+    assert [frame.path for frame in frame_map.items[0].frames] == [str(path.resolve()) for path in saved]
+    packet = build_agent_batch_manifest(frame_map, tmp_path / "batches").items[0]
+    assert packet.status == "review_required"
 
 
 def test_build_material_frame_map_rejects_thumbnail_path_traversal(tmp_path: Path) -> None:

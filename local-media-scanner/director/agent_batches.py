@@ -25,7 +25,20 @@ AGENT_VISUAL_FIELDS = (
 
 class MaterialFrameSet(VisualStrictModel):
     material: MaterialRef
-    frame_paths: list[str] = Field(max_length=5)
+    frames: list["RepresentativeFrame"] = Field(max_length=5)
+
+    @model_validator(mode="after")
+    def paths_are_unique_and_timestamp_ordered(self) -> "MaterialFrameSet":
+        resolved_paths = [Path(frame.path).resolve() for frame in self.frames]
+        if len(resolved_paths) != len(set(resolved_paths)):
+            raise ValueError("duplicate representative frame paths are not allowed")
+        self.frames = sorted(self.frames, key=lambda frame: frame.timestamp)
+        return self
+
+
+class RepresentativeFrame(VisualStrictModel):
+    path: str = Field(min_length=1)
+    timestamp: float = Field(ge=0.0)
 
 
 class MaterialFrameMap(VisualStrictModel):
@@ -68,18 +81,30 @@ class AgentBatchManifest(VisualStrictModel):
         raise KeyError(relative_path)
 
 
-def build_contact_sheet(frame_images: list[Path], output: Path, material_filename: str) -> Path:
+def _unique_frames(frames: list[RepresentativeFrame]) -> list[RepresentativeFrame]:
+    unique: list[RepresentativeFrame] = []
+    seen: set[Path] = set()
+    for frame in sorted(frames, key=lambda value: value.timestamp):
+        resolved = Path(frame.path).resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            unique.append(frame.model_copy(update={"path": str(resolved)}))
+    return unique[:5]
+
+
+def build_contact_sheet(frames: list[RepresentativeFrame], output: Path, material_filename: str) -> Path:
     """Write a deterministic two-column RGB JPEG from three to five local frames."""
-    if not 3 <= len(frame_images) <= 5:
+    unique_frames = _unique_frames(frames)
+    if not 3 <= len(unique_frames) <= 5:
         raise ValueError("contact sheets require three to five representative frames")
     opened = []
-    for frame in frame_images:
-        with Image.open(frame) as source:
+    for frame in unique_frames:
+        with Image.open(frame.path) as source:
             image = source.convert("RGB")
         image.thumbnail((320, 220))
         opened.append((frame, image))
     cell_width, cell_height, header, label = 340, 260, 34, 22
-    rows = (len(frame_images) + 1) // 2
+    rows = (len(unique_frames) + 1) // 2
     canvas = Image.new("RGB", (cell_width * 2, header + rows * cell_height), "white")
     draw = ImageDraw.Draw(canvas)
     draw.text((8, 8), material_filename, fill="black")
@@ -88,7 +113,7 @@ def build_contact_sheet(frame_images: list[Path], output: Path, material_filenam
         x += (cell_width - image.width) // 2
         y += (cell_height - label - image.height) // 2
         canvas.paste(image, (x, y))
-        draw.text(((index % 2) * cell_width + 8, header + (index // 2 + 1) * cell_height - label), f"t={frame.stem}", fill="black")
+        draw.text(((index % 2) * cell_width + 8, header + (index // 2 + 1) * cell_height - label), f"t={frame.timestamp:.3f}s", fill="black")
         image.close()
     output.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(output, format="JPEG", quality=90)
@@ -103,15 +128,13 @@ def build_agent_batch_manifest(frame_map: MaterialFrameMap, output_dir: Path) ->
     (root / "results").mkdir(parents=True, exist_ok=True)
     packets: list[AgentMaterialPacket] = []
     for item in sorted(frame_map.items, key=lambda value: value.material.relative_path):
-        frame_paths = [Path(raw).resolve() for raw in item.frame_paths]
-        if len(frame_paths) < 3:
+        frames = _unique_frames(item.frames)
+        if len(frames) < 3:
             contact_sheet_path = None
             status: Literal["ready", "review_required"] = "review_required"
         else:
-            if len(frame_paths) > 5:
-                raise ValueError("material frame paths exceed five")
             filename = f"{item.material.source_sha256[:16]}.jpg"
-            contact_sheet_path = str(build_contact_sheet(frame_paths, sheet_dir / filename, Path(item.material.relative_path).name).resolve())
+            contact_sheet_path = str(build_contact_sheet(frames, sheet_dir / filename, Path(item.material.relative_path).name).resolve())
             if not Path(contact_sheet_path).is_relative_to(root):
                 raise ValueError("contact sheet path escapes output directory")
             status = "ready"

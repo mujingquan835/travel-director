@@ -14,7 +14,7 @@ from director.visual_understanding.scanner_evidence import (
     build_scanner_only_observations,
 )
 from director.visual_schema import ClipObservationBatch
-from director.agent_batches import MaterialFrameMap, MaterialFrameSet
+from director.agent_batches import MaterialFrameMap, MaterialFrameSet, RepresentativeFrame
 from director.schema import (
     MaterialLibraryProfile,
     MaterialScanResult,
@@ -151,8 +151,9 @@ def build_material_frame_map(
         if len(matches) != 1:
             raise ValueError(f"Scanner observation must match exactly one material for {card.source.relative_path}")
         material = matches[0].material
-        records = sorted(card.representative_frames, key=lambda record: record.timestamp)[:5]
-        paths = []
+        records = sorted(card.representative_frames, key=lambda record: record.timestamp)
+        frames = []
+        seen: set[Path] = set()
         for record in records:
             resolved = _path_under(
                 scanner_run_dir / record.thumbnail_relpath,
@@ -160,9 +161,14 @@ def build_material_frame_map(
                 "thumbnail path escapes scanner run directory",
             )
             if not resolved.is_file():
-                raise ValueError(f"saved representative frame is missing: {record.thumbnail_relpath}")
-            paths.append(str(resolved))
-        frame_sets.append(MaterialFrameSet(material=material, frame_paths=paths))
+                continue
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            frames.append(RepresentativeFrame(path=str(resolved), timestamp=record.timestamp))
+            if len(frames) == 5:
+                break
+        frame_sets.append(MaterialFrameSet(material=material, frames=frames))
     return MaterialFrameMap(items=frame_sets)
 
 

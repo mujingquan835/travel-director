@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -371,6 +372,198 @@ def test_prepare_visual_review_cli_passes_original_file_hash(tmp_path: Path) -> 
     html = Path(payload["html_path"]).read_text(encoding="utf-8")
     source_hash = __import__("hashlib").sha256(draft_path.read_bytes()).hexdigest()
     assert f"source_observations_sha256:'{source_hash}'" in html
+
+
+def test_noncanonical_observations_cli_round_trip_uses_exact_file_hash(
+    tmp_path: Path,
+) -> None:
+    frame = tmp_path / "probe.jpg"
+    Image.new("RGB", (4, 3), "purple").save(frame, format="JPEG")
+    observations_path = tmp_path / "observations.json"
+    observations_path.write_text(
+        """{
+  "items": [
+    {
+      "review_required_fields": ["content_families", "setting", "lighting", "people_presence", "people_count_band", "technical_usability"],
+      "provider": "scanner_only",
+      "material": {
+        "orientation": "portrait",
+        "fps": 25,
+        "duration_seconds": 8.5,
+        "mtime_ns": 123,
+        "size_bytes": 100,
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "relative_path": "trip/clip-01.mov",
+        "material_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "assertions": [
+        {
+          "evidence_refs": [
+            {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "status": "measured",
+              "source_kind": "scanner",
+              "field_path": "items[0].technical.orientation",
+              "artifact_path": "scanner_result.json",
+              "material_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "status": "measured",
+          "value": "portrait",
+          "field": "orientation"
+        }
+      ],
+      "unknown_fields": ["content_families"],
+      "observation_status": "abstained"
+    }
+  ],
+  "mode": "scanner_only",
+  "status": "partial",
+  "schema_version": "0.2.0"
+}
+""",
+        encoding="utf-8",
+    )
+    frame_map = MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=observations().items[0].material,
+                frames=[RepresentativeFrame(path=str(frame), timestamp=2.5)],
+            )
+        ]
+    )
+    frame_map_path = tmp_path / "frame_map.json"
+    frame_map_path.write_text(frame_map.model_dump_json(indent=2), encoding="utf-8")
+    output_dir = tmp_path / "review"
+    imported_path = tmp_path / "confirmed.json"
+    confirmation_path = tmp_path / "visual_confirmation.json"
+    runner = CliRunner()
+
+    prepared = runner.invoke(
+        app,
+        [
+            "prepare-visual-review",
+            "--observations",
+            str(observations_path),
+            "--frame-map",
+            str(frame_map_path),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert prepared.exit_code == 0, prepared.output
+    route_payload = json.loads((output_dir / "review_route.json").read_text(encoding="utf-8"))
+    html = Path(route_payload["html_path"]).read_text(encoding="utf-8")
+    source_hash = __import__("hashlib").sha256(observations_path.read_bytes()).hexdigest()
+    assert f"source_observations_sha256:'{source_hash}'" in html
+    page_hash = re.search(r"source_observations_sha256:'([0-9a-f]{64})'", html)
+    assert page_hash is not None
+    assert page_hash.group(1) == source_hash
+
+    confirmation_payload = {
+        "schema_version": "0.2.0",
+        "source_observations_sha256": page_hash.group(1),
+        "status": "completed",
+        "reviewer": "manual-review",
+        "items": [
+            {
+                "material_id": MATERIAL_ID,
+                "field": "content_families",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": ["culture_architecture"],
+                "confirmed_status": "confirmed",
+                "reviewer_note": "family confirmed",
+                "changed_at": "2026-09-01T12:00:00+08:00",
+            },
+            {
+                "material_id": MATERIAL_ID,
+                "field": "setting",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": "outdoor",
+                "confirmed_status": "confirmed",
+                "reviewer_note": "setting confirmed",
+                "changed_at": "2026-09-01T12:00:01+08:00",
+            },
+            {
+                "material_id": MATERIAL_ID,
+                "field": "lighting",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": "daylight",
+                "confirmed_status": "confirmed",
+                "reviewer_note": "lighting confirmed",
+                "changed_at": "2026-09-01T12:00:02+08:00",
+            },
+            {
+                "material_id": MATERIAL_ID,
+                "field": "people_presence",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": "absent",
+                "confirmed_status": "confirmed",
+                "reviewer_note": "people presence confirmed",
+                "changed_at": "2026-09-01T12:00:03+08:00",
+            },
+            {
+                "material_id": MATERIAL_ID,
+                "field": "people_count_band",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": "none",
+                "confirmed_status": "confirmed",
+                "reviewer_note": "people count confirmed",
+                "changed_at": "2026-09-01T12:00:04+08:00",
+            },
+            {
+                "material_id": MATERIAL_ID,
+                "field": "technical_usability",
+                "original_value": None,
+                "original_status": "abstained",
+                "confirmed_value": "usable",
+                "confirmed_status": "confirmed",
+                "reviewer_note": "usability confirmed",
+                "changed_at": "2026-09-01T12:00:05+08:00",
+            },
+        ],
+    }
+    confirmation_path.write_text(
+        json.dumps(confirmation_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        app,
+        [
+            "import-visual-confirmation",
+            "--observations",
+            str(observations_path),
+            "--confirmation",
+            str(confirmation_path),
+            "--output",
+            str(imported_path),
+        ],
+    )
+
+    assert imported.exit_code == 0, imported.output
+    imported_payload = json.loads(imported_path.read_text(encoding="utf-8"))
+    assert imported_payload["status"] == "completed"
+    assert imported_payload["mode"] == "assisted"
+    assert imported_payload["items"][0]["review_required_fields"] == []
+    assert imported_payload["items"][0]["unknown_fields"] == []
+    assert {
+        assertion["field"] for assertion in imported_payload["items"][0]["assertions"]
+    } >= {
+        "orientation",
+        "content_families",
+        "setting",
+        "lighting",
+        "people_presence",
+        "people_count_band",
+        "technical_usability",
+    }
 
 
 def test_confirmation_rejects_wrong_hash_or_unknown_field(tmp_path: Path) -> None:

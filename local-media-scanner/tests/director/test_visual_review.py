@@ -17,9 +17,11 @@ from director.evaluation import (
 )
 from director.visual_review import (
     apply_visual_confirmation,
+    build_automatic_director_review,
     prepare_visual_review,
     render_director_review,
     render_visual_review,
+    validate_director_review,
     validate_visual_confirmation_against_observations,
 )
 from director.agent_batches import MaterialFrameMap, MaterialFrameSet, RepresentativeFrame
@@ -752,3 +754,103 @@ def test_director_review_cli_validates_hash_and_membership(tmp_path: Path) -> No
 
     assert result.exit_code == 0, result.output
     assert "valid" in result.stdout
+
+
+def test_build_automatic_director_review_is_hash_bound() -> None:
+    evidence = EvidenceRef(
+        material_id=MATERIAL_ID,
+        artifact_path="observations.json",
+        field_path="items[0].assertions[0]",
+        source_kind="user_confirmation",
+        status="confirmed",
+        confidence=1.0,
+        sha256="c" * 64,
+    )
+    treatment = DirectorTreatment(
+        status="completed",
+        mode="deterministic",
+        logline="进入古城并逐步建立探索感。",
+        narrative_spine="进入—探索—收束",
+        chapters=[
+            TreatmentChapter(
+                chapter_id="opening",
+                title="进入古城",
+                director_functions=["opening"],
+                material_ids=[MATERIAL_ID],
+                evidence_refs=[evidence],
+            )
+        ],
+        emotional_arc=[
+            {"text": "期待", "evidence_refs": [evidence]},
+            {"text": "探索", "evidence_refs": [evidence]},
+        ],
+        pacing_strategy="逐步加速",
+        pacing_evidence_refs=[evidence],
+        candidate_materials=[MATERIAL_ID],
+        coverage_gaps=["ending"],
+        evidence_refs=[evidence],
+    )
+
+    review = build_automatic_director_review(treatment)
+
+    assert review.status == "completed"
+    assert review.mode == "automatic"
+    assert review.overrides == []
+    assert review.confirmed_at is None
+    validate_director_review(review, treatment)
+
+
+def test_accept_director_treatment_cli_writes_automatic_review(tmp_path: Path) -> None:
+    evidence = EvidenceRef(
+        material_id=MATERIAL_ID,
+        artifact_path="observations.json",
+        field_path="items[0].assertions[0]",
+        source_kind="user_confirmation",
+        status="confirmed",
+        confidence=1.0,
+        sha256="c" * 64,
+    )
+    treatment = DirectorTreatment(
+        status="completed",
+        mode="deterministic",
+        logline="进入古城并逐步建立探索感。",
+        narrative_spine="进入—探索—收束",
+        chapters=[
+            TreatmentChapter(
+                chapter_id="opening",
+                title="进入古城",
+                director_functions=["opening"],
+                material_ids=[MATERIAL_ID],
+                evidence_refs=[evidence],
+            )
+        ],
+        emotional_arc=[
+            {"text": "期待", "evidence_refs": [evidence]},
+            {"text": "探索", "evidence_refs": [evidence]},
+        ],
+        pacing_strategy="逐步加速",
+        pacing_evidence_refs=[evidence],
+        candidate_materials=[MATERIAL_ID],
+        coverage_gaps=["ending"],
+        evidence_refs=[evidence],
+    )
+    treatment_path = tmp_path / "treatment.json"
+    output = tmp_path / "director_review.json"
+    treatment_path.write_text(treatment.model_dump_json(indent=2), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "accept-director-treatment",
+            "--treatment",
+            str(treatment_path),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["mode"] == "automatic"
+    assert payload["overrides"] == []
+    assert payload["confirmed_at"] is None

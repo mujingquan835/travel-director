@@ -740,6 +740,27 @@ def render_director_review_command(
     typer.echo(str(output))
 
 
+@app.command("accept-director-treatment")
+def accept_director_treatment_command(
+    treatment: Path = typer.Option(
+        ..., "--treatment", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Write the default no-override DirectorReview artifact."""
+
+    from director.visual_review import build_automatic_director_review
+    from director.visual_schema import DirectorTreatment
+
+    parsed = DirectorTreatment.model_validate_json(
+        treatment.read_text(encoding="utf-8")
+    )
+    review = build_automatic_director_review(parsed)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(review.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
 @app.command("build-director-treatment")
 def build_director_treatment_command(
     observations: Path = typer.Option(
@@ -845,6 +866,61 @@ def validate_director_review_command(
     )
     validate_director_review(parsed_review, parsed_treatment)
     typer.echo("valid")
+
+
+@app.command("skill-summary")
+def skill_summary_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Write the compact final Skill summary from validated project artifacts."""
+
+    from director.project import (
+        ProjectConflict,
+        load_project_state,
+        open_project,
+        record_supporting_artifact,
+        record_visual_stage_checked,
+    )
+    from director.skill_summary import build_skill_run_summary
+    from director.visual_schema import VisualReviewArtifact
+
+    paths = open_project(project.resolve())
+    if output.resolve() != paths.final_summary.resolve():
+        raise typer.BadParameter(
+            "output must be the project's canonical visual/final_summary.json path",
+            param_hint="--output",
+        )
+    summary = build_skill_run_summary(paths.root)
+    record_supporting_artifact(
+        paths,
+        output,
+        summary.model_dump(mode="json"),
+    )
+    if summary.project_mode != "blocked":
+        state = load_project_state(paths)
+        visual_review = VisualReviewArtifact(
+            status="completed",
+            report_path=str(output.resolve()),
+            source_artifact_hashes={
+                stage: state.completed_artifact_hashes[stage]
+                for stage in (
+                    "clip_observations",
+                    "brief_confirmation",
+                    "director_treatment",
+                    "director_review",
+                    "music_style_recommendations",
+                )
+            },
+            external_call_count=0,
+        )
+        draft = paths.visual_drafts / "visual_review.summary.json"
+        record_supporting_artifact(paths, draft, visual_review.model_dump(mode="json"))
+        try:
+            record_visual_stage_checked(paths, "visual_review", draft)
+        except ProjectConflict as exc:
+            raise typer.BadParameter(str(exc), param_hint="--project") from exc
+    typer.echo(str(output.resolve()))
 
 
 @app.command("render-project")

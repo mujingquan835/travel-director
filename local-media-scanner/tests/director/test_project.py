@@ -12,6 +12,7 @@ from director.project import (
     create_project,
     record_project_inputs,
     create_visual_project,
+    record_supporting_artifact,
     record_visual_stage_checked,
 )
 from director.schema import UserCreativeBrief
@@ -141,3 +142,29 @@ def test_record_visual_stage_rejects_changed_draft_and_out_of_order_stage(tmp_pa
     treatment.write_text(json.dumps({"schema_version": "0.2.0", "status": "completed"}), encoding="utf-8")
     with pytest.raises(ProjectConflict, match="predecessor"):
         record_visual_stage_checked(paths, "director_treatment", treatment)
+
+
+def test_supporting_artifact_writes_only_inside_project_and_is_immutable(tmp_path: Path) -> None:
+    paths = create_visual_project(
+        tmp_path, "visual", RawCreativeBrief(raw_description="test")
+    )
+    payload = {"schema_version": "0.2.0", "note": "summary"}
+
+    first = record_supporting_artifact(paths, paths.final_summary, payload)
+    second = record_supporting_artifact(paths, paths.final_summary, payload)
+
+    assert first == second
+    assert json.loads(paths.final_summary.read_text(encoding="utf-8")) == payload
+
+    with pytest.raises(ProjectConflict, match="already differs"):
+        record_supporting_artifact(
+            paths,
+            paths.final_summary,
+            {"schema_version": "0.2.0", "note": "changed"},
+        )
+    with pytest.raises(ProjectConflict, match="within the project root"):
+        record_supporting_artifact(
+            paths,
+            tmp_path.parent / "outside.json",
+            payload,
+        )

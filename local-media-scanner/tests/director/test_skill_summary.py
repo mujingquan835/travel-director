@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from typer.testing import CliRunner
+
+from director.cli import app
+from director.director_treatment import build_director_treatment
+from director.intent_matcher import build_intent_decisions, build_project_coverage
+from director.music_prompt_recommender import recommend_music_prompts
+from director.project import (
+    create_visual_project,
+    load_project_state,
+    record_supporting_artifact,
+    record_visual_stage_checked,
+)
+from director.skill_summary import EXTERNAL_SERVICES, build_skill_run_summary
+from director.visual_review import build_automatic_director_review
+from director.visual_schema import NormalizedIntentDraft, RawCreativeBrief
+from tests.director.test_intent_matcher import confirmed_brief, six_confirmed_observations
+
+
+def _record_visual_draft(paths, stage: str, payload: object) -> Path:
+    artifact = paths.visual_drafts / f"{stage}.json"
+    artifact.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    record_visual_stage_checked(paths, stage, artifact)
+    return artifact
+
+
+def _intent_brief_payload(
+    raw_description: str, travel_type: str = "城市漫游"
+) -> dict[str, object]:
+    return NormalizedIntentDraft(
+        status="completed",
+        raw_description=raw_description,
+        normalized_fields=confirmed_brief(travel_type).normalized_fields,
+        source_spans=[],
+        unknown_fields=[],
+        conflicting_fields=[],
+        review_required_fields=[],
+        issues=[],
+    ).model_dump(mode="json")
+
+
+def _set_external_calls(paths, payload: list[dict[str, object]]) -> None:
+    record_supporting_artifact(
+        paths, paths.external_calls, payload, state_key="external_calls"
+    )
+
+
+def completed_project(
+    tmp_path: Path,
+    *,
+    observation_mode: str = "assisted",
+    treatment_override: dict[str, object] | None = None,
+    review: bool = True,
+    prompts: bool = True,
+    ledger_payload: list[dict[str, object]] | None = None,
+) -> Path:
+    raw_description = "开封古城城市漫游，竖屏，60秒，纪实探索风格。"
+    paths = create_visual_project(
+        tmp_path,
+        "demo",
+        RawCreativeBrief(raw_description=raw_description),
+    )
+    observations = six_confirmed_observations().model_copy(
+        update={"mode": observation_mode}
+    )
+    brief = confirmed_brief("城市漫游")
+    decisions = build_intent_decisions(observations, brief)
+    coverage = build_project_coverage(observations, decisions)
+    treatment = build_director_treatment(decisions, coverage, brief)
+    if treatment_override:
+        treatment = treatment.model_copy(update=treatment_override)
+    prompts_batch = (
+        recommend_music_prompts(treatment, brief, coverage) if prompts else None
+    )
+
+    _record_visual_draft(
+        paths, "clip_observations", observations.model_dump(mode="json")
+    )
+    _record_visual_draft(paths, "intent_brief", _intent_brief_payload(raw_description))
+    _record_visual_draft(paths, "brief_confirmation", brief.model_dump(mode="json"))
+    _record_visual_draft(paths, "intent_decisions", decisions.model_dump(mode="json"))
+    _record_visual_draft(paths, "project_coverage", coverage.model_dump(mode="json"))
+    _record_visual_draft(
+        paths, "director_treatment", treatment.model_dump(mode="json")
+    )
+    if review:
+        review_artifact = build_automatic_director_review(treatment)
+        _record_visual_draft(
+            paths, "director_review", review_artifact.model_dump(mode="json")
+        )
+    if prompts and prompts_batch is not None:
+        _record_visual_draft(
+            paths,
+            "music_style_recommendations",
+            prompts_batch.model_dump(mode="json"),
+        )
+    _set_external_calls(paths, ledger_payload or [])
+    return paths.root
+
+
+def test_completed_summary_uses_three_bounded_prompts_and_absolute_paths(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+
+    result = build_skill_run_summary(project_root)
+
+    assert result.project_mode == "automatic"
+    assert result.external_call_count == 0
+    assert result.external_services == {
+        name: "not_executed" for name in EXTERNAL_SERVICES
+    }
+    assert len(result.music_prompts) == 3
+    assert all(len(prompt) <= 200 for prompt in result.music_prompts)
+    assert all(Path(path).is_absolute() for path in result.artifact_paths.values())
+    assert result.artifact_paths["final_summary"].endswith("visual/final_summary.json")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected_gap"),
+    [
+        (
+            {
+                "treatment_override": {
+                    "unsupported_inferences": ["guessed soundtrack"]
+                },
+                "prompts": False,
+            },
+            "unsupported_inferences",
+        ),
+        ({"review": False, "prompts": False}, "director_review"),
+        (
+            {
+                "ledger_payload": [
+                    {
+                        "provider": "quduoduo",
+                        "operation": "search",
+                        "authorized_at": "2026-09-01T10:00:00+08:00",
+                        "call_count": 1,
+                        "expected_cost": "unknown",
+                        "actual_cost": "unknown",
+                        "output_status": "not_started",
+                    }
+                ]
+            },
+            "external_calls",
+        ),
+    ],
+)
+def test_completed_summary_gate_blocks_unsupported_review_and_external_calls(
+    tmp_path: Path,
+    kwargs: dict[str, object],
+    expected_gap: str,
+) -> None:
+    project_root = completed_project(tmp_path, **kwargs)
+
+    result = build_skill_run_summary(project_root)
+
+    assert result.project_mode == "blocked"
+    assert result.music_prompts == []
+    assert expected_gap in result.material_gaps
+
+
+def test_incomplete_brief_confirmation_prevents_completed_summary(tmp_path: Path) -> None:
+    raw_description = "开封古城城市漫游，竖屏，60秒，纪实探索风格。"
+    paths = create_visual_project(
+        tmp_path,
+        "demo",
+        RawCreativeBrief(raw_description=raw_description),
+    )
+    observations = six_confirmed_observations()
+    brief = confirmed_brief("城市漫游").model_copy(update={"status": "partial"})
+
+    _record_visual_draft(
+        paths, "clip_observations", observations.model_dump(mode="json")
+    )
+    _record_visual_draft(paths, "intent_brief", _intent_brief_payload(raw_description))
+    _record_visual_draft(paths, "brief_confirmation", brief.model_dump(mode="json"))
+
+    result = build_skill_run_summary(paths.root)
+
+    assert result.project_mode == "blocked"
+    assert result.music_prompts == []
+    assert "brief_confirmation" in result.material_gaps
+
+
+def test_blocked_summary_retains_checkpoint_paths_and_zero_prompts(tmp_path: Path) -> None:
+    raw_description = "开封古城城市漫游，竖屏，60秒，纪实探索风格。"
+    paths = create_visual_project(
+        tmp_path,
+        "demo",
+        RawCreativeBrief(raw_description=raw_description),
+    )
+    observations = six_confirmed_observations()
+
+    _record_visual_draft(
+        paths, "clip_observations", observations.model_dump(mode="json")
+    )
+    _record_visual_draft(paths, "intent_brief", _intent_brief_payload(raw_description))
+
+    result = build_skill_run_summary(paths.root)
+
+    assert result.project_mode == "blocked"
+    assert result.music_prompts == []
+    assert result.artifact_paths["clip_observations"] == str(
+        paths.clip_observations.resolve()
+    )
+    assert result.artifact_paths["intent_brief"] == str(paths.intent_brief.resolve())
+    assert result.artifact_paths["final_summary"] == str(paths.final_summary.resolve())
+
+
+def test_counts_are_derived_from_artifacts_not_treatment_prose(tmp_path: Path) -> None:
+    project_root = completed_project(
+        tmp_path,
+        treatment_override={
+            "logline": "共有999条素材且全部成功，这只是故意写错的文案。",
+        },
+    )
+
+    result = build_skill_run_summary(project_root)
+
+    assert result.material_count == 6
+    assert result.review_required_count == 0
+    assert result.unavailable_count == 0
+    assert result.successful_material_count == sum(result.bucket_counts.values())
+
+
+def test_skill_summary_cli_writes_final_summary_and_records_visual_review(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    output = project_root / "visual" / "final_summary.json"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "skill-summary",
+            "--project",
+            str(project_root),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["project_mode"] == "automatic"
+    state = load_project_state(project_root)
+    assert state.current_stage == "visual_review"
+    visual_review = json.loads(
+        (project_root / "visual" / "review.json").read_text(encoding="utf-8")
+    )
+    assert visual_review["report_path"] == str(output.resolve())
+    assert visual_review["external_call_count"] == 0
+    assert set(visual_review["source_artifact_hashes"]) == {
+        "clip_observations",
+        "brief_confirmation",
+        "director_treatment",
+        "director_review",
+        "music_style_recommendations",
+    }

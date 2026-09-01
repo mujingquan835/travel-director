@@ -370,6 +370,21 @@ def render_director_review(treatment: DirectorTreatment, output: Path) -> Path:
     return output
 
 
+def build_automatic_director_review(treatment: DirectorTreatment) -> DirectorReview:
+    """Accept an unchanged treatment without opening any review page."""
+
+    treatment_hash = hashlib.sha256(
+        _canonical_bytes(treatment.model_dump(mode="json"))
+    ).hexdigest()
+    return DirectorReview(
+        treatment_sha256=treatment_hash,
+        status="completed",
+        mode="automatic",
+        overrides=[],
+        confirmed_at=None,
+    )
+
+
 def validate_director_review(
     review: DirectorReview,
     treatment: DirectorTreatment,

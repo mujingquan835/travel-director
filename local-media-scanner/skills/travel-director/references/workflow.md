@@ -114,18 +114,10 @@ uv run travel-director record-visual-stage --project <project> --stage project_c
 uv run travel-director record-visual-stage --project <project> --stage director_treatment --artifact <project>/visual/drafts/director_treatment.json
 ```
 
-For an automatic Director review, write a local `director_review.json` draft with:
-
-- `schema_version: "0.2.0"`
-- `treatment_sha256`: hash of the recorded treatment
-- `status: "completed"`
-- `mode: "automatic"`
-- `overrides: []`
-- `confirmed_at`: current ISO timestamp
-
-Then validate and publish it:
+For the default no-page automatic Director review, build the hash-bound zero-override artifact directly:
 
 ```bash
+uv run travel-director accept-director-treatment --treatment <project>/visual/director_treatment.json --output <project>/visual/drafts/director_review.json
 uv run travel-director validate-director-review --treatment <project>/visual/director_treatment.json --review <project>/visual/drafts/director_review.json
 uv run travel-director record-visual-stage --project <project> --stage director_review --artifact <project>/visual/drafts/director_review.json
 ```
@@ -151,12 +143,20 @@ The final artifact must contain exactly three music prompts, each at most 200 ch
 
 ## Final Response
 
-There is no dedicated final-summary CLI in this checkout. The final summary is assembled in the current conversation from validated artifacts only.
+The final counts, clickable artifact paths, prompts, and external-call status come only from `skill-summary`. The invoking agent may explain the result but may not recalculate or invent these fields.
+
+Write the summary to the canonical project path:
+
+```bash
+uv run travel-director skill-summary --project <project> --output <project>/visual/final_summary.json
+```
+
+`skill-summary` writes `visual/final_summary.json`, then records the final `visual_review` stage from a draft artifact without opening any page. The final `VisualReviewArtifact` points `report_path` to the summary JSON and carries only the recorded hashes for `clip_observations`, `brief_confirmation`, `director_treatment`, `director_review`, and `music_style_recommendations`.
 
 Return one final response containing:
 
 - project status and whether completion was `automatic`, `assisted`, or `blocked`
-- the canonical artifact paths for `clip_observations.json`, `brief_confirmation.json`, `director_treatment.json`, and `music_style_recommendations.json`
+- the canonical artifact paths reported by `final_summary.json`
 - exactly three ready-to-copy music prompts
 - any unresolved checkpoints that prevented completion
 

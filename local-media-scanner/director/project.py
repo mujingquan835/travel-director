@@ -508,6 +508,49 @@ def record_visual_stage_checked(paths: ProjectPaths, stage: str, artifact: Path)
     return record_stage_artifact(paths, stage, draft)
 
 
+def record_supporting_artifact(
+    paths: ProjectPaths,
+    artifact: Path,
+    value: BaseModel | dict[str, Any] | list[Any] | Path,
+    *,
+    state_key: str | None = None,
+) -> str:
+    """Write a project-scoped supporting artifact without bypassing hash checks."""
+
+    destination = artifact.resolve()
+    if destination == paths.root.resolve() or not destination.is_relative_to(
+        paths.root.resolve()
+    ):
+        raise ProjectConflict("supporting artifact must stay within the project root")
+    if destination.exists() and not destination.is_file():
+        raise ProjectConflict("supporting artifact destination must be a file")
+
+    payload = _canonical_bytes(_json_value(value))
+    payload_hash = _sha256_bytes(payload)
+    if state_key is None:
+        if destination.exists():
+            if _sha256_file(destination) != payload_hash:
+                raise ProjectConflict("supporting artifact already differs")
+            return payload_hash
+        _atomic_write(destination, payload)
+        return payload_hash
+
+    state = load_project_state(paths)
+    recorded_hash = state.completed_artifact_hashes.get(state_key)
+    if recorded_hash is not None:
+        if not destination.exists() or _sha256_file(destination) != recorded_hash:
+            raise ProjectConflict(f"supporting artifact hash drifted: {state_key}")
+        if recorded_hash == payload_hash:
+            return recorded_hash
+    elif destination.exists() and _sha256_file(destination) != payload_hash:
+        raise ProjectConflict("untracked supporting artifact already differs")
+
+    _atomic_write(destination, payload)
+    state.completed_artifact_hashes[state_key] = payload_hash
+    _write_state(paths, state)
+    return payload_hash
+
+
 def advance_project(
     paths: ProjectPaths,
     target_stage: str,

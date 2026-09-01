@@ -40,6 +40,58 @@ def version() -> None:
     typer.echo(__version__)
 
 
+@app.command("build-scanner-observations")
+def build_scanner_observations_command(
+    scanner_result: Path = typer.Option(..., "--scanner-result", exists=True, dir_okay=False),
+    scanner_manifest: Path = typer.Option(..., "--scanner-manifest", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Bind local Scanner output to hashed source files without decoding media."""
+    from director.scanner_bridge import build_scanner_observations_from_files
+    observations = build_scanner_observations_from_files(
+        ScannerResult.model_validate_json(scanner_result.read_text(encoding="utf-8")),
+        TestManifest.model_validate_json(scanner_manifest.read_text(encoding="utf-8")), scanner_result,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(observations.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("build-frame-map")
+def build_frame_map_command(
+    scanner_result: Path = typer.Option(..., "--scanner-result", exists=True, dir_okay=False),
+    scanner_observations: Path = typer.Option(..., "--scanner-observations", exists=True, dir_okay=False),
+    scanner_run_dir: Path = typer.Option(..., "--scanner-run-dir", exists=True, file_okay=False),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Resolve bounded local representative-frame maps from a Scanner run."""
+    from director.scanner_bridge import build_material_frame_map
+    from director.visual_schema import ClipObservationBatch
+    frame_map = build_material_frame_map(
+        ScannerResult.model_validate_json(scanner_result.read_text(encoding="utf-8")),
+        ClipObservationBatch.model_validate_json(scanner_observations.read_text(encoding="utf-8")), scanner_run_dir,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(frame_map.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
+@app.command("prepare-agent-batches")
+def prepare_agent_batches_command(
+    frame_map: Path = typer.Option(..., "--frame-map", exists=True, dir_okay=False),
+    output_dir: Path = typer.Option(..., "--output-dir", file_okay=False),
+) -> None:
+    """Create local contact sheets and bounded packets; no model is invoked."""
+    from director.agent_batches import MaterialFrameMap, build_agent_batch_manifest
+    manifest = build_agent_batch_manifest(
+        MaterialFrameMap.model_validate_json(frame_map.read_text(encoding="utf-8")), output_dir
+    )
+    output = output_dir / "manifest.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(output))
+
+
 @app.command("plan-review")
 def plan_review_command(
     observations: Path = typer.Option(

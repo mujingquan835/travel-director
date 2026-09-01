@@ -56,3 +56,18 @@ def test_inspect_accepts_input_option(sample_video: Path) -> None:
 
     assert result.exit_code == 0
     assert '"file": "fixture.mp4"' in result.stdout
+
+
+def test_inspect_writes_the_validated_manifest_when_output_is_given(
+    sample_video: Path, tmp_path: Path
+) -> None:
+    output = tmp_path / "manifest.json"
+
+    result = CliRunner().invoke(
+        app, ["inspect", "--input", str(sample_video.parent), "--output", str(output)]
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == str(output)
+    written = build_manifest(sample_video.parent, [sample_video])
+    assert output.read_text(encoding="utf-8") == written.model_dump_json(indent=2)

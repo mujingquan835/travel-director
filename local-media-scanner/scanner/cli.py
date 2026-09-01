@@ -62,10 +62,20 @@ def version() -> None:
 
 
 @app.command()
-def inspect(input: Path = typer.Option(..., "--input", exists=True, file_okay=False)) -> None:
+def inspect(
+    input: Path = typer.Option(..., "--input", exists=True, file_okay=False),
+    output: Path | None = typer.Option(None, "--output", dir_okay=False),
+) -> None:
     """Print read-only ffprobe metadata for a video directory."""
 
     manifest = build_manifest(input, discover_videos(input))
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_suffix(output.suffix + ".tmp")
+        temporary.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+        temporary.replace(output)
+        typer.echo(str(output))
+        return
     typer.echo(manifest.model_dump_json(indent=2))
 
 

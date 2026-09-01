@@ -13,6 +13,8 @@ from director.material_enrichment import enrich_materials
 from director.visual_understanding.scanner_evidence import (
     build_scanner_only_observations,
 )
+from director.visual_schema import ClipObservationBatch
+from director.agent_batches import MaterialFrameMap, MaterialFrameSet
 from director.schema import (
     MaterialLibraryProfile,
     MaterialScanResult,
@@ -90,6 +92,78 @@ def to_material_scan(card: ScannerCard) -> MaterialScanResult:
 def _manifest_sha256(manifest: TestManifest) -> str:
     payload = manifest.model_dump_json(exclude_none=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _path_under(path: Path, root: Path, message: str) -> Path:
+    resolved_root = root.resolve()
+    resolved_path = path.resolve()
+    if not resolved_path.is_relative_to(resolved_root):
+        raise ValueError(message)
+    return resolved_path
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_scanner_observations_from_files(
+    scanner_result: ScannerResult,
+    scanner_manifest: TestManifest,
+    scanner_result_path: Path,
+) -> ClipObservationBatch:
+    """Bind Scanner observations to saved result bytes and source-file hashes."""
+    root = Path(scanner_manifest.input_root).resolve()
+    source_hashes = {
+        entry.source.relative_path: _sha256_file(
+            _path_under(root / entry.source.relative_path, root, "source path escapes manifest input root")
+        )
+        for entry in scanner_manifest.entries
+    }
+    result_path = scanner_result_path.resolve()
+    return build_scanner_only_observations(
+        scanner_result,
+        source_hashes=source_hashes,
+        artifact_path=str(result_path),
+        artifact_sha256=_sha256_file(result_path),
+    )
+
+
+def build_material_frame_map(
+    scanner_result: ScannerResult,
+    scanner_observations: ClipObservationBatch,
+    scanner_run_dir: Path,
+) -> MaterialFrameMap:
+    """Resolve at most five saved representative frames from an actual Scanner run."""
+    observations = {
+        (item.material.material_id, item.material.relative_path): item
+        for item in scanner_observations.items
+    }
+    frame_sets = []
+    for card in scanner_result.items:
+        matches = [
+            observation for (material_id, relative_path), observation in observations.items()
+            if relative_path == card.source.relative_path
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"Scanner observation must match exactly one material for {card.source.relative_path}")
+        material = matches[0].material
+        records = sorted(card.representative_frames, key=lambda record: record.timestamp)[:5]
+        paths = []
+        for record in records:
+            resolved = _path_under(
+                scanner_run_dir / record.thumbnail_relpath,
+                scanner_run_dir,
+                "thumbnail path escapes scanner run directory",
+            )
+            if not resolved.is_file():
+                raise ValueError(f"saved representative frame is missing: {record.thumbnail_relpath}")
+            paths.append(str(resolved))
+        frame_sets.append(MaterialFrameSet(material=material, frame_paths=paths))
+    return MaterialFrameMap(items=frame_sets)
 
 
 def build_library_profile(

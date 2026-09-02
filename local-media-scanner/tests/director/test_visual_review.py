@@ -187,6 +187,35 @@ def test_local_page_route_emits_self_contained_html(
     assert str(Path(frame_map.items[0].frames[0].path).resolve()) not in html
 
 
+def test_local_page_hides_materials_that_do_not_need_review(
+    large_review_observations: ClipObservationBatch,
+    frame_map: MaterialFrameMap,
+    output_dir: Path,
+) -> None:
+    resolved = observations().items[0].model_copy(
+        update={
+            "material": observations().items[0].material.model_copy(
+                update={
+                    "material_id": f"sha256:{'c' * 64}",
+                    "relative_path": "trip/already-understood.mov",
+                    "source_sha256": "c" * 64,
+                }
+            ),
+            "unknown_fields": [],
+            "review_required_fields": [],
+        }
+    )
+    batch = large_review_observations.model_copy(
+        update={"items": [*large_review_observations.items, resolved]}
+    )
+
+    artifact = prepare_visual_review(batch, frame_map, output_dir)
+
+    html = Path(artifact.html_path).read_text(encoding="utf-8")
+    assert "请帮旅行导演看懂这 1 段画面" in html
+    assert "already-understood.mov" not in html
+
+
 def test_local_page_route_rejects_missing_or_nonlocal_frames(
     large_review_observations: ClipObservationBatch,
     output_dir: Path,
@@ -258,8 +287,11 @@ def test_review_page_is_offline_and_exports_confirmation(tmp_path: Path) -> None
     html = output.read_text(encoding="utf-8")
     encoded = base64.b64encode(probe.read_bytes()).decode("ascii")
     assert "trip/clip-01.mov" in html
-    assert "content_families" in html
-    assert "下载 visual_confirmation.json" in html
+    assert "画面拍到了什么？" in html
+    assert "城市街景" in html
+    assert "生成画面确认文件" in html
+    assert "输入合法 JSON" not in html
+    assert "原值：" not in html
     assert "https://" not in html
     assert "source_in" not in html
     assert "source_out" not in html

@@ -26,6 +26,67 @@ from director.visual_schema import (
 )
 
 
+_REVIEW_FIELD_ORDER = (
+    "technical_usability",
+    "content_families",
+    "setting",
+    "lighting",
+    "people_presence",
+    "people_count_band",
+    "subject_candidates",
+    "activity_candidates",
+)
+
+_REVIEW_FIELD_LABELS = {
+    "technical_usability": ("这段画面能否使用？", "只看清晰度、曝光和抖动是否影响观看"),
+    "content_families": ("画面拍到了什么？", "可多选"),
+    "setting": ("这是室内还是室外？", "只按画面中可见环境判断"),
+    "lighting": ("画面的光线是什么状态？", "选最接近的一项"),
+    "people_presence": ("画面里有人吗？", "远处可辨认的人也算"),
+    "people_count_band": ("画面里大约有多少人？", "不需要精确数数"),
+    "subject_candidates": ("画面主要拍的是什么？", "用普通中文填写，多项用顿号隔开"),
+    "activity_candidates": ("画面中正在发生什么？", "例如：步行、参观、乘车；多项用顿号隔开"),
+}
+
+_REVIEW_ENUM_OPTIONS = {
+    "technical_usability": (("usable", "可用"), ("unusable", "不可用"), ("review_required", "还需要查看原片")),
+    "setting": (("outdoor", "室外"), ("indoor", "室内"), ("mixed", "室内外混合"), ("unknown", "无法判断")),
+    "lighting": (("daylight", "日间自然光"), ("night", "夜景"), ("artificial", "人工灯光"), ("mixed", "混合光"), ("unknown", "无法判断")),
+    "people_presence": (("present", "有人"), ("absent", "没有人"), ("unknown", "无法判断")),
+    "people_count_band": (("none", "无人"), ("single", "1 人"), ("few", "少量人物"), ("crowd", "人群"), ("unknown", "无法判断")),
+}
+
+_CONTENT_FAMILY_OPTIONS = (
+    ("urban", "城市街景"),
+    ("nature", "自然风景"),
+    ("culture_architecture", "文化或建筑"),
+    ("food", "美食"),
+    ("transport", "交通出行"),
+    ("lodging", "住宿"),
+    ("attraction_activity", "景点或游玩"),
+    ("performance_event", "演出或活动"),
+    ("people", "人物"),
+    ("detail", "细节特写"),
+    ("other", "其他"),
+)
+
+
+def _review_control(field: str) -> tuple[str, str]:
+    if field == "content_families":
+        choices = "".join(
+            f'<label class="choice"><input type="checkbox" value="{value}"><span>{escape(label)}</span></label>'
+            for value, label in _CONTENT_FAMILY_OPTIONS
+        )
+        return "multi", f'<div class="choice-grid answer-value">{choices}</div>'
+    if field in _REVIEW_ENUM_OPTIONS:
+        options = '<option value="">请选择</option>' + "".join(
+            f'<option value="{value}">{escape(label)}</option>'
+            for value, label in _REVIEW_ENUM_OPTIONS[field]
+        )
+        return "enum", f'<select class="answer-value">{options}</select>'
+    return "list", '<input class="answer-value" type="text" placeholder="直接输入中文">'
+
+
 def _canonical_bytes(value: Any) -> bytes:
     return (
         json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -64,6 +125,9 @@ def render_visual_review(
     review_rows: list[dict[str, Any]] = []
     for item in observations.items:
         material_id = item.material.material_id
+        unresolved = set(item.review_required_fields) | set(item.unknown_fields)
+        if not unresolved:
+            continue
         assertions = {row.field: row for row in item.assertions}
         images = "".join(
             (
@@ -77,7 +141,8 @@ def render_visual_review(
                 for frame in frame_paths.get(material_id, [])
             ]
         )
-        fields = sorted(set(item.review_required_fields) | set(item.unknown_fields))
+        fields = [field for field in _REVIEW_FIELD_ORDER if field in unresolved]
+        fields.extend(sorted(unresolved - set(_REVIEW_FIELD_ORDER)))
         controls: list[str] = []
         for field in fields:
             original = assertions.get(field)
@@ -91,19 +156,20 @@ def render_visual_review(
             }
             review_rows.append(row)
             row_index = len(review_rows) - 1
+            question, hint = _REVIEW_FIELD_LABELS.get(field, (field, ""))
+            control_kind, control = _review_control(field)
             controls.append(
-                f"""<div class="field" data-review-index="{row_index}">
-<label>{escape(field)}</label>
-<div class="original">原值：{escape(json.dumps(original_value, ensure_ascii=False))} · {escape(original_status)}</div>
-<select class="confirmed-status"><option value="confirmed">确认/修订</option><option value="abstained">仍然未知</option></select>
-<textarea class="confirmed-value" placeholder='输入合法 JSON，例如 ["urban"] 或 "outdoor"'></textarea>
-<input class="reviewer-note" placeholder="确认理由或备注">
+                f"""<section class="field" data-review-index="{row_index}" data-control-kind="{control_kind}">
+<div class="question"><h3>{escape(question)}</h3><p>{escape(hint)}</p></div>
+<div class="answer">{control}</div>
+<label class="uncertain"><input class="keep-unknown" type="checkbox"> 这张看不清，保留为未知</label>
+<input class="reviewer-note" placeholder="补充说明（可不填）">
 </div>"""
             )
         cards.append(
             f"""<article>
 <h2>{escape(item.material.relative_path)}</h2>
-<div class="meta">{item.material.duration_seconds:.2f}s · {escape(item.material.orientation)} · {escape(material_id)}</div>
+<div class="meta">时长 {item.material.duration_seconds:.2f} 秒 · {'竖屏' if item.material.orientation == 'portrait' else '横屏'}</div>
 <div class="frames">{images or '<span class="warning">没有可用代表帧</span>'}</div>
 <div class="fields">{''.join(controls) or '<p>没有待确认字段</p>'}</div>
 </article>"""
@@ -113,26 +179,32 @@ def render_visual_review(
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>旅行导演 · 画面人工确认</title>
 <style>
-body{{font-family:system-ui,-apple-system,sans-serif;background:#101114;color:#f3f4f6;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}article{{background:#1b1d22;border:1px solid #30333a;border-radius:14px;padding:18px;margin:18px 0}}h1{{margin-top:0}}h2{{font-size:17px;word-break:break-all}}.meta,.original{{color:#aeb4c0;font-size:12px}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:14px 0}}.frames figure{{margin:0}}.frames img{{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:8px}}figcaption{{margin-top:4px;color:#aeb4c0;font-size:12px}}.field{{display:grid;grid-template-columns:180px 150px 1fr 1fr;gap:8px;align-items:center;padding:10px 0;border-top:1px solid #30333a}}select,textarea,input{{box-sizing:border-box;width:100%;background:#111318;color:#f3f4f6;border:1px solid #444954;border-radius:7px;padding:8px}}textarea{{min-height:44px}}button{{background:#6d5dfc;color:white;border:0;border-radius:9px;padding:11px 16px;cursor:pointer}}.toolbar{{position:sticky;top:0;background:#101114ee;padding:12px 0;z-index:2}}.warning{{color:#f0b45a}}@media(max-width:800px){{.field{{grid-template-columns:1fr}}}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#101114;color:#f3f4f6;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}article{{background:#1b1d22;border:1px solid #30333a;border-radius:14px;padding:18px;margin:18px 0}}h1{{margin:0 0 6px}}h2{{font-size:17px;word-break:break-all}}.lead,.meta,.question p{{color:#aeb4c0}}.meta,figcaption{{font-size:12px}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:14px 0}}.frames figure{{margin:0}}.frames img{{width:100%;max-height:360px;object-fit:contain;background:#000;border-radius:8px}}figcaption{{margin-top:4px;color:#aeb4c0}}.field{{display:grid;grid-template-columns:minmax(240px,0.8fr) minmax(320px,1.6fr);gap:12px 22px;align-items:start;padding:18px 0;border-top:1px solid #30333a}}.question h3{{margin:0 0 5px;font-size:17px}}.question p{{margin:0;font-size:13px}}select,input{{box-sizing:border-box;width:100%;background:#111318;color:#f3f4f6;border:1px solid #555b68;border-radius:8px;padding:10px}}.choice-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}}.choice{{display:flex;align-items:center;gap:7px;background:#111318;border:1px solid #444954;border-radius:8px;padding:9px}}.choice input,.uncertain input{{width:auto}}.uncertain{{grid-column:2;color:#cbd0da;font-size:13px}}.reviewer-note{{grid-column:2}}button{{background:#6d5dfc;color:white;border:0;border-radius:9px;padding:12px 17px;cursor:pointer;font-size:15px}}.toolbar{{position:sticky;top:0;background:#101114ee;padding:12px 0;z-index:2;display:flex;justify-content:flex-end}}.warning{{color:#f0b45a}}@media(max-width:800px){{.field{{grid-template-columns:1fr}}.uncertain,.reviewer-note{{grid-column:1}}}}
 </style></head><body><main>
-<div class="toolbar"><label>复核人 <input id="reviewer" value="manual-review"></label> <button id="download">下载 visual_confirmation.json</button></div>
-<h1>画面人工确认</h1><p>只修正画面观察；不填写剪辑起止区间。候选或未知字段必须保留确认理由。</p>
+<div class="toolbar"><button id="download">生成画面确认文件</button></div>
+<h1>请帮旅行导演看懂这 {len(cards)} 段画面</h1><p class="lead">只回答眼前能看到的内容。看不清可直接勾选“保留为未知”，不需要理解技术字段。</p>
 {''.join(cards)}
 </main><script>
 const baseRows={rows_json};
 document.getElementById('download').addEventListener('click',()=>{{
-  const items=[];
-  document.querySelectorAll('[data-review-index]').forEach(node=>{{
-    const base=baseRows[Number(node.dataset.reviewIndex)];
-    const status=node.querySelector('.confirmed-status').value;
-    const raw=node.querySelector('.confirmed-value').value.trim();
-    let value=null;
-    if(status==='confirmed'){{if(!raw){{throw new Error('确认值不能为空：'+base.field)}} value=JSON.parse(raw);}}
-    items.push({{...base,confirmed_value:value,confirmed_status:status,reviewer_note:node.querySelector('.reviewer-note').value,changed_at:new Date().toISOString()}});
-  }});
-  const payload={{schema_version:'0.2.0',source_observations_sha256:'{source_hash}',status:'completed',reviewer:document.getElementById('reviewer').value||'manual-review',items}};
-  const blob=new Blob([JSON.stringify(payload,null,2)],{{type:'application/json'}});
-  const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='visual_confirmation.json'; link.click(); URL.revokeObjectURL(link.href);
+  try{{
+    const items=[];
+    document.querySelectorAll('[data-review-index]').forEach(node=>{{
+      const base=baseRows[Number(node.dataset.reviewIndex)];
+      const unknown=node.querySelector('.keep-unknown').checked;
+      let value=null;
+      if(!unknown){{
+        if(node.dataset.controlKind==='multi') value=[...node.querySelectorAll('.answer-value input:checked')].map(input=>input.value);
+        else if(node.dataset.controlKind==='list') value=node.querySelector('.answer-value').value.split(/[、，,;；]/).map(v=>v.trim()).filter(Boolean);
+        else value=node.querySelector('.answer-value').value;
+        if(value===''||(Array.isArray(value)&&value.length===0)) throw new Error('还没有回答：'+node.querySelector('h3').textContent);
+      }}
+      items.push({{...base,confirmed_value:value,confirmed_status:unknown?'abstained':'confirmed',reviewer_note:node.querySelector('.reviewer-note').value||'用户根据代表帧人工确认',changed_at:new Date().toISOString()}});
+    }});
+    const payload={{schema_version:'0.2.0',source_observations_sha256:'{source_hash}',status:'completed',reviewer:'manual-review',items}};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{{type:'application/json'}});
+    const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='visual_confirmation.json'; link.click(); URL.revokeObjectURL(link.href);
+  }}catch(error){{alert(error.message);}}
 }});
 </script></body></html>"""
     output.parent.mkdir(parents=True, exist_ok=True)

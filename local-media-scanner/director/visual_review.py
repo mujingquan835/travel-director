@@ -158,9 +158,15 @@ def render_visual_review(
             row_index = len(review_rows) - 1
             question, hint = _REVIEW_FIELD_LABELS.get(field, (field, ""))
             control_kind, control = _review_control(field)
+            initial_state = (
+                "candidate"
+                if original_value is not None and original_status != "abstained"
+                else "unknown"
+            )
+            state_label = "已有识别建议" if initial_state == "candidate" else "待确认"
             controls.append(
-                f"""<section class="field" data-review-index="{row_index}" data-control-kind="{control_kind}">
-<div class="question"><h3>{escape(question)}</h3><p>{escape(hint)}</p></div>
+                f"""<section class="field state-{initial_state}" data-review-index="{row_index}" data-control-kind="{control_kind}" data-state="{initial_state}" data-initial-state="{initial_state}">
+<div class="question"><div class="question-heading"><h3>{escape(question)}</h3><span class="state-badge">{state_label}</span></div><p>{escape(hint)}</p></div>
 <div class="answer">{control}</div>
 <label class="uncertain"><input class="keep-unknown" type="checkbox"> 这张看不清，保留为未知</label>
 <input class="reviewer-note" placeholder="补充说明（可不填）">
@@ -179,13 +185,29 @@ def render_visual_review(
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>旅行导演 · 画面人工确认</title>
 <style>
-body{{font-family:system-ui,-apple-system,sans-serif;background:#101114;color:#f3f4f6;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}article{{background:#1b1d22;border:1px solid #30333a;border-radius:14px;padding:18px;margin:18px 0}}h1{{margin:0 0 6px}}h2{{font-size:17px;word-break:break-all}}.lead,.meta,.question p{{color:#aeb4c0}}.meta,figcaption{{font-size:12px}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:14px 0}}.frames figure{{margin:0}}.frames img{{width:100%;max-height:360px;object-fit:contain;background:#000;border-radius:8px}}figcaption{{margin-top:4px;color:#aeb4c0}}.field{{display:grid;grid-template-columns:minmax(240px,0.8fr) minmax(320px,1.6fr);gap:12px 22px;align-items:start;padding:18px 0;border-top:1px solid #30333a}}.question h3{{margin:0 0 5px;font-size:17px}}.question p{{margin:0;font-size:13px}}select,input{{box-sizing:border-box;width:100%;background:#111318;color:#f3f4f6;border:1px solid #555b68;border-radius:8px;padding:10px}}.choice-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}}.choice{{display:flex;align-items:center;gap:7px;background:#111318;border:1px solid #444954;border-radius:8px;padding:9px}}.choice input,.uncertain input{{width:auto}}.uncertain{{grid-column:2;color:#cbd0da;font-size:13px}}.reviewer-note{{grid-column:2}}button{{background:#6d5dfc;color:white;border:0;border-radius:9px;padding:12px 17px;cursor:pointer;font-size:15px}}.toolbar{{position:sticky;top:0;background:#101114ee;padding:12px 0;z-index:2;display:flex;justify-content:flex-end}}.warning{{color:#f0b45a}}@media(max-width:800px){{.field{{grid-template-columns:1fr}}.uncertain,.reviewer-note{{grid-column:1}}}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#101114;color:#f3f4f6;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}article{{background:#1b1d22;border:1px solid #30333a;border-radius:14px;padding:18px;margin:18px 0}}h1{{margin:0 0 6px}}h2{{font-size:17px;word-break:break-all}}.lead,.meta,.question p{{color:#aeb4c0}}.meta,figcaption{{font-size:12px}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:14px 0}}.frames figure{{margin:0}}.frames img{{width:100%;max-height:360px;object-fit:contain;background:#000;border-radius:8px}}figcaption{{margin-top:4px;color:#aeb4c0}}.field{{display:grid;grid-template-columns:minmax(240px,0.8fr) minmax(320px,1.6fr);gap:12px 22px;align-items:start;padding:18px 12px;border-top:1px solid #30333a;border-left:3px solid transparent}}.field.state-unknown{{border-left-color:#d99a3d}}.field.state-candidate{{border-left-color:#628ee8}}.field.state-confirmed{{border-left-color:#42b883;background:#17312655}}.question-heading{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}}.question h3{{margin:0 0 5px;font-size:17px}}.question p{{margin:0;font-size:13px}}.state-badge{{border-radius:999px;padding:3px 8px;font-size:12px;background:#2c3038;color:#d8dce5}}.state-unknown .state-badge{{background:#4a351b;color:#ffd18a}}.state-candidate .state-badge{{background:#20355f;color:#a9c5ff}}.state-confirmed .state-badge{{background:#1e563f;color:#a9f0d2}}select,input{{box-sizing:border-box;width:100%;background:#111318;color:#f3f4f6;border:1px solid #555b68;border-radius:8px;padding:10px}}.choice-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}}.choice{{display:flex;align-items:center;gap:7px;background:#111318;border:1px solid #444954;border-radius:8px;padding:9px}}.choice input,.uncertain input{{width:auto}}.uncertain{{grid-column:2;color:#cbd0da;font-size:13px}}.reviewer-note{{grid-column:2}}button{{background:#6d5dfc;color:white;border:0;border-radius:9px;padding:12px 17px;cursor:pointer;font-size:15px}}.toolbar{{position:sticky;top:0;background:#101114ee;padding:12px 0;z-index:2;display:flex;justify-content:flex-end}}.warning{{color:#f0b45a}}@media(max-width:800px){{.field{{grid-template-columns:1fr}}.uncertain,.reviewer-note{{grid-column:1}}}}
 </style></head><body><main>
 <div class="toolbar"><button id="download">生成画面确认文件</button></div>
 <h1>请帮旅行导演看懂这 {len(cards)} 段画面</h1><p class="lead">只回答眼前能看到的内容。看不清可直接勾选“保留为未知”，不需要理解技术字段。</p>
 {''.join(cards)}
 </main><script>
 const baseRows={rows_json};
+const stateLabels={{candidate:'已有识别建议',unknown:'待确认',confirmed:'已填写'}};
+function updateReviewState(node){{
+  const unknown=node.querySelector('.keep-unknown').checked;
+  let hasValue=false;
+  if(node.dataset.controlKind==='multi') hasValue=node.querySelectorAll('.answer-value input:checked').length>0;
+  else hasValue=Boolean(node.querySelector('.answer-value').value.trim());
+  const state=unknown?'unknown':(hasValue?'confirmed':node.dataset.initialState);
+  node.dataset.state=state;
+  node.classList.remove('state-candidate','state-unknown','state-confirmed');
+  node.classList.add('state-'+state);
+  node.querySelector('.state-badge').textContent=stateLabels[state];
+}}
+document.querySelectorAll('[data-review-index]').forEach(node=>{{
+  node.querySelectorAll('input,select').forEach(control=>control.addEventListener('change',()=>updateReviewState(node)));
+  node.querySelectorAll('input[type="text"]').forEach(control=>control.addEventListener('input',()=>updateReviewState(node)));
+}});
 document.getElementById('download').addEventListener('click',()=>{{
   try{{
     const items=[];

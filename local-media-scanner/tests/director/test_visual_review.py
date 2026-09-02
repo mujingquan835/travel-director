@@ -292,6 +292,11 @@ def test_review_page_is_offline_and_exports_confirmation(tmp_path: Path) -> None
     assert "生成画面确认文件" in html
     assert "输入合法 JSON" not in html
     assert "原值：" not in html
+    assert 'data-state="unknown"' in html
+    assert "待确认" in html
+    assert "已有识别建议" in html
+    assert "已填写" in html
+    assert "state-confirmed" in html
     assert "https://" not in html
     assert "source_in" not in html
     assert "source_out" not in html

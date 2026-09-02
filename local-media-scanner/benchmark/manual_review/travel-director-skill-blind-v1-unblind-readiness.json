@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.2.0",
+  "split": "blind",
+  "status": "blocked_missing_independent_ground_truth",
+  "ground_truth": {
+    "path": "benchmark/director_visual_ground_truth.template.json",
+    "sha256": "e8bee2da4de59cb2fd4bf4ff191bc318c847eed4e13ff87f368e754d2d6354e9",
+    "total_record_count": 24,
+    "completed_record_count": 0,
+    "blind_record_count": 12,
+    "blind_completed_record_count": 0
+  },
+  "accuracy_metrics": {
+    "technical_usability": "not_computable",
+    "content_families_macro_f1": "not_computable",
+    "setting": "not_computable",
+    "lighting": "not_computable",
+    "people_presence": "not_computable",
+    "people_count_band": "not_computable",
+    "bucket_accuracy": "not_computable",
+    "director_function_accuracy": "not_computable"
+  },
+  "run_facts": {
+    "material_count": 12,
+    "invoking_agent_observed_material_count": 11,
+    "invoking_agent_material_coverage": 0.916667,
+    "automatic_material_count_after_review": 10,
+    "assisted_material_count_after_review": 2,
+    "remaining_review_material_count": 0,
+    "supported_visual_field_slots": 96,
+    "manual_confirmation_field_count": 9,
+    "manual_confirmation_field_rate": 0.09375,
+    "affected_material_count": 2,
+    "affected_material_rate": 0.166667,
+    "structured_batch_retry_count": 0,
+    "external_call_count": 0
+  },
+  "director_rule_diagnosis": {
+    "observed_available_functions": [
+      "context",
+      "progression",
+      "emotion",
+      "breathing",
+      "climax"
+    ],
+    "observed_missing_functions": [
+      "opening",
+      "contrast",
+      "ending"
+    ],
+    "mechanical_causes": [
+      "opening is currently emitted only from urban or transport content families; neither appears in this run",
+      "ending is currently emitted only from the lodging content family; lodging does not appear in this run",
+      "contrast has no mapping in CONTENT_FUNCTIONS and therefore cannot be emitted by the current deterministic rule"
+    ],
+    "interpretation_boundary": "Without independent labels, these missing functions cannot be classified as true footage gaps or rule false negatives."
+  },
+  "artifact_sha256": {
+    "clip_observations": "09ec814dda8d324a1c00bccb803fba484a96607cc6abcf729db12f0017390fa2",
+    "intent_decisions": "b09a196e3b7636393ce6e2694c77bca5453290b40de0c8ca337a8dbc69fbb13a",
+    "project_coverage": "4463528d015e4dbe06afe2ff9dc3911779875ced3101bdc1e567fcea0708cac3"
+  }
+}

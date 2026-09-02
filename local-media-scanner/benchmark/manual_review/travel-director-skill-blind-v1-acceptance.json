@@ -1,14 +1,25 @@
 {
   "schema_version": "0.2.0",
   "split": "blind",
-  "milestone_status": "partial_browser_gate_blocked",
+  "milestone_status": "partial_final_head_full_suite_not_rerun",
   "material_count": 12,
   "invoking_agent_batch_count": 2,
   "max_batch_size": 10,
   "actual_mode": "assisted",
   "review_channel": "local_page",
   "structured_batch_retry_count": 0,
-  "browser_check": "blocked_by_file_url_policy",
+  "browser_check": "passed_via_ephemeral_loopback",
+  "browser_evidence": {
+    "routed_material_count": 2,
+    "visible_image_count": 6,
+    "question_control_count": 9,
+    "all_images_loaded": true,
+    "unknown_to_confirmed_transition": "passed",
+    "candidate_state_in_current_data": "not_applicable",
+    "horizontal_overflow": false,
+    "remote_resource_count": 0,
+    "temporary_server_stopped": true
+  },
   "confirmation_json_validation": "passed",
   "verification": {
     "full_suite_before_final_runtime_fixes": "292 passed",

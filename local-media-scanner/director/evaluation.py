@@ -1,9 +1,10 @@
-"""Frozen evaluation packs and manual-label contracts for the V0.2 workflow."""
+"""Frozen evaluation packs and manual-label contracts for V0.2/V0.3."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Literal
 
@@ -644,6 +645,11 @@ def _evaluate_director(
 ) -> DirectorEvaluation:
     expected = {row.material_id: row for row in ground_truth}
     predicted = {row.material_id: row for row in decisions.items}
+    project_functions: defaultdict[str, set[str]] = defaultdict(set)
+    if decisions.schema_version == "0.3.0":
+        for assignment in decisions.role_assignments:
+            for material_id in assignment.material_ids:
+                project_functions[material_id].add(assignment.director_function)
     total = len(ground_truth)
     confusion = {
         actual: {prediction: 0 for prediction in BUCKET_EVALUATION_LABELS}
@@ -656,7 +662,11 @@ def _evaluate_director(
         decision = predicted[material_id]
         confusion[truth.bucket][decision.bucket] += 1
         correct_buckets += int(truth.bucket == decision.bucket)
-        predicted_functions = set(decision.director_function_candidates)
+        predicted_functions = (
+            project_functions[material_id]
+            if decisions.schema_version == "0.3.0"
+            else set(decision.director_function_candidates)
+        )
         expected_functions = set(truth.director_functions)
         exact_functions += int(predicted_functions == expected_functions)
         function_pairs.append((predicted_functions, expected_functions))

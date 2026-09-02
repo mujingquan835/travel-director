@@ -208,25 +208,44 @@ def _json_value(value: BaseModel | dict[str, Any] | list[Any] | Path) -> Any:
     return value
 
 
-def _validate_schema_version(value: Any, expected: str) -> None:
+V03_DIRECTOR_STAGES = {
+    "intent_decisions",
+    "project_coverage",
+    "director_treatment",
+}
+
+
+def _accepted_stage_versions(stage: str, project_schema_version: str) -> set[str]:
+    accepted = {project_schema_version}
+    if project_schema_version == "0.2.0" and stage in V03_DIRECTOR_STAGES:
+        accepted.add("0.3.0")
+    return accepted
+
+
+def _validate_schema_version(value: Any, expected: set[str]) -> None:
     records = value if isinstance(value, list) else [value]
     if not records:
         return
     if not all(
-        isinstance(record, dict) and record.get("schema_version") == expected
+        isinstance(record, dict) and record.get("schema_version") in expected
         for record in records
     ):
-        raise ProjectConflict(f"stage artifact does not use schema_version {expected}")
+        versions = ", ".join(sorted(expected))
+        raise ProjectConflict(
+            f"stage artifact does not use an accepted schema_version: {versions}"
+        )
 
 
 def _validated_stage_value(stage: str, value: Any, expected: str) -> Any:
-    _validate_schema_version(value, expected)
+    _validate_schema_version(value, _accepted_stage_versions(stage, expected))
     if expected != "0.2.0":
         return value
     try:
         return validate_visual_stage_artifact(stage, value)
     except (ValidationError, ValueError) as exc:
-        raise ProjectConflict(f"invalid V0.2 artifact for stage {stage}: {exc}") from exc
+        raise ProjectConflict(
+            f"invalid visual artifact for stage {stage}: {exc}"
+        ) from exc
 
 
 def _artifact_paths(paths: ProjectPaths, schema_version: str) -> dict[str, str]:

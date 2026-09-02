@@ -8,8 +8,10 @@ from director.visual_schema import (
     ClipObservation,
     ClipObservationBatch,
     EvidenceRef,
+    IntentDecisionBatch,
     MaterialRef,
     ObservationAssertion,
+    ProjectRoleAssignment,
 )
 
 
@@ -78,6 +80,46 @@ def six_confirmed_observations() -> ClipObservationBatch:
                     orientation="portrait",
                 ),
                 provider="manual-fixture",
+                observation_status="assisted",
+                assertions=assertions,
+            )
+        )
+    return ClipObservationBatch(status="completed", mode="assisted", items=items)
+
+
+def relationship_observations() -> ClipObservationBatch:
+    specs = [
+        ("urban", "low", []),
+        ("nature", "low", []),
+        ("transport", "medium", ["步行进入"]),
+        ("attraction_activity", "high", ["游览项目"]),
+        ("performance_event", "high", ["现场演出"]),
+        ("detail", "low", ["回望离开"]),
+        ("lodging", "low", []),
+    ]
+    items = []
+    for index, (content, motion, activities) in enumerate(specs, start=1):
+        assertions = [
+            _assertion(index, "technical_usability", "usable"),
+            _assertion(index, "content_families", [content]),
+            _assertion(index, "setting", "outdoor"),
+            _assertion(index, "motion_level", motion),
+        ]
+        if activities:
+            assertions.append(_assertion(index, "activity_candidates", activities))
+        items.append(
+            ClipObservation(
+                material=MaterialRef(
+                    material_id=_material_id(index),
+                    relative_path=f"relations/clip-{index:02d}.mov",
+                    source_sha256=f"{index:064x}",
+                    size_bytes=100,
+                    mtime_ns=index,
+                    duration_seconds=8.0,
+                    fps=25.0,
+                    orientation="portrait",
+                ),
+                provider="relationship-fixture",
                 observation_status="assisted",
                 assertions=assertions,
             )
@@ -214,3 +256,139 @@ def test_project_coverage_aggregates_supported_evidence_and_gaps() -> None:
     assert "opening" in coverage.available_director_functions
     assert "ending" in coverage.missing_director_functions
     assert coverage.evidence_refs
+
+
+def test_v03_separates_clip_capabilities_from_project_role_assignments() -> None:
+    decisions = build_intent_decisions(
+        relationship_observations(), confirmed_brief("城市漫游")
+    )
+
+    assert decisions.schema_version == "0.3.0"
+    by_material = {item.material_id: item for item in decisions.items}
+    assert all(not item.director_function_candidates for item in decisions.items)
+    assert by_material[_material_id(4)].candidate_capabilities == [
+        "movement_progression"
+    ]
+    assert "climax" not in by_material[_material_id(4)].director_function_candidates
+    assert "ending" not in by_material[_material_id(7)].director_function_candidates
+
+    assignments = {
+        assignment.director_function: assignment
+        for assignment in decisions.role_assignments
+    }
+    assert assignments["climax"].material_ids == [_material_id(5)]
+    assert assignments["ending"].material_ids == [_material_id(6)]
+    assert len(assignments["contrast"].material_ids) >= 2
+    assert all(
+        len(assignment.material_ids) <= 1
+        for function, assignment in assignments.items()
+        if function in {"opening", "climax", "ending"}
+    )
+    for assignment in decisions.role_assignments:
+        assert assignment.selection_reason
+        assert any(ref.source_kind == "user_brief" for ref in assignment.evidence_refs)
+        assert all(
+            any(ref.material_id == material_id for ref in assignment.evidence_refs)
+            for material_id in assignment.material_ids
+        )
+
+
+def test_project_roles_change_with_brief_and_material_collection() -> None:
+    observations = relationship_observations()
+    city = build_intent_decisions(observations, confirmed_brief("城市漫游"))
+    nature = build_intent_decisions(observations, confirmed_brief("自然旅行"))
+
+    city_caps = {
+        item.material_id: item.candidate_capabilities for item in city.items
+    }
+    nature_caps = {
+        item.material_id: item.candidate_capabilities for item in nature.items
+    }
+    assert city_caps == nature_caps
+    city_opening = next(
+        row for row in city.role_assignments if row.director_function == "opening"
+    )
+    nature_opening = next(
+        row for row in nature.role_assignments if row.director_function == "opening"
+    )
+    assert city_opening.material_ids == [_material_id(1)]
+    assert nature_opening.material_ids == [_material_id(2)]
+
+    without_city = observations.model_copy(
+        update={"items": observations.items[1:]}, deep=True
+    )
+    changed = build_intent_decisions(without_city, confirmed_brief("城市漫游"))
+    changed_opening = next(
+        row for row in changed.role_assignments if row.director_function == "opening"
+    )
+    assert changed_opening.material_ids != city_opening.material_ids
+
+
+def test_lighting_and_people_count_are_not_standalone_role_triggers() -> None:
+    observations = relationship_observations()
+    weak = observations.items[0]
+    weak.assertions = [
+        _assertion(1, "technical_usability", "usable"),
+        _assertion(1, "lighting", "golden_hour"),
+        _assertion(1, "people_count_band", "crowd"),
+    ]
+    observations.items = [weak]
+
+    decisions = build_intent_decisions(observations, confirmed_brief("城市漫游"))
+
+    assert decisions.items[0].candidate_capabilities == []
+    assert decisions.items[0].director_function_candidates == []
+    assert decisions.role_assignments == []
+
+
+def test_v02_intent_decisions_remain_readable() -> None:
+    parsed = IntentDecisionBatch.model_validate(
+        {
+            "schema_version": "0.2.0",
+            "status": "completed",
+            "items": [
+                {
+                    "material_id": _material_id(1),
+                    "bucket": "candidate",
+                    "relevance_score": 0.5,
+                    "confidence": 0.8,
+                    "director_function_candidates": ["context"],
+                    "reasons": ["legacy fixture"],
+                    "evidence_refs": [_evidence(1, "content_families").model_dump()],
+                    "user_confirmation_required": False,
+                }
+            ],
+        }
+    )
+
+    assert parsed.schema_version == "0.2.0"
+    assert parsed.role_assignments == []
+
+
+def test_v03_schema_rejects_clip_level_final_roles_and_single_clip_contrast() -> None:
+    decisions = build_intent_decisions(
+        relationship_observations(), confirmed_brief("城市漫游")
+    )
+    payload = decisions.model_dump(mode="json")
+    payload["items"][0]["director_function_candidates"] = ["opening"]
+    with pytest.raises(ValueError, match="only to project assignments"):
+        IntentDecisionBatch.model_validate(payload)
+
+    evidence = [
+        _evidence(1, "content_families"),
+        EvidenceRef(
+            artifact_path="brief_confirmation.json",
+            field_path="normalized_fields.travel_type",
+            source_kind="user_brief",
+            status="confirmed",
+            confidence=1.0,
+        ),
+    ]
+    with pytest.raises(ValueError, match="at least two materials"):
+        ProjectRoleAssignment(
+            director_function="contrast",
+            material_ids=[_material_id(1)],
+            assignment_score=0.5,
+            selection_reason="invalid single-material contrast",
+            evidence_refs=evidence,
+        )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Iterable
+from itertools import combinations
 from typing import Any
 
 from director.visual_schema import (
@@ -14,8 +15,10 @@ from director.visual_schema import (
     EvidenceRef,
     IntentConditionedDecision,
     IntentDecisionBatch,
+    MaterialCapability,
     ObservationAssertion,
     ProjectCoverage,
+    ProjectRoleAssignment,
 )
 
 
@@ -33,18 +36,20 @@ SUPPORTED_FIELDS = {
     "duplicate_group_id",
 }
 
-CONTENT_FUNCTIONS: dict[str, tuple[DirectorFunction, ...]] = {
-    "urban": ("opening", "context"),
-    "nature": ("context", "breathing"),
-    "culture_architecture": ("context",),
-    "food": ("breathing", "emotion"),
-    "transport": ("opening", "progression"),
-    "lodging": ("ending",),
-    "attraction_activity": ("progression", "climax"),
-    "performance_event": ("emotion", "climax"),
-    "people": ("emotion",),
-    "detail": ("breathing",),
+CONTENT_CAPABILITIES: dict[str, tuple[MaterialCapability, ...]] = {
+    "urban": ("environment_establishing", "spatial_transition"),
+    "nature": ("environment_establishing", "quiet_breathing"),
+    "culture_architecture": ("environment_establishing", "sensory_detail"),
+    "food": ("sensory_detail", "human_emotion"),
+    "transport": ("directional_entry", "movement_progression", "spatial_transition"),
+    "lodging": ("quiet_breathing",),
+    "attraction_activity": ("movement_progression",),
+    "performance_event": ("event_energy", "human_emotion"),
+    "people": ("human_emotion",),
+    "detail": ("sensory_detail", "quiet_breathing"),
 }
+
+CLOSURE_CUES = ("离开", "回望", "告别", "落幕", "收束", "余韵", "放松", "静坐")
 
 TRAVEL_PREFERENCES: dict[str, set[str]] = {
     "城市漫游": {"urban", "culture_architecture", "transport", "people", "detail"},
@@ -128,6 +133,160 @@ def _preferred_content(travel_type: str) -> set[str]:
     return set()
 
 
+def _candidate_capabilities(
+    assertions: dict[str, ObservationAssertion],
+) -> tuple[list[MaterialCapability], list[str]]:
+    capabilities: list[MaterialCapability] = []
+    reasons: list[str] = []
+
+    def add(capability: MaterialCapability, reason: str) -> None:
+        if capability not in capabilities:
+            capabilities.append(capability)
+            reasons.append(reason)
+
+    for content in _values(assertions.get("content_families")):
+        for capability in CONTENT_CAPABILITIES.get(content, ()):
+            add(capability, f"确认内容 {content} 支持单素材候选能力 {capability}。")
+    activities = _values(assertions.get("activity_candidates"))
+    if activities:
+        add("movement_progression", "确认活动可作为运动推进候选，但不直接构成高潮。")
+    visible_phrases = [
+        *_values(assertions.get("subject_candidates")),
+        *activities,
+    ]
+    if any(cue in phrase for cue in CLOSURE_CUES for phrase in visible_phrases):
+        add("closure_resonance", "确认的可见动作包含离开、回望或收束候选线索。")
+    return capabilities, reasons
+
+
+def _assignment_evidence(
+    decisions: list[IntentConditionedDecision],
+    material_ids: list[str],
+    brief: BriefConfirmation,
+) -> list[EvidenceRef]:
+    selected = set(material_ids)
+    return _dedupe_refs(
+        [_brief_ref(brief, "travel_type")]
+        + [
+            ref
+            for item in decisions
+            if item.material_id in selected
+            for ref in item.evidence_refs
+        ]
+    )
+
+
+def _assign_project_roles(
+    decisions: list[IntentConditionedDecision],
+    brief: BriefConfirmation,
+) -> list[ProjectRoleAssignment]:
+    eligible = [item for item in decisions if item.bucket in {"core", "candidate"}]
+    order = {item.material_id: index for index, item in enumerate(decisions)}
+    assignments: dict[DirectorFunction, ProjectRoleAssignment] = {}
+
+    def ranked(
+        capabilities: set[MaterialCapability], limit: int
+    ) -> list[IntentConditionedDecision]:
+        matches = [
+            item
+            for item in eligible
+            if capabilities.intersection(item.candidate_capabilities)
+        ]
+        return sorted(
+            matches,
+            key=lambda item: (
+                -item.relevance_score,
+                -len(capabilities.intersection(item.candidate_capabilities)),
+                order[item.material_id],
+            ),
+        )[:limit]
+
+    def add(
+        function: DirectorFunction,
+        selected: list[IntentConditionedDecision],
+        reason: str,
+    ) -> None:
+        if not selected:
+            return
+        material_ids = [item.material_id for item in selected]
+        capability_strength = sum(len(item.candidate_capabilities) for item in selected)
+        relevance = sum(item.relevance_score for item in selected) / len(selected)
+        score = min(
+            1.0,
+            round(relevance * 0.8 + min(capability_strength, 4) * 0.05, 6),
+        )
+        assignments[function] = ProjectRoleAssignment(
+            director_function=function,
+            material_ids=material_ids,
+            assignment_score=score,
+            selection_reason=reason,
+            evidence_refs=_assignment_evidence(decisions, material_ids, brief),
+        )
+
+    add(
+        "opening",
+        ranked({"environment_establishing", "directional_entry"}, 1),
+        "在全部可用素材中按 Brief 相关度选择一个环境建立或进入感最强的开场。",
+    )
+    add(
+        "context",
+        ranked({"environment_establishing"}, 3),
+        "用少量环境建立候选共同交代旅行空间，不把内容类别直接当作最终职责。",
+    )
+    add(
+        "progression",
+        ranked({"movement_progression", "spatial_transition"}, 3),
+        "从运动推进与空间转换候选中按 Brief 相关度选择推进素材。",
+    )
+    add(
+        "emotion",
+        ranked({"human_emotion", "event_energy", "sensory_detail"}, 3),
+        "从人物、事件与感官细节候选中组织情绪层，不依赖人数档位。",
+    )
+    add(
+        "breathing",
+        ranked({"quiet_breathing", "sensory_detail"}, 2),
+        "从低强度与细节候选中选择呼吸素材，灯光只保留为解释性证据。",
+    )
+    add(
+        "climax",
+        ranked({"event_energy"}, 1),
+        "高潮只从全项目事件能量候选中相对排序选出一条，普通活动不自动升级。",
+    )
+    add(
+        "ending",
+        ranked({"closure_resonance"}, 1),
+        "结尾只从可见的离开、回望或收束候选中选择，不绑定住宿类别。",
+    )
+
+    contrast_candidates = [item for item in eligible if item.candidate_capabilities]
+    if len(contrast_candidates) >= 2:
+        left, right = max(
+            combinations(contrast_candidates, 2),
+            key=lambda pair: (
+                len(
+                    set(pair[0].candidate_capabilities)
+                    ^ set(pair[1].candidate_capabilities)
+                ),
+                pair[0].relevance_score + pair[1].relevance_score,
+                -order[pair[0].material_id],
+                -order[pair[1].material_id],
+            ),
+        )
+        if set(left.candidate_capabilities) != set(right.candidate_capabilities):
+            add(
+                "contrast",
+                [left, right],
+                "对比由两条候选能力明显不同的素材配对形成，而不是单素材静态标签。",
+            )
+
+    return [
+        assignments[function]
+        for function in CONTENT_FUNCTIONS_ORDER
+        if function in assignments
+    ]
+
+
 def build_intent_decisions(
     observations: ClipObservationBatch,
     brief: BriefConfirmation,
@@ -172,15 +331,7 @@ def build_intent_decisions(
             or "review_required" in usability
         )
         matched_content = [value for value in content if value in preferred]
-        functions: list[DirectorFunction] = []
-        for value in content:
-            for function in CONTENT_FUNCTIONS.get(value, ()):
-                if function not in functions:
-                    functions.append(function)
-        if _values(assertions.get("activity_candidates")):
-            for function in ("progression", "climax"):
-                if function not in functions:
-                    functions.append(function)
+        capabilities, capability_reasons = _candidate_capabilities(assertions)
 
         evidence = [
             ref
@@ -188,6 +339,7 @@ def build_intent_decisions(
                 "technical_usability",
                 "content_families",
                 "activity_candidates",
+                "subject_candidates",
                 "duplicate_group_id",
             )
             for ref in (assertions[field].evidence_refs if field in assertions else [])
@@ -203,13 +355,15 @@ def build_intent_decisions(
             score = 0.0
             confidence = 1.0
             reasons = ["确认观察包含不可用或技术失败硬证据。"]
-            functions = []
+            capabilities = []
+            capability_reasons = []
         elif review_required:
             bucket = "review_required"
             score = 0.0
             confidence = 1.0
             reasons = ["影响导演判断的观察字段仍未确认。"]
-            functions = []
+            capabilities = []
+            capability_reasons = []
         elif duplicate_group and duplicate_group in seen_duplicate_groups:
             bucket = "redundant"
             score = 0.5
@@ -237,13 +391,21 @@ def build_intent_decisions(
                 bucket=bucket,
                 relevance_score=score,
                 confidence=confidence,
-                director_function_candidates=functions,
+                candidate_capabilities=capabilities,
+                capability_reasons=capability_reasons,
+                director_function_candidates=[],
                 reasons=reasons,
                 evidence_refs=_dedupe_refs(evidence),
                 user_confirmation_required=bucket == "review_required",
             )
         )
-    return IntentDecisionBatch(status="completed", items=decisions)
+    role_assignments = _assign_project_roles(decisions, brief)
+    return IntentDecisionBatch(
+        schema_version="0.3.0",
+        status="completed",
+        items=decisions,
+        role_assignments=role_assignments,
+    )
 
 
 def build_project_coverage(
@@ -286,15 +448,25 @@ def build_project_coverage(
             for ref in assertion.evidence_refs
         )
 
-    usable_decisions = [
-        item
-        for item in decisions.items
-        if item.bucket not in {"reject_suggestion", "review_required"}
-    ]
+    if decisions.schema_version == "0.3.0":
+        assigned_functions = {
+            assignment.director_function for assignment in decisions.role_assignments
+        }
+    else:
+        usable_decisions = [
+            item
+            for item in decisions.items
+            if item.bucket not in {"reject_suggestion", "review_required"}
+        ]
+        assigned_functions = {
+            function
+            for item in usable_decisions
+            for function in item.director_function_candidates
+        }
     available = [
         function
         for function in CONTENT_FUNCTIONS_ORDER
-        if any(function in item.director_function_candidates for item in usable_decisions)
+        if function in assigned_functions
     ]
     missing = [function for function in CONTENT_FUNCTIONS_ORDER if function not in available]
     uncertainty = [
@@ -303,6 +475,7 @@ def build_project_coverage(
         if item.bucket == "review_required"
     ]
     return ProjectCoverage(
+        schema_version=decisions.schema_version,
         status="completed",
         content_distribution=dict(distributions["content"]),
         lighting_distribution=dict(distributions["lighting"]),

@@ -11,6 +11,7 @@ from director.schema import StageStatus
 
 
 VisualSchemaVersion = Literal["0.2.0"]
+DirectorArtifactSchemaVersion = Literal["0.2.0", "0.3.0"]
 Sha256 = str
 MaterialId = str
 CompletionMode = Literal["unresolved", "automatic", "assisted"]
@@ -32,6 +33,17 @@ DirectorFunction = Literal[
     "breathing",
     "climax",
     "ending",
+]
+MaterialCapability = Literal[
+    "environment_establishing",
+    "directional_entry",
+    "movement_progression",
+    "human_emotion",
+    "event_energy",
+    "sensory_detail",
+    "spatial_transition",
+    "quiet_breathing",
+    "closure_resonance",
 ]
 
 
@@ -289,27 +301,83 @@ class IntentConditionedDecision(VisualStrictModel):
     bucket: Bucket
     relevance_score: float = Field(ge=0.0, le=1.0)
     confidence: float = Field(ge=0.0, le=1.0)
+    candidate_capabilities: list[MaterialCapability] = Field(default_factory=list)
+    capability_reasons: list[str] = Field(default_factory=list)
     director_function_candidates: list[DirectorFunction] = Field(default_factory=list)
     reasons: list[str] = Field(min_length=1)
     evidence_refs: list[EvidenceRef] = Field(min_length=1)
     user_confirmation_required: bool
 
+    @model_validator(mode="after")
+    def capabilities_are_unique_and_explained(self) -> "IntentConditionedDecision":
+        if len(self.candidate_capabilities) != len(set(self.candidate_capabilities)):
+            raise ValueError("candidate capabilities must be unique")
+        if self.candidate_capabilities and not self.capability_reasons:
+            raise ValueError("candidate capabilities require reasons")
+        if len(self.director_function_candidates) != len(
+            set(self.director_function_candidates)
+        ):
+            raise ValueError("assigned director functions must be unique")
+        return self
+
+
+class ProjectRoleAssignment(VisualStrictModel):
+    director_function: DirectorFunction
+    material_ids: list[MaterialId] = Field(min_length=1)
+    assignment_score: float = Field(ge=0.0, le=1.0)
+    selection_reason: str = Field(min_length=1)
+    evidence_refs: list[EvidenceRef] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def assignment_is_project_grounded(self) -> "ProjectRoleAssignment":
+        if len(self.material_ids) != len(set(self.material_ids)):
+            raise ValueError("project role assignment materials must be unique")
+        if self.director_function == "contrast" and len(self.material_ids) < 2:
+            raise ValueError("contrast assignment requires at least two materials")
+        if self.director_function in {"opening", "climax", "ending"} and len(
+            self.material_ids
+        ) != 1:
+            raise ValueError(
+                f"{self.director_function} assignment requires exactly one material"
+            )
+        if not any(ref.source_kind == "user_brief" for ref in self.evidence_refs):
+            raise ValueError("project role assignment requires brief evidence")
+        for material_id in self.material_ids:
+            if not any(ref.material_id == material_id for ref in self.evidence_refs):
+                raise ValueError(
+                    "project role assignment requires evidence for every material"
+                )
+        return self
+
 
 class IntentDecisionBatch(VisualStrictModel):
-    schema_version: VisualSchemaVersion = "0.2.0"
+    schema_version: DirectorArtifactSchemaVersion = "0.2.0"
     status: StageStatus
     items: list[IntentConditionedDecision] = Field(default_factory=list)
+    role_assignments: list[ProjectRoleAssignment] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def materials_are_unique(self) -> "IntentDecisionBatch":
         material_ids = [item.material_id for item in self.items]
         if len(material_ids) != len(set(material_ids)):
             raise ValueError("intent decisions contain duplicate materials")
+        if self.schema_version == "0.3.0":
+            functions = [row.director_function for row in self.role_assignments]
+            if len(functions) != len(set(functions)):
+                raise ValueError("project role functions must be unique")
+            known = set(material_ids)
+            for row in self.role_assignments:
+                if not set(row.material_ids).issubset(known):
+                    raise ValueError("project role references unknown material")
+            if any(item.director_function_candidates for item in self.items):
+                raise ValueError(
+                    "V0.3 final director functions belong only to project assignments"
+                )
         return self
 
 
 class ProjectCoverage(VisualStrictModel):
-    schema_version: VisualSchemaVersion = "0.2.0"
+    schema_version: DirectorArtifactSchemaVersion = "0.2.0"
     status: StageStatus
     content_distribution: dict[str, int] = Field(default_factory=dict)
     lighting_distribution: dict[str, int] = Field(default_factory=dict)
@@ -336,7 +404,7 @@ class TreatmentChapter(VisualStrictModel):
 
 
 class DirectorTreatment(VisualStrictModel):
-    schema_version: VisualSchemaVersion = "0.2.0"
+    schema_version: DirectorArtifactSchemaVersion = "0.2.0"
     status: StageStatus
     mode: Literal["automatic", "assisted", "deterministic"]
     logline: str = Field(min_length=1)
@@ -351,6 +419,7 @@ class DirectorTreatment(VisualStrictModel):
     reject_suggestions: list[MaterialId] = Field(default_factory=list)
     review_required: list[MaterialId] = Field(default_factory=list)
     coverage_gaps: list[str] = Field(default_factory=list)
+    role_assignments: list[ProjectRoleAssignment] = Field(default_factory=list)
     evidence_refs: list[EvidenceRef] = Field(min_length=1)
     unsupported_inferences: list[str] = Field(default_factory=list)
 
@@ -374,6 +443,28 @@ class DirectorTreatment(VisualStrictModel):
         }
         if not chapter_materials.issubset(known):
             raise ValueError("chapter references material outside treatment buckets")
+        if self.schema_version == "0.3.0":
+            assigned_materials = {
+                material_id
+                for assignment in self.role_assignments
+                for material_id in assignment.material_ids
+            }
+            if not assigned_materials.issubset(known):
+                raise ValueError("project role references material outside treatment buckets")
+            functions = [row.director_function for row in self.role_assignments]
+            if len(functions) != len(set(functions)):
+                raise ValueError("director treatment role functions must be unique")
+            for chapter in self.chapters:
+                expected = {
+                    material_id
+                    for assignment in self.role_assignments
+                    if assignment.director_function in chapter.director_functions
+                    for material_id in assignment.material_ids
+                }
+                if set(chapter.material_ids) != expected:
+                    raise ValueError(
+                        "V0.3 chapter materials must come from project role assignments"
+                    )
         return self
 
 

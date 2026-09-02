@@ -66,6 +66,17 @@ def test_treatment_exposes_missing_ending_instead_of_inventing_one() -> None:
     assert all("ending" not in chapter.director_functions for chapter in treatment.chapters)
 
 
+def test_treatment_preserves_project_role_assignments_and_v03_schema() -> None:
+    treatment, _observations, decisions, _brief = build_city_treatment()
+
+    assert treatment.schema_version == "0.3.0"
+    assert treatment.role_assignments == decisions.role_assignments
+    assert all(
+        assignment.selection_reason and assignment.evidence_refs
+        for assignment in treatment.role_assignments
+    )
+
+
 def test_enhancement_validator_rejects_new_evidence_or_memberships() -> None:
     treatment, _observations, _decisions, _brief = build_city_treatment()
     rewritten = treatment.model_copy(

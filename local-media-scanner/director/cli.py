@@ -879,6 +879,7 @@ def skill_summary_command(
         ProjectConflict,
         load_project_state,
         open_project,
+        preflight_visual_stage_checked,
         record_supporting_artifact,
         record_visual_stage_checked,
     )
@@ -892,11 +893,8 @@ def skill_summary_command(
             param_hint="--output",
         )
     summary = build_skill_run_summary(paths.root)
-    record_supporting_artifact(
-        paths,
-        output,
-        summary.model_dump(mode="json"),
-    )
+    visual_review = None
+    draft = paths.visual_drafts / "visual_review.summary.json"
     if summary.project_mode != "blocked":
         state = load_project_state(paths)
         visual_review = VisualReviewArtifact(
@@ -914,7 +912,21 @@ def skill_summary_command(
             },
             external_call_count=0,
         )
-        draft = paths.visual_drafts / "visual_review.summary.json"
+        try:
+            preflight_visual_stage_checked(
+                paths,
+                "visual_review",
+                draft,
+                visual_review,
+            )
+        except ProjectConflict as exc:
+            raise typer.BadParameter(str(exc), param_hint="--project") from exc
+    record_supporting_artifact(
+        paths,
+        output,
+        summary.model_dump(mode="json"),
+    )
+    if visual_review is not None:
         record_supporting_artifact(paths, draft, visual_review.model_dump(mode="json"))
         try:
             record_visual_stage_checked(paths, "visual_review", draft)

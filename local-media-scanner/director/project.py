@@ -474,6 +474,18 @@ def record_stage_artifact(
 def record_visual_stage_checked(paths: ProjectPaths, stage: str, artifact: Path) -> str:
     """Publish one checked V0.2 draft only after all predecessors are complete."""
 
+    preflight_visual_stage_checked(paths, stage, artifact)
+    return record_stage_artifact(paths, stage, artifact.resolve())
+
+
+def preflight_visual_stage_checked(
+    paths: ProjectPaths,
+    stage: str,
+    artifact: Path,
+    value: BaseModel | dict[str, Any] | list[Any] | Path | None = None,
+) -> str:
+    """Validate a V0.2 stage publication path and payload without writing it."""
+
     state = load_project_state(paths)
     if state.schema_version != "0.2.0":
         raise ProjectConflict("record-visual-stage requires a V0.2 visual project")
@@ -483,7 +495,7 @@ def record_visual_stage_checked(paths: ProjectPaths, stage: str, artifact: Path)
     canonical = paths.artifact_for(stage).resolve()
     if draft == canonical:
         raise ProjectConflict("canonical artifact cannot be its own draft input")
-    if not draft.is_file():
+    if value is None and not draft.is_file():
         raise FileNotFoundError(draft)
     drafts_root = paths.visual_drafts.resolve()
     if not draft.is_relative_to(drafts_root):
@@ -505,7 +517,27 @@ def record_visual_stage_checked(paths: ProjectPaths, stage: str, artifact: Path)
             raise ProjectConflict(f"predecessor artifact is invalid: {predecessor}") from exc
         if predecessor_value.get("status") != "completed":
             raise ProjectConflict(f"predecessor is not completed: {predecessor}")
-    return record_stage_artifact(paths, stage, draft)
+    if value is None:
+        if not draft.is_file():
+            raise FileNotFoundError(draft)
+        payload_value = json.loads(draft.read_text(encoding="utf-8"))
+    else:
+        payload_value = _json_value(value)
+    payload_value = _validated_stage_value(stage, payload_value, "0.2.0")
+    payload = _canonical_bytes(payload_value)
+    payload_hash = _sha256_bytes(payload)
+    recorded_hash = state.completed_artifact_hashes.get(stage)
+    if recorded_hash is not None:
+        if (
+            not canonical.exists()
+            or _sha256_file(canonical) != recorded_hash
+            or recorded_hash != payload_hash
+        ):
+            raise ProjectConflict(f"completed artifact already differs: {stage}")
+        return recorded_hash
+    if canonical.exists():
+        raise ProjectConflict(f"untracked artifact already exists: {stage}")
+    return payload_hash
 
 
 def record_supporting_artifact(

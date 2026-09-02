@@ -10,7 +10,12 @@ from pydantic import Field, field_validator, model_validator
 
 from director.project import ProjectConflict, load_project_state, open_project
 from director.schema import ExternalCallRecord
-from director.visual_schema import Bucket, VisualStrictModel, validate_visual_stage_artifact
+from director.visual_schema import (
+    Bucket,
+    VisualProjectState,
+    VisualStrictModel,
+    validate_visual_stage_artifact,
+)
 
 
 EXTERNAL_SERVICES = (
@@ -136,6 +141,26 @@ def _review_required_count(observations: dict[str, object] | None) -> int:
     )
 
 
+def _validate_cross_artifact_bindings(
+    state: VisualProjectState,
+    *,
+    intent_brief: dict[str, object] | None,
+    brief_confirmation: dict[str, object] | None,
+    treatment: dict[str, object] | None,
+    director_review: dict[str, object] | None,
+) -> None:
+    if intent_brief is not None and brief_confirmation is not None:
+        expected_draft_hash = state.completed_artifact_hashes["intent_brief"]
+        if brief_confirmation["draft_sha256"] != expected_draft_hash:
+            raise ProjectConflict("brief confirmation draft hash mismatch")
+    if treatment is not None and director_review is not None:
+        expected_treatment_hash = state.completed_artifact_hashes[
+            "director_treatment"
+        ]
+        if director_review["treatment_sha256"] != expected_treatment_hash:
+            raise ProjectConflict("director review treatment hash mismatch")
+
+
 def _dedupe(items: list[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -161,6 +186,13 @@ def build_skill_run_summary(project_root: Path) -> SkillRunSummary:
     review = _load_stage(paths, state, "director_review")
     prompts = _load_stage(paths, state, "music_style_recommendations")
     external_calls = _external_call_payload(paths, state)
+    _validate_cross_artifact_bindings(
+        state,
+        intent_brief=intent_brief,
+        brief_confirmation=brief_confirmation,
+        treatment=treatment,
+        director_review=review,
+    )
 
     bucket_counts = _bucket_counts(treatment)
     material_count = len(observations["items"]) if observations is not None else 0

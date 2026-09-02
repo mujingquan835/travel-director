@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -11,8 +12,10 @@ from director.director_treatment import build_director_treatment
 from director.intent_matcher import build_intent_decisions, build_project_coverage
 from director.music_prompt_recommender import recommend_music_prompts
 from director.project import (
+    ProjectConflict,
     create_visual_project,
     load_project_state,
+    open_project,
     record_supporting_artifact,
     record_visual_stage_checked,
 )
@@ -53,6 +56,26 @@ def _set_external_calls(paths, payload: list[dict[str, object]]) -> None:
     )
 
 
+def _canonical_bytes(value: object) -> bytes:
+    return (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    ).encode("utf-8")
+
+
+def _rewrite_recorded_stage(paths, stage: str, payload: dict[str, object]) -> None:
+    canonical = paths.artifact_for(stage)
+    canonical.write_bytes(_canonical_bytes(payload))
+    state_payload = json.loads(paths.project_state.read_text(encoding="utf-8"))
+    state_payload["completed_artifact_hashes"][stage] = hashlib.sha256(
+        canonical.read_bytes()
+    ).hexdigest()
+    paths.project_state.write_text(
+        json.dumps(state_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def completed_project(
     tmp_path: Path,
     *,
@@ -85,6 +108,13 @@ def completed_project(
         paths, "clip_observations", observations.model_dump(mode="json")
     )
     _record_visual_draft(paths, "intent_brief", _intent_brief_payload(raw_description))
+    brief = brief.model_copy(
+        update={
+            "draft_sha256": hashlib.sha256(
+                paths.intent_brief.read_bytes()
+            ).hexdigest()
+        }
+    )
     _record_visual_draft(paths, "brief_confirmation", brief.model_dump(mode="json"))
     _record_visual_draft(paths, "intent_decisions", decisions.model_dump(mode="json"))
     _record_visual_draft(paths, "project_coverage", coverage.model_dump(mode="json"))
@@ -183,6 +213,13 @@ def test_incomplete_brief_confirmation_prevents_completed_summary(tmp_path: Path
         paths, "clip_observations", observations.model_dump(mode="json")
     )
     _record_visual_draft(paths, "intent_brief", _intent_brief_payload(raw_description))
+    brief = brief.model_copy(
+        update={
+            "draft_sha256": hashlib.sha256(
+                paths.intent_brief.read_bytes()
+            ).hexdigest()
+        }
+    )
     _record_visual_draft(paths, "brief_confirmation", brief.model_dump(mode="json"))
 
     result = build_skill_run_summary(paths.root)
@@ -267,3 +304,81 @@ def test_skill_summary_cli_writes_final_summary_and_records_visual_review(
         "director_review",
         "music_style_recommendations",
     }
+
+
+def test_summary_rejects_stale_brief_confirmation_hash_even_when_state_matches(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    payload = json.loads(paths.brief_confirmation.read_text(encoding="utf-8"))
+    payload["draft_sha256"] = "f" * 64
+    _rewrite_recorded_stage(paths, "brief_confirmation", payload)
+
+    with pytest.raises(ProjectConflict, match="brief confirmation draft hash mismatch"):
+        build_skill_run_summary(project_root)
+
+
+def test_summary_rejects_stale_director_review_hash_even_when_state_matches(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    payload = json.loads(paths.director_review.read_text(encoding="utf-8"))
+    payload["treatment_sha256"] = "e" * 64
+    _rewrite_recorded_stage(paths, "director_review", payload)
+
+    with pytest.raises(ProjectConflict, match="director review treatment hash mismatch"):
+        build_skill_run_summary(project_root)
+
+
+def test_summary_rejects_state_file_hash_drift(tmp_path: Path) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    payload = json.loads(paths.intent_brief.read_text(encoding="utf-8"))
+    payload["provider"] = "tampered"
+    paths.intent_brief.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ProjectConflict, match="completed artifact drifted: intent_brief"):
+        build_skill_run_summary(project_root)
+
+
+def test_skill_summary_preflight_leaves_no_summary_when_visual_review_conflicts(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    paths.visual_review.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.2.0",
+                "status": "completed",
+                "report_path": "conflict.json",
+                "source_artifact_hashes": {"director_treatment": "d" * 64},
+                "external_call_count": 0,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    output = project_root / "visual" / "final_summary.json"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "skill-summary",
+            "--project",
+            str(project_root),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "untracked artifact already exists:" in result.output
+    assert "visual_review" in result.output
+    assert not output.exists()

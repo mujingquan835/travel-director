@@ -1,5 +1,15 @@
 # Music-Driven Travel Montage Prototype
 
+## Travel Director first-stage entry
+
+`$travel-director` is now the first-stage product entry for local travel footage. It runs the Scanner without local visual models, groups representative contact sheets into resumable invoking-agent batches of at most 10 materials, validates every structured batch, and turns the user's description into an evidence-bound Director treatment.
+
+The local HTML page is conditional review infrastructure, not the product entry. It is generated only when unresolved visual fields exceed the chat threshold; the user answers ordinary Chinese questions and exports a hash-bound confirmation file. The first-stage output ends at the Director treatment plus exactly three ready-to-copy music-generation prompts of at most 200 characters each. It does not select best clip ranges, generate music, or edit a timeline.
+
+The frozen 12-material blind run completed in `assisted` mode after one local-page confirmation: 12 materials were processed, 7 were classified as core and 5 as candidates, with no remaining review-required materials. The deterministic treatment still reports missing explicit opening, contrast, and ending functions. The downloaded confirmation passed source-hash validation. The once-only complete suite passed with `292 passed` before two confirmed-Brief runtime fixes; their post-fix focused regression passed with `24 passed`, and the complete suite was not run a second time. Agent-side layout inspection of the `file://` page remained blocked by the browser URL policy, so the milestone browser gate and final milestone completion are not claimed.
+
+For this run, Quduoduo, Dreamina, NetEase Music, QQ Music, Spotify, Apple Music, and music generation all remain `not_executed`; `external_call_count=0`.
+
 ## Current implementation boundary
 
 The completed offline foundation provides strict Director contracts, a conservative Scanner bridge, local duplicate/audio evidence, structured music-search briefs, an offline catalog provider, explainable three-direction ranking, a reference-safe music blueprint, and a fail-closed music-generation authorization boundary.

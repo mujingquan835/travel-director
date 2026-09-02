@@ -1,0 +1,38 @@
+{
+  "schema_version": "0.2.0",
+  "split": "blind",
+  "milestone_status": "partial_browser_gate_blocked",
+  "material_count": 12,
+  "invoking_agent_batch_count": 2,
+  "max_batch_size": 10,
+  "actual_mode": "assisted",
+  "review_channel": "local_page",
+  "structured_batch_retry_count": 0,
+  "browser_check": "blocked_by_file_url_policy",
+  "confirmation_json_validation": "passed",
+  "verification": {
+    "full_suite_before_final_runtime_fixes": "292 passed",
+    "focused_regression_after_final_runtime_fixes": "24 passed",
+    "final_head_full_suite_rerun": "not_executed_once_only_cap"
+  },
+  "external_call_count": 0,
+  "external_services": {
+    "quduoduo": "not_executed",
+    "dreamina": "not_executed",
+    "netease_music": "not_executed",
+    "qq_music": "not_executed",
+    "spotify": "not_executed",
+    "apple_music": "not_executed",
+    "music_generation": "not_executed"
+  },
+  "artifact_sha256": {
+    "agent_batch_manifest": "dd64435e0759cf94b4f82592afae7da5271ed1ac8ef67e31673ebcb647157520",
+    "agent_batch_result_000": "d4d863b89732c4d6707a94ebe8edcf2f3be4c392ba7c4d38f498112643f9509a",
+    "agent_batch_result_001": "b7e6b3d8848fec20bc7434b88cf6c96974fb35f4d234db11b529603bc371b9ad",
+    "merged_observations": "9d3c88f4698a45b15062d0a9bb6cd377a57accd4c2519c0562984b9f0b2a722c",
+    "review_route": "e12ae8dc94ca9c42ab89b5a2545663bd839b88f3d8192d2b90ff717ff4b20cd1",
+    "director_treatment": "907508788b5241e7d1cb2736dbafc11ee20012ec85269e132c23de9ee8dfc9e5",
+    "music_style_recommendations": "d0f1f935f81c225a948a2443907831bdc807e11f2fa0b3e658f2b32f538cbcad",
+    "final_summary": "4bfe9e74f704b340f4f2720b1fc3c4136eba4992299807a1e81db08eae769cb3"
+  }
+}

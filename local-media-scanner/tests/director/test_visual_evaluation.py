@@ -9,12 +9,18 @@ from typer.testing import CliRunner
 
 from director.cli import app
 from director.evaluation import (
+    BlindAnnotationBundle,
+    DirectorGroundTruthRecord,
     DirectorVisualGroundTruth,
+    GroundTruthRecord,
     build_evaluation_split,
     build_ground_truth_template,
     evaluate_duplicate_fixture,
+    sha256_file,
+    validate_blind_annotation_bundle,
     validate_ground_truth,
 )
+from director.visual_schema import BriefConfirmation, NormalizedBriefFields
 from scanner.schema import (
     ManifestEntry,
     SourceRecord,
@@ -125,6 +131,24 @@ def test_ground_truth_rejects_unknown_or_duplicate_material() -> None:
         )
 
 
+def test_ground_truth_rejects_ambiguous_unknown_and_people_labels() -> None:
+    base = {
+        "material_id": f"sha256:{'1' * 64}",
+        "source_sha256": "1" * 64,
+        "file": "blind.mov",
+        "split": "blind",
+    }
+
+    with pytest.raises(ValidationError, match="unknown content family"):
+        GroundTruthRecord.model_validate(
+            base | {"content_families": ["unknown", "urban"]}
+        )
+    with pytest.raises(ValidationError, match="present people cannot have none"):
+        GroundTruthRecord.model_validate(
+            base | {"people_presence": "present", "people_count_band": "none"}
+        )
+
+
 def _pattern(path: Path, *, vertical: bool) -> None:
     image = Image.new("L", (64, 64), 255)
     draw = ImageDraw.Draw(image)
@@ -195,3 +219,156 @@ def test_ground_truth_cli_allows_blank_template_only_when_explicit(tmp_path: Pat
     assert strict.exit_code != 0
     assert template_only.exit_code == 0, template_only.output
     assert "valid" in template_only.stdout
+
+
+def test_blind_annotation_bundle_requires_complete_independent_labels() -> None:
+    split = build_evaluation_split(
+        manifest(), cv_rows(), source_manifest_sha256="a" * 64
+    )
+    source_hashes = {
+        row.source.relative_path: f"{index + 1:064x}"
+        for index, row in enumerate(split.dev.entries + split.blind.entries)
+    }
+    template = build_ground_truth_template(split, source_hashes)
+    completed_blind = [
+        row.model_copy(
+            update={
+                "technical_usability": "usable",
+                "content_families": ["culture_architecture"],
+                "setting": "outdoor",
+                "lighting": "daylight",
+                "people_presence": "absent",
+                "people_count_band": "none",
+                "completed": True,
+            }
+        )
+        if row.split == "blind"
+        else row
+        for row in template.records
+    ]
+    visual_ground_truth = template.model_copy(update={"records": completed_blind})
+    director_records = [
+        DirectorGroundTruthRecord(
+            material_id=row.material_id,
+            file=row.file,
+            bucket="candidate",
+            director_functions=["context"],
+            completed=True,
+        )
+        for row in completed_blind
+        if row.split == "blind"
+    ]
+    bundle = BlindAnnotationBundle(
+        source_manifest_sha256=split.source_manifest_sha256,
+        blind_membership_sha256=split.blind_membership_sha256,
+        brief_confirmation_sha256="b" * 64,
+        reviewer="independent-reviewer",
+        status="completed",
+        visual_ground_truth=visual_ground_truth,
+        director_records=director_records,
+    )
+
+    validate_blind_annotation_bundle(
+        bundle,
+        split,
+        brief_confirmation_sha256="b" * 64,
+    )
+
+    incomplete = bundle.model_copy(
+        update={"director_records": director_records[:-1]}
+    )
+    with pytest.raises(ValueError, match="director labels differ from blind split"):
+        validate_blind_annotation_bundle(
+            incomplete,
+            split,
+            brief_confirmation_sha256="b" * 64,
+        )
+
+
+def test_validate_blind_annotation_cli_accepts_hash_bound_bundle(
+    tmp_path: Path,
+) -> None:
+    split = build_evaluation_split(
+        manifest(), cv_rows(), source_manifest_sha256="a" * 64
+    )
+    source_hashes = {
+        row.source.relative_path: f"{index + 1:064x}"
+        for index, row in enumerate(split.dev.entries + split.blind.entries)
+    }
+    template = build_ground_truth_template(split, source_hashes)
+    visual_ground_truth = template.model_copy(
+        update={
+            "records": [
+                row.model_copy(
+                    update={
+                        "technical_usability": "usable",
+                        "content_families": ["urban"],
+                        "setting": "outdoor",
+                        "lighting": "daylight",
+                        "people_presence": "unknown",
+                        "people_count_band": "unknown",
+                        "completed": True,
+                    }
+                )
+                if row.split == "blind"
+                else row
+                for row in template.records
+            ]
+        }
+    )
+    brief = BriefConfirmation(
+        status="completed",
+        draft_sha256="d" * 64,
+        normalized_fields=NormalizedBriefFields(
+            location="开封",
+            travel_type="城市漫游",
+            target_duration_seconds=60,
+            orientation="landscape",
+            style="纪实探索",
+            mood="探索",
+            rhythm="medium",
+        ),
+        changed_fields=[],
+        confirmed_at="2026-09-02T12:00:00+08:00",
+    )
+    split_path = tmp_path / "split.json"
+    brief_path = tmp_path / "brief.json"
+    split_path.write_text(split.model_dump_json(), encoding="utf-8")
+    brief_path.write_text(brief.model_dump_json(), encoding="utf-8")
+    bundle = BlindAnnotationBundle(
+        source_manifest_sha256=split.source_manifest_sha256,
+        blind_membership_sha256=split.blind_membership_sha256,
+        brief_confirmation_sha256=sha256_file(brief_path),
+        reviewer="independent-reviewer",
+        status="completed",
+        visual_ground_truth=visual_ground_truth,
+        director_records=[
+            DirectorGroundTruthRecord(
+                material_id=row.material_id,
+                file=row.file,
+                bucket="candidate",
+                director_functions=["context"],
+                completed=True,
+            )
+            for row in visual_ground_truth.records
+            if row.split == "blind"
+        ],
+    )
+    annotation_path = tmp_path / "blind_annotation.json"
+    annotation_path.write_text(bundle.model_dump_json(), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "validate-blind-annotation",
+            "--split",
+            str(split_path),
+            "--brief-confirmation",
+            str(brief_path),
+            "--annotation",
+            str(annotation_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "valid" in result.stdout

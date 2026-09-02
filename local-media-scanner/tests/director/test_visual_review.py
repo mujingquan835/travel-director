@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from director.cli import app
 from director.evaluation import (
+    DirectorVisualGroundTruth,
     FieldConfirmation,
     GroundTruthRecord,
     VisualConfirmation,
@@ -20,18 +21,21 @@ from director.visual_review import (
     build_automatic_director_review,
     prepare_visual_review,
     render_director_review,
+    render_blind_annotation_review,
     render_visual_review,
     validate_director_review,
     validate_visual_confirmation_against_observations,
 )
 from director.agent_batches import MaterialFrameMap, MaterialFrameSet, RepresentativeFrame
 from director.visual_schema import (
+    BriefConfirmation,
     ClipObservation,
     ClipObservationBatch,
     DirectorReview,
     DirectorTreatment,
     EvidenceRef,
     MaterialRef,
+    NormalizedBriefFields,
     ObservationAssertion,
     TreatmentChapter,
 )
@@ -303,6 +307,152 @@ def test_review_page_is_offline_and_exports_confirmation(tmp_path: Path) -> None
     assert f"data:image/jpeg;base64,{encoded}" in html
     assert "t=7.250s" in html
     assert str(probe.resolve()) not in html
+
+
+def test_blind_annotation_page_is_independent_chinese_and_offline(
+    tmp_path: Path,
+) -> None:
+    blind_frame = tmp_path / "blind.jpg"
+    Image.new("RGB", (4, 3), "blue").save(blind_frame, format="JPEG")
+    blind_hash = "1" * 64
+    dev_hash = "2" * 64
+    template = DirectorVisualGroundTruth(
+        source_manifest_sha256="a" * 64,
+        dev_membership_sha256="b" * 64,
+        blind_membership_sha256="c" * 64,
+        records=[
+            GroundTruthRecord(
+                material_id=f"sha256:{dev_hash}",
+                source_sha256=dev_hash,
+                file="dev.mov",
+                split="dev",
+            ),
+            GroundTruthRecord(
+                material_id=f"sha256:{blind_hash}",
+                source_sha256=blind_hash,
+                file="blind.mov",
+                split="blind",
+            ),
+        ],
+    )
+    frame_map = MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=observations().items[0].material.model_copy(
+                    update={
+                        "material_id": f"sha256:{blind_hash}",
+                        "relative_path": "blind.mov",
+                        "source_sha256": blind_hash,
+                    }
+                ),
+                frames=[RepresentativeFrame(path=str(blind_frame), timestamp=2.5)],
+            )
+        ]
+    )
+    output = tmp_path / "blind_review.html"
+
+    render_blind_annotation_review(
+        template,
+        frame_map,
+        {
+            "location": "开封",
+            "travel_type": "城市漫游",
+            "target_duration_seconds": 60,
+            "orientation": "landscape",
+            "style": "纪实探索",
+            "mood": "探索",
+            "rhythm": "medium",
+        },
+        output,
+        brief_confirmation_sha256="d" * 64,
+    )
+
+    html = output.read_text(encoding="utf-8")
+    assert "<h2>blind.mov</h2>" in html
+    assert "<h2>dev.mov</h2>" not in html
+    assert "开封" in html and "城市漫游" in html and "60 秒" in html
+    assert "一、只看画面" in html
+    assert "二、站在这条短片的角度" in html
+    assert "素材用途" in html and "导演职责" in html
+    assert "blind_annotation.json" in html
+    assert "系统建议" not in html
+    assert "original_bucket" not in html
+    assert "http://" not in html and "https://" not in html
+    assert "data:image/jpeg;base64," in html
+    assert str(blind_frame.resolve()) not in html
+
+
+def test_render_blind_annotation_cli_uses_confirmed_brief_and_frame_map(
+    tmp_path: Path,
+) -> None:
+    frame = tmp_path / "blind.jpg"
+    Image.new("RGB", (4, 3), "navy").save(frame, format="JPEG")
+    template = DirectorVisualGroundTruth(
+        source_manifest_sha256="a" * 64,
+        dev_membership_sha256="b" * 64,
+        blind_membership_sha256="c" * 64,
+        records=[
+            GroundTruthRecord(
+                material_id=MATERIAL_ID,
+                source_sha256=SOURCE_HASH,
+                file="blind.mov",
+                split="blind",
+            )
+        ],
+    )
+    brief = BriefConfirmation(
+        status="completed",
+        draft_sha256="d" * 64,
+        normalized_fields=NormalizedBriefFields(
+            location="开封",
+            travel_type="城市漫游",
+            target_duration_seconds=60,
+            orientation="landscape",
+            style="纪实探索",
+            mood="探索",
+            rhythm="medium",
+        ),
+        changed_fields=[],
+        confirmed_at="2026-09-02T12:00:00+08:00",
+    )
+    mapped = MaterialFrameMap(
+        items=[
+            MaterialFrameSet(
+                material=observations().items[0].material.model_copy(
+                    update={"relative_path": "blind.mov"}
+                ),
+                frames=[RepresentativeFrame(path=str(frame), timestamp=1.5)],
+            )
+        ]
+    )
+    template_path = tmp_path / "template.json"
+    brief_path = tmp_path / "brief_confirmation.json"
+    frame_map_path = tmp_path / "frame_map.json"
+    output = tmp_path / "review.html"
+    template_path.write_text(template.model_dump_json(), encoding="utf-8")
+    brief_path.write_text(brief.model_dump_json(), encoding="utf-8")
+    frame_map_path.write_text(mapped.model_dump_json(), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "render-blind-annotation-review",
+            "--ground-truth-template",
+            str(template_path),
+            "--frame-map",
+            str(frame_map_path),
+            "--brief-confirmation",
+            str(brief_path),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert output.is_file()
+    html = output.read_text(encoding="utf-8")
+    assert "开封" in html
+    assert __import__("hashlib").sha256(brief_path.read_bytes()).hexdigest() in html
 
 
 def test_confirmation_validation_and_import_preserve_original(tmp_path: Path) -> None:

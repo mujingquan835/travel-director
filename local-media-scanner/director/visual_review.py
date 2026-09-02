@@ -11,7 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from director.agent_batches import MaterialFrameMap, RepresentativeFrame
-from director.evaluation import VisualConfirmation, sha256_file
+from director.evaluation import (
+    DirectorVisualGroundTruth,
+    VisualConfirmation,
+    sha256_file,
+)
 from director.skill_workflow import (
     ChatReviewBatch,
     PreparedVisualReview,
@@ -229,6 +233,109 @@ document.getElementById('download').addEventListener('click',()=>{{
   }}catch(error){{alert(error.message);}}
 }});
 </script></body></html>"""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(html, encoding="utf-8")
+    return output
+
+
+def render_blind_annotation_review(
+    template: DirectorVisualGroundTruth,
+    frame_map: MaterialFrameMap,
+    brief_fields: dict[str, Any],
+    output: Path,
+    *,
+    brief_confirmation_sha256: str,
+) -> Path:
+    """Render one prediction-free page for independent blind annotations."""
+
+    frames_by_material = {item.material.material_id: item.frames for item in frame_map.items}
+    blind_records = [record for record in template.records if record.split == "blind"]
+    cards: list[str] = []
+    for index, record in enumerate(blind_records, start=1):
+        images = "".join(
+            f'<figure><img src="{escape(src)}" alt="素材 {index} 代表帧"><figcaption>{escape(label)}</figcaption></figure>'
+            for src, label in (
+                _embed_frame(frame)
+                for frame in frames_by_material.get(record.material_id, [])
+            )
+        )
+        if not images:
+            raise ValueError(f"blind material has no local representative frames: {record.file}")
+        family_choices = "".join(
+            f'<label class="choice"><input type="checkbox" name="content_families" value="{value}"><span>{escape(label)}</span></label>'
+            for value, label in (*_CONTENT_FAMILY_OPTIONS, ("unknown", "无法判断"))
+        )
+        function_choices = "".join(
+            f'<label class="choice"><input type="checkbox" name="director_functions" value="{value}"><span>{label}</span></label>'
+            for value, label in (
+                ("opening", "开场"),
+                ("context", "交代环境"),
+                ("progression", "推进"),
+                ("emotion", "情绪"),
+                ("contrast", "对比"),
+                ("breathing", "留白"),
+                ("climax", "高潮"),
+                ("ending", "收尾"),
+            )
+        )
+        cards.append(
+            f"""<article data-material="{escape(record.material_id)}" data-file="{escape(record.file)}">
+<div class="card-head"><span class="number">{index:02d}</span><h2>{escape(record.file)}</h2><span class="card-status">未完成</span></div>
+<div class="frames">{images}</div>
+<section class="layer"><h3>一、只看画面</h3><p>不猜景点、人物身份或故事。</p>
+<div class="field"><label>画面是否可用</label><select name="technical_usability"><option value="">请选择</option><option value="usable">可用</option><option value="unusable">不可用</option><option value="review_required">需看原片</option></select></div>
+<div class="field wide"><label>画面内容（可多选）</label><div class="choice-grid">{family_choices}</div></div>
+<div class="field"><label>环境</label><select name="setting"><option value="">请选择</option><option value="outdoor">室外</option><option value="indoor">室内</option><option value="mixed">室内外混合</option><option value="unknown">无法判断</option></select></div>
+<div class="field"><label>光线</label><select name="lighting"><option value="">请选择</option><option value="daylight">日间自然光</option><option value="night">夜景</option><option value="artificial">人工灯光</option><option value="mixed">混合光</option><option value="unknown">无法判断</option></select></div>
+<div class="field"><label>是否有人</label><select name="people_presence"><option value="">请选择</option><option value="present">有人</option><option value="absent">没有人</option><option value="unknown">无法判断</option></select></div>
+<div class="field"><label>人数范围</label><select name="people_count_band"><option value="">请选择</option><option value="none">无人</option><option value="single">1 人</option><option value="few">少量人物</option><option value="crowd">人群</option><option value="unknown">无法判断</option></select></div>
+<div class="field"><label>主体短词（可不填）</label><input name="subject_candidates" placeholder="例如：建筑外立面、餐桌"></div>
+<div class="field"><label>动作短词（可不填）</label><input name="activity_candidates" placeholder="例如：行走、参观"></div>
+</section>
+<section class="layer director"><h3>二、站在这条短片的角度</h3><p>这一层可以考虑上方 Brief，但仍不参考系统的判断结果。</p>
+<div class="field"><label>素材用途</label><select name="bucket"><option value="">请选择</option><option value="core">核心素材</option><option value="candidate">可选素材</option><option value="redundant">重复/必要性低</option><option value="reject_suggestion">建议不用</option><option value="review_required">需看原片</option></select></div>
+<div class="field wide"><label>导演职责（可多选）</label><div class="choice-grid functions">{function_choices}<label class="choice"><input type="checkbox" name="no_function" value="none"><span>无明确职责</span></label></div></div>
+<div class="field wide"><label>备注（可不填）</label><input name="reviewer_note" placeholder="只记录你判断的依据"></div>
+</section></article>"""
+        )
+
+    brief_labels = {
+        "orientation": {"landscape": "横屏", "portrait": "竖屏"}.get(brief_fields.get("orientation"), brief_fields.get("orientation")),
+        "rhythm": {"low": "低节奏", "medium": "中等节奏", "high": "高节奏"}.get(brief_fields.get("rhythm"), brief_fields.get("rhythm")),
+    }
+    brief_values = [
+        brief_fields.get("location"),
+        brief_fields.get("travel_type"),
+        f'{brief_fields.get("target_duration_seconds")} 秒' if brief_fields.get("target_duration_seconds") else None,
+        brief_labels["orientation"],
+        brief_fields.get("style"),
+        brief_fields.get("mood"),
+        brief_labels["rhythm"],
+    ]
+    chips = "".join(f"<span>{escape(str(value))}</span>" for value in brief_values if value)
+    template_json = _json_for_script(template.model_dump(mode="json"))
+    html = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>旅行导演·独立盲测标注</title><style>
+*{{box-sizing:border-box}}body{{margin:0;background:#0f1115;color:#f4f5f7;font-family:system-ui,-apple-system,sans-serif}}main{{max-width:1180px;margin:auto;padding:24px}}.top{{position:sticky;top:0;z-index:3;background:#0f1115ee;padding:12px 0 16px;border-bottom:1px solid #30343c}}h1{{margin:0 0 8px;font-size:28px}}.lead,.layer p{{color:#aeb5c2}}.brief{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}}.brief span{{background:#262a33;border:1px solid #414754;border-radius:999px;padding:6px 10px}}.progress-row{{display:flex;align-items:center;gap:12px}}progress{{flex:1;height:12px}}button{{background:#725cff;color:white;border:0;border-radius:9px;padding:12px 18px;font-size:15px;cursor:pointer}}button:disabled{{opacity:.4;cursor:not-allowed}}article{{margin:22px 0;background:#1a1d23;border:1px solid #313641;border-radius:16px;overflow:hidden}}.card-head{{display:flex;align-items:center;gap:10px;padding:16px 18px}}.number{{font-weight:800;color:#8ea5ff}}h2{{margin:0;font-size:16px;word-break:break-all;flex:1}}.card-status{{color:#ffc36b;font-size:13px}}article.complete .card-status{{color:#6fe0aa}}.frames{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:0 18px 16px}}figure{{margin:0}}img{{width:100%;height:220px;object-fit:contain;background:#000;border-radius:9px}}figcaption{{color:#9da5b2;font-size:12px;margin-top:4px}}.layer{{border-top:1px solid #313641;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px}}.layer h3,.layer>p{{grid-column:1/-1;margin:0}}.director{{background:#171b27}}.field{{display:flex;flex-direction:column;gap:7px}}.wide{{grid-column:1/-1}}label{{font-size:14px}}select,input{{width:100%;border:1px solid #4a515f;background:#101217;color:#f4f5f7;border-radius:8px;padding:10px}}.choice-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}}.choice{{display:flex;align-items:center;gap:7px;background:#101217;border:1px solid #414754;border-radius:8px;padding:9px}}.choice input{{width:auto}}@media(max-width:720px){{.layer{{grid-template-columns:1fr}}.wide{{grid-column:1}}img{{height:180px}}}}
+</style></head><body><main><div class="top"><h1>独立盲测标注</h1><p class="lead">共 {len(blind_records)} 条。页面没有带入系统识别、桶位或导演职责结果。</p><div class="brief">{chips}</div><div class="progress-row"><strong id="progressText">0 / {len(blind_records)}</strong><progress id="progress" max="{len(blind_records)}" value="0"></progress><button id="download" disabled>导出独立标注</button></div></div>{''.join(cards)}</main>
+<script>const visualTemplate={template_json};const briefHash='{brief_confirmation_sha256}';
+function words(value){{return value.split(/[\u3001，,;；]/).map(v=>v.trim()).filter(Boolean)}}
+function checked(card,name){{return [...card.querySelectorAll(`input[name="${{name}}"]:checked`)].map(x=>x.value)}}
+function complete(card){{return ['technical_usability','setting','lighting','people_presence','people_count_band','bucket'].every(name=>card.querySelector(`[name="${{name}}"]`).value)&&checked(card,'content_families').length>0&&(checked(card,'director_functions').length>0||card.querySelector('[name="no_function"]').checked)}}
+function refresh(){{let done=0;document.querySelectorAll('article').forEach(card=>{{const ok=complete(card);card.classList.toggle('complete',ok);card.querySelector('.card-status').textContent=ok?'已完成':'未完成';if(ok)done++}});document.getElementById('progress').value=done;document.getElementById('progressText').textContent=`${{done}} / {len(blind_records)}`;document.getElementById('download').disabled=done!=={len(blind_records)}}}
+document.querySelectorAll('input,select').forEach(control=>control.addEventListener('change',()=>{{
+  const card=control.closest('article');
+  if(control.name==='content_families'&&control.checked){{
+    if(control.value==='unknown')card.querySelectorAll('[name="content_families"]:not([value="unknown"])').forEach(x=>x.checked=false);
+    else card.querySelector('[name="content_families"][value="unknown"]').checked=false;
+  }}
+  if(control.name==='people_presence'&&control.value==='absent')card.querySelector('[name="people_count_band"]').value='none';
+  if(control.name==='people_count_band'&&control.value==='none')card.querySelector('[name="people_presence"]').value='absent';
+  if(control.name==='no_function'&&control.checked)card.querySelectorAll('[name="director_functions"]').forEach(x=>x.checked=false);
+  if(control.name==='director_functions'&&control.checked)card.querySelector('[name="no_function"]').checked=false;
+  refresh();
+}}));
+document.getElementById('download').addEventListener('click',()=>{{const byId=new Map(visualTemplate.records.map(row=>[row.material_id,row]));const directorRecords=[];document.querySelectorAll('article').forEach(card=>{{const row=byId.get(card.dataset.material);row.technical_usability=card.querySelector('[name="technical_usability"]').value;row.content_families=checked(card,'content_families');row.setting=card.querySelector('[name="setting"]').value;row.lighting=card.querySelector('[name="lighting"]').value;row.people_presence=card.querySelector('[name="people_presence"]').value;row.people_count_band=card.querySelector('[name="people_count_band"]').value;row.subject_candidates=words(card.querySelector('[name="subject_candidates"]').value);row.activity_candidates=words(card.querySelector('[name="activity_candidates"]').value);row.reviewer_note=card.querySelector('[name="reviewer_note"]').value;row.completed=true;directorRecords.push({{material_id:row.material_id,file:row.file,bucket:card.querySelector('[name="bucket"]').value,director_functions:checked(card,'director_functions'),reviewer_note:row.reviewer_note,completed:true}})}});const payload={{schema_version:'0.2.0',split:'blind',source_manifest_sha256:visualTemplate.source_manifest_sha256,blind_membership_sha256:visualTemplate.blind_membership_sha256,brief_confirmation_sha256:briefHash,reviewer:'independent-reviewer',status:'completed',visual_ground_truth:visualTemplate,director_records:directorRecords}};const blob=new Blob([JSON.stringify(payload,null,2)],{{type:'application/json'}});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='blind_annotation.json';link.click();URL.revokeObjectURL(link.href)}});refresh();</script></body></html>"""
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")
     return output

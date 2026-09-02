@@ -11,8 +11,10 @@ from PIL import Image
 from pydantic import ConfigDict, Field, model_validator
 
 from director.visual_schema import (
+    Bucket,
     ClipObservation,
     ClipObservationBatch,
+    DirectorFunction,
     MaterialRef,
     RawCreativeBrief,
     VisualStrictModel,
@@ -183,11 +185,17 @@ class GroundTruthRecord(VisualStrictModel):
     def identity_and_people_fields_are_consistent(self) -> "GroundTruthRecord":
         if self.material_id != derive_material_id(self.source_sha256):
             raise ValueError("ground truth material_id does not match source_sha256")
+        if len(self.content_families) != len(set(self.content_families)):
+            raise ValueError("ground truth content families must be unique")
+        if "unknown" in self.content_families and len(self.content_families) > 1:
+            raise ValueError("unknown content family cannot accompany concrete labels")
         if self.people_presence == "absent" and self.people_count_band not in {
             "none",
             "unknown",
         }:
             raise ValueError("absent people cannot have a positive count band")
+        if self.people_presence == "present" and self.people_count_band == "none":
+            raise ValueError("present people cannot have none count band")
         if self.completed and self.technical_usability == "unreviewed":
             raise ValueError("completed ground truth must review technical usability")
         return self
@@ -199,6 +207,33 @@ class DirectorVisualGroundTruth(VisualStrictModel):
     dev_membership_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     blind_membership_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     records: list[GroundTruthRecord]
+
+
+class DirectorGroundTruthRecord(VisualStrictModel):
+    material_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    file: str = Field(min_length=1)
+    bucket: Bucket
+    director_functions: list[DirectorFunction] = Field(default_factory=list)
+    reviewer_note: str = ""
+    completed: bool = False
+
+    @model_validator(mode="after")
+    def director_functions_are_unique(self) -> "DirectorGroundTruthRecord":
+        if len(self.director_functions) != len(set(self.director_functions)):
+            raise ValueError("director functions must be unique")
+        return self
+
+
+class BlindAnnotationBundle(VisualStrictModel):
+    schema_version: Literal["0.2.0"] = "0.2.0"
+    split: Literal["blind"] = "blind"
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    blind_membership_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    brief_confirmation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    reviewer: str = Field(min_length=1)
+    status: Literal["completed"] = "completed"
+    visual_ground_truth: DirectorVisualGroundTruth
+    director_records: list[DirectorGroundTruthRecord]
 
 
 def build_ground_truth_template(
@@ -258,6 +293,35 @@ def validate_ground_truth(
         incomplete = [row.file for row in ground_truth.records if not row.completed]
         if incomplete:
             raise ValueError(f"ground truth has incomplete records: {len(incomplete)}")
+
+
+def validate_blind_annotation_bundle(
+    bundle: BlindAnnotationBundle,
+    split: DirectorVisualSplit,
+    *,
+    brief_confirmation_sha256: str,
+) -> None:
+    """Validate one independent blind-label export without exposing predictions."""
+
+    validate_ground_truth(bundle.visual_ground_truth, split, require_completed=False)
+    if bundle.source_manifest_sha256 != split.source_manifest_sha256:
+        raise ValueError("blind annotation source manifest hash mismatch")
+    if bundle.blind_membership_sha256 != split.blind_membership_sha256:
+        raise ValueError("blind annotation membership hash mismatch")
+    if bundle.brief_confirmation_sha256 != brief_confirmation_sha256:
+        raise ValueError("blind annotation brief confirmation hash mismatch")
+
+    blind_rows = [
+        row for row in bundle.visual_ground_truth.records if row.split == "blind"
+    ]
+    if any(not row.completed for row in blind_rows):
+        raise ValueError("blind visual ground truth has incomplete records")
+    expected = {(row.material_id, row.file) for row in blind_rows}
+    observed = [(row.material_id, row.file) for row in bundle.director_records]
+    if len(observed) != len(set(observed)) or set(observed) != expected:
+        raise ValueError("director labels differ from blind split")
+    if any(not row.completed for row in bundle.director_records):
+        raise ValueError("blind director ground truth has incomplete records")
 
 
 class FieldConfirmation(VisualStrictModel):

@@ -618,6 +618,43 @@ def render_visual_review_command(
     typer.echo(str(output))
 
 
+@app.command("render-blind-annotation-review")
+def render_blind_annotation_review_command(
+    ground_truth_template: Path = typer.Option(
+        ..., "--ground-truth-template", exists=True, dir_okay=False
+    ),
+    frame_map: Path = typer.Option(..., "--frame-map", exists=True, dir_okay=False),
+    brief_confirmation: Path = typer.Option(
+        ..., "--brief-confirmation", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Render one prediction-free Chinese form for the frozen blind split."""
+
+    from director.agent_batches import MaterialFrameMap
+    from director.evaluation import DirectorVisualGroundTruth, sha256_file
+    from director.visual_review import render_blind_annotation_review
+    from director.visual_schema import BriefConfirmation
+
+    template = DirectorVisualGroundTruth.model_validate_json(
+        ground_truth_template.read_text(encoding="utf-8")
+    )
+    parsed_frame_map = MaterialFrameMap.model_validate_json(
+        frame_map.read_text(encoding="utf-8")
+    )
+    confirmed_brief = BriefConfirmation.model_validate_json(
+        brief_confirmation.read_text(encoding="utf-8")
+    )
+    render_blind_annotation_review(
+        template,
+        parsed_frame_map,
+        confirmed_brief.normalized_fields.model_dump(mode="json"),
+        output,
+        brief_confirmation_sha256=sha256_file(brief_confirmation),
+    )
+    typer.echo(str(output))
+
+
 @app.command("validate-visual-ground-truth")
 def validate_visual_ground_truth_command(
     split: Path = typer.Option(..., "--split", exists=True, dir_okay=False),
@@ -646,6 +683,43 @@ def validate_visual_ground_truth_command(
         parsed_ground_truth,
         parsed_split,
         require_completed=require_completed,
+    )
+    typer.echo("valid")
+
+
+@app.command("validate-blind-annotation")
+def validate_blind_annotation_command(
+    split: Path = typer.Option(..., "--split", exists=True, dir_okay=False),
+    brief_confirmation: Path = typer.Option(
+        ..., "--brief-confirmation", exists=True, dir_okay=False
+    ),
+    annotation: Path = typer.Option(
+        ..., "--annotation", exists=True, dir_okay=False
+    ),
+) -> None:
+    """Validate a completed blind annotation against frozen inputs."""
+
+    from director.evaluation import (
+        BlindAnnotationBundle,
+        DirectorVisualSplit,
+        sha256_file,
+        validate_blind_annotation_bundle,
+    )
+    from director.visual_schema import BriefConfirmation
+
+    parsed_split = DirectorVisualSplit.model_validate_json(
+        split.read_text(encoding="utf-8")
+    )
+    BriefConfirmation.model_validate_json(
+        brief_confirmation.read_text(encoding="utf-8")
+    )
+    parsed_annotation = BlindAnnotationBundle.model_validate_json(
+        annotation.read_text(encoding="utf-8")
+    )
+    validate_blind_annotation_bundle(
+        parsed_annotation,
+        parsed_split,
+        brief_confirmation_sha256=sha256_file(brief_confirmation),
     )
     typer.echo("valid")
 

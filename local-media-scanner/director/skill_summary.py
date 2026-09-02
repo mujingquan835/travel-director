@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from director.project import ProjectConflict, load_project_state, open_project
+from director.project import (
+    ProjectConflict,
+    ProjectPaths,
+    load_project_state,
+    open_project,
+)
 from director.schema import ExternalCallRecord
 from director.visual_schema import (
     Bucket,
@@ -142,6 +148,7 @@ def _review_required_count(observations: dict[str, object] | None) -> int:
 
 
 def _validate_cross_artifact_bindings(
+    paths: ProjectPaths,
     state: VisualProjectState,
     *,
     intent_brief: dict[str, object] | None,
@@ -151,8 +158,24 @@ def _validate_cross_artifact_bindings(
 ) -> None:
     if intent_brief is not None and brief_confirmation is not None:
         expected_draft_hash = state.completed_artifact_hashes["intent_brief"]
-        if brief_confirmation["draft_sha256"] != expected_draft_hash:
-            raise ProjectConflict("brief confirmation draft hash mismatch")
+        confirmation_hash = brief_confirmation["draft_sha256"]
+        if confirmation_hash != expected_draft_hash:
+            preserved_draft = paths.visual_drafts / "intent_brief.json"
+            preserved_matches = False
+            if preserved_draft.is_file():
+                try:
+                    preserved_value = validate_visual_stage_artifact(
+                        "intent_brief", _load_json(preserved_draft)
+                    )
+                except (ProjectConflict, ValueError):
+                    preserved_value = None
+                preserved_matches = (
+                    preserved_value == intent_brief
+                    and hashlib.sha256(preserved_draft.read_bytes()).hexdigest()
+                    == confirmation_hash
+                )
+            if not preserved_matches:
+                raise ProjectConflict("brief confirmation draft hash mismatch")
     if treatment is not None and director_review is not None:
         expected_treatment_hash = state.completed_artifact_hashes[
             "director_treatment"
@@ -187,6 +210,7 @@ def build_skill_run_summary(project_root: Path) -> SkillRunSummary:
     prompts = _load_stage(paths, state, "music_style_recommendations")
     external_calls = _external_call_payload(paths, state)
     _validate_cross_artifact_bindings(
+        paths,
         state,
         intent_brief=intent_brief,
         brief_confirmation=brief_confirmation,
@@ -219,7 +243,14 @@ def build_skill_run_summary(project_root: Path) -> SkillRunSummary:
     completion_gates: list[str] = []
     if observations is None or observations["status"] != "completed":
         completion_gates.append("clip_observations")
-    if intent_brief is None or intent_brief["status"] != "completed":
+    brief_is_confirmed = (
+        brief_confirmation is not None
+        and brief_confirmation["status"] == "completed"
+    )
+    if intent_brief is None or (
+        intent_brief["status"] != "completed"
+        and not (intent_brief["status"] == "partial" and brief_is_confirmed)
+    ):
         completion_gates.append("intent_brief")
     if brief_confirmation is None or brief_confirmation["status"] != "completed":
         completion_gates.append("brief_confirmation")

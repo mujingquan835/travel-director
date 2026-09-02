@@ -319,6 +319,49 @@ def test_summary_rejects_stale_brief_confirmation_hash_even_when_state_matches(
         build_skill_run_summary(project_root)
 
 
+def test_summary_accepts_hash_of_semantically_identical_preserved_intent_draft(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    draft_hash = hashlib.sha256(
+        (paths.visual_drafts / "intent_brief.json").read_bytes()
+    ).hexdigest()
+    assert draft_hash != load_project_state(paths).completed_artifact_hashes["intent_brief"]
+    payload = json.loads(paths.brief_confirmation.read_text(encoding="utf-8"))
+    payload["draft_sha256"] = draft_hash
+    _rewrite_recorded_stage(paths, "brief_confirmation", payload)
+
+    result = build_skill_run_summary(project_root)
+
+    assert result.project_mode == "automatic"
+
+
+def test_completed_confirmation_resolves_partial_intent_draft_gate(
+    tmp_path: Path,
+) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    intent = json.loads(paths.intent_brief.read_text(encoding="utf-8"))
+    intent["status"] = "partial"
+    preserved_draft = paths.visual_drafts / "intent_brief.json"
+    preserved_draft.write_text(
+        json.dumps(intent, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    _rewrite_recorded_stage(paths, "intent_brief", intent)
+    confirmation = json.loads(paths.brief_confirmation.read_text(encoding="utf-8"))
+    confirmation["draft_sha256"] = hashlib.sha256(
+        preserved_draft.read_bytes()
+    ).hexdigest()
+    _rewrite_recorded_stage(paths, "brief_confirmation", confirmation)
+
+    result = build_skill_run_summary(project_root)
+
+    assert result.project_mode == "automatic"
+    assert "intent_brief" not in result.material_gaps
+    assert len(result.music_prompts) == 3
+
+
 def test_summary_rejects_stale_director_review_hash_even_when_state_matches(
     tmp_path: Path,
 ) -> None:

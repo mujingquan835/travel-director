@@ -515,7 +515,11 @@ def preflight_visual_stage_checked(
             )
         except (json.JSONDecodeError, OSError) as exc:
             raise ProjectConflict(f"predecessor artifact is invalid: {predecessor}") from exc
-        if predecessor_value.get("status") != "completed":
+        predecessor_status = predecessor_value.get("status")
+        intent_waits_for_confirmation = (
+            predecessor == "intent_brief" and predecessor_status == "partial"
+        )
+        if predecessor_status != "completed" and not intent_waits_for_confirmation:
             raise ProjectConflict(f"predecessor is not completed: {predecessor}")
     if value is None:
         if not draft.is_file():

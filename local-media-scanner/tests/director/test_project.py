@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -142,6 +143,96 @@ def test_record_visual_stage_rejects_changed_draft_and_out_of_order_stage(tmp_pa
     treatment.write_text(json.dumps({"schema_version": "0.2.0", "status": "completed"}), encoding="utf-8")
     with pytest.raises(ProjectConflict, match="predecessor"):
         record_visual_stage_checked(paths, "director_treatment", treatment)
+
+
+def test_partial_intent_draft_can_advance_after_completed_confirmation(
+    tmp_path: Path,
+) -> None:
+    paths = create_visual_project(
+        tmp_path, "visual", RawCreativeBrief(raw_description="test")
+    )
+    paths.visual_drafts.mkdir(parents=True, exist_ok=True)
+    observations = paths.visual_drafts / "clip_observations.json"
+    observations.write_text(json.dumps(_visual_observations()), encoding="utf-8")
+    record_visual_stage_checked(paths, "clip_observations", observations)
+
+    intent = paths.visual_drafts / "intent_brief.json"
+    intent.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.2.0",
+                "status": "partial",
+                "raw_description": "test",
+                "normalized_fields": {
+                    "location": None,
+                    "travel_type": None,
+                    "target_duration_seconds": None,
+                    "orientation": None,
+                    "style": None,
+                    "mood": None,
+                    "rhythm": None,
+                    "vocals": None,
+                    "instrument_preferences": [],
+                },
+                "unknown_fields": [
+                    "location",
+                    "travel_type",
+                    "target_duration_seconds",
+                    "orientation",
+                    "style",
+                    "mood",
+                    "rhythm",
+                ],
+                "review_required_fields": [
+                    "location",
+                    "travel_type",
+                    "target_duration_seconds",
+                    "orientation",
+                    "style",
+                    "mood",
+                    "rhythm",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    record_visual_stage_checked(paths, "intent_brief", intent)
+
+    confirmation = paths.visual_drafts / "brief_confirmation.json"
+    confirmation.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.2.0",
+                "status": "completed",
+                "draft_sha256": hashlib.sha256(paths.intent_brief.read_bytes()).hexdigest(),
+                "normalized_fields": {
+                    "location": "开封",
+                    "travel_type": "城市漫游",
+                    "target_duration_seconds": 60,
+                    "orientation": "landscape",
+                    "style": "纪实探索",
+                    "mood": "探索",
+                    "rhythm": "medium",
+                    "vocals": None,
+                    "instrument_preferences": [],
+                },
+                "changed_fields": [],
+                "confirmed_at": "2026-09-02T10:00:00+08:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    record_visual_stage_checked(paths, "brief_confirmation", confirmation)
+
+    decisions = paths.visual_drafts / "intent_decisions.json"
+    decisions.write_text(
+        json.dumps({"schema_version": "0.2.0", "status": "completed", "items": []}),
+        encoding="utf-8",
+    )
+    record_visual_stage_checked(paths, "intent_decisions", decisions)
+
+    assert paths.brief_confirmation.exists()
+    assert paths.intent_decisions.exists()
 
 
 def test_supporting_artifact_writes_only_inside_project_and_is_immutable(tmp_path: Path) -> None:

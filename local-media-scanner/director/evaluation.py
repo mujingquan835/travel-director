@@ -11,10 +11,12 @@ from PIL import Image
 from pydantic import ConfigDict, Field, model_validator
 
 from director.visual_schema import (
+    BriefConfirmation,
     Bucket,
     ClipObservation,
     ClipObservationBatch,
     DirectorFunction,
+    IntentDecisionBatch,
     MaterialRef,
     RawCreativeBrief,
     VisualStrictModel,
@@ -38,6 +40,44 @@ ContentFamily = Literal[
     "other",
     "unknown",
 ]
+
+CONTENT_FAMILY_EVALUATION_LABELS: tuple[str, ...] = (
+    "urban",
+    "nature",
+    "culture_architecture",
+    "food",
+    "transport",
+    "lodging",
+    "attraction_activity",
+    "performance_event",
+    "people",
+    "detail",
+    "other",
+)
+ENUM_VISUAL_EVALUATION_FIELDS: tuple[str, ...] = (
+    "technical_usability",
+    "setting",
+    "lighting",
+    "people_presence",
+    "people_count_band",
+)
+BUCKET_EVALUATION_LABELS: tuple[Bucket, ...] = (
+    "core",
+    "candidate",
+    "redundant",
+    "reject_suggestion",
+    "review_required",
+)
+DIRECTOR_FUNCTION_EVALUATION_LABELS: tuple[DirectorFunction, ...] = (
+    "opening",
+    "context",
+    "progression",
+    "emotion",
+    "contrast",
+    "breathing",
+    "climax",
+    "ending",
+)
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -322,6 +362,419 @@ def validate_blind_annotation_bundle(
         raise ValueError("director labels differ from blind split")
     if any(not row.completed for row in bundle.director_records):
         raise ValueError("blind director ground truth has incomplete records")
+
+
+class EvaluationItemRef(VisualStrictModel):
+    material_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    file: str = Field(min_length=1)
+
+
+class EvaluationInputSha256(VisualStrictModel):
+    split: str = Field(pattern=r"^[0-9a-f]{64}$")
+    brief_confirmation: str = Field(pattern=r"^[0-9a-f]{64}$")
+    annotation: str = Field(pattern=r"^[0-9a-f]{64}$")
+    raw_observations: str = Field(pattern=r"^[0-9a-f]{64}$")
+    assisted_observations: str = Field(pattern=r"^[0-9a-f]{64}$")
+    intent_decisions: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class EnumFieldEvaluation(VisualStrictModel):
+    total: int = Field(ge=0)
+    covered: int = Field(ge=0)
+    uncovered: int = Field(ge=0)
+    correct_covered: int = Field(ge=0)
+    coverage: float = Field(ge=0.0, le=1.0)
+    covered_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    end_to_end_accuracy: float = Field(ge=0.0, le=1.0)
+    uncovered_items: list[EvaluationItemRef] = Field(default_factory=list)
+    mismatched_items: list[EvaluationItemRef] = Field(default_factory=list)
+
+
+class LabelEvaluation(VisualStrictModel):
+    support: int = Field(ge=0)
+    predicted: int = Field(ge=0)
+    true_positive: int = Field(ge=0)
+    false_positive: int = Field(ge=0)
+    false_negative: int = Field(ge=0)
+    precision: float = Field(ge=0.0, le=1.0)
+    recall: float = Field(ge=0.0, le=1.0)
+    f1: float = Field(ge=0.0, le=1.0)
+
+
+class MultiLabelEvaluation(VisualStrictModel):
+    total: int = Field(ge=0)
+    covered: int = Field(ge=0)
+    uncovered: int = Field(ge=0)
+    coverage: float = Field(ge=0.0, le=1.0)
+    label_universe: list[str]
+    zero_division: Literal[0] = 0
+    micro_precision: float = Field(ge=0.0, le=1.0)
+    micro_recall: float = Field(ge=0.0, le=1.0)
+    micro_f1: float = Field(ge=0.0, le=1.0)
+    macro_f1: float = Field(ge=0.0, le=1.0)
+    exact_set_accuracy: float = Field(ge=0.0, le=1.0)
+    covered_exact_set_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    per_label: dict[str, LabelEvaluation]
+    uncovered_items: list[EvaluationItemRef] = Field(default_factory=list)
+
+
+class VisualTrackEvaluation(VisualStrictModel):
+    source_status: Literal["partial", "completed"]
+    source_mode: Literal["automatic", "assisted", "scanner_only"]
+    sample_count: int = Field(ge=0)
+    coverage_rule: Literal[
+        "supported assertion with non-null value; explicit unknown is a prediction"
+    ] = "supported assertion with non-null value; explicit unknown is a prediction"
+    enum_fields: dict[str, EnumFieldEvaluation]
+    content_families: MultiLabelEvaluation
+
+
+class DirectorEvaluation(VisualStrictModel):
+    bucket_labels: list[Bucket]
+    bucket_accuracy: float = Field(ge=0.0, le=1.0)
+    bucket_confusion_matrix: dict[str, dict[str, int]]
+    function_labels: list[DirectorFunction]
+    function_zero_division: Literal[0] = 0
+    function_metrics: dict[str, LabelEvaluation]
+    function_micro_precision: float = Field(ge=0.0, le=1.0)
+    function_micro_recall: float = Field(ge=0.0, le=1.0)
+    function_micro_f1: float = Field(ge=0.0, le=1.0)
+    function_exact_set_accuracy: float = Field(ge=0.0, le=1.0)
+
+
+class BlindAnnotationEvaluationReport(VisualStrictModel):
+    schema_version: Literal["0.3.0"] = "0.3.0"
+    evaluation_mode: Literal["frozen_blind_baseline"] = "frozen_blind_baseline"
+    dataset_id: Literal["travel-director-skill-blind-v1"] = (
+        "travel-director-skill-blind-v1"
+    )
+    split: Literal["blind"] = "blind"
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    blind_membership_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    input_sha256: EvaluationInputSha256
+    brief: dict[str, Any]
+    sample_count: int = Field(ge=0)
+    visual_results: dict[str, VisualTrackEvaluation]
+    director_results: DirectorEvaluation
+    external_call_count: Literal[0] = 0
+
+
+_SUPPORTED_PREDICTION_STATUSES = {"measured", "candidate", "confirmed"}
+
+
+def _safe_divide(numerator: int, denominator: int) -> float:
+    return numerator / denominator if denominator else 0.0
+
+
+def _evaluation_ref(row: GroundTruthRecord) -> EvaluationItemRef:
+    return EvaluationItemRef(material_id=row.material_id, file=row.file)
+
+
+def _assertion_map(item: ClipObservation) -> dict[str, Any]:
+    fields = [assertion.field for assertion in item.assertions]
+    if len(fields) != len(set(fields)):
+        raise ValueError(
+            f"observation has duplicate assertion fields: {item.material.material_id}"
+        )
+    return {assertion.field: assertion for assertion in item.assertions}
+
+
+def _prediction(assertions: dict[str, Any], field: str) -> tuple[bool, Any]:
+    assertion = assertions.get(field)
+    if (
+        assertion is None
+        or assertion.status not in _SUPPORTED_PREDICTION_STATUSES
+        or assertion.value is None
+    ):
+        return False, None
+    return True, assertion.value
+
+
+def _validate_observation_membership(
+    observations: ClipObservationBatch,
+    expected: set[tuple[str, str]],
+    *,
+    label: str,
+) -> None:
+    observed = [
+        (item.material.material_id, item.material.relative_path)
+        for item in observations.items
+    ]
+    if len(observed) != len(set(observed)) or set(observed) != expected:
+        raise ValueError(f"{label} observation membership differs from blind split")
+    for item in observations.items:
+        _assertion_map(item)
+
+
+def _evaluate_enum_fields(
+    ground_truth: list[GroundTruthRecord],
+    predictions: dict[str, dict[str, Any]],
+) -> dict[str, EnumFieldEvaluation]:
+    results: dict[str, EnumFieldEvaluation] = {}
+    total = len(ground_truth)
+    for field in ENUM_VISUAL_EVALUATION_FIELDS:
+        covered = 0
+        correct = 0
+        uncovered_items: list[EvaluationItemRef] = []
+        mismatched_items: list[EvaluationItemRef] = []
+        for row in ground_truth:
+            supported, predicted = _prediction(predictions[row.material_id], field)
+            if not supported:
+                uncovered_items.append(_evaluation_ref(row))
+                continue
+            if not isinstance(predicted, str):
+                raise ValueError(f"{field} prediction must be a string")
+            covered += 1
+            if predicted == getattr(row, field):
+                correct += 1
+            else:
+                mismatched_items.append(_evaluation_ref(row))
+        results[field] = EnumFieldEvaluation(
+            total=total,
+            covered=covered,
+            uncovered=total - covered,
+            correct_covered=correct,
+            coverage=_safe_divide(covered, total),
+            covered_accuracy=(correct / covered if covered else None),
+            end_to_end_accuracy=_safe_divide(correct, total),
+            uncovered_items=uncovered_items,
+            mismatched_items=mismatched_items,
+        )
+    return results
+
+
+def _label_evaluation(tp: int, fp: int, fn: int) -> LabelEvaluation:
+    precision = _safe_divide(tp, tp + fp)
+    recall = _safe_divide(tp, tp + fn)
+    return LabelEvaluation(
+        support=tp + fn,
+        predicted=tp + fp,
+        true_positive=tp,
+        false_positive=fp,
+        false_negative=fn,
+        precision=precision,
+        recall=recall,
+        f1=_safe_divide(2 * tp, 2 * tp + fp + fn),
+    )
+
+
+def _content_set(value: Any) -> set[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError("content_families prediction must be a list of strings")
+    invalid = set(value) - set(CONTENT_FAMILY_EVALUATION_LABELS) - {"unknown"}
+    if invalid:
+        raise ValueError(f"unsupported content_families predictions: {sorted(invalid)}")
+    return set(value) - {"unknown"}
+
+
+def _evaluate_content_families(
+    ground_truth: list[GroundTruthRecord],
+    predictions: dict[str, dict[str, Any]],
+) -> MultiLabelEvaluation:
+    total = len(ground_truth)
+    covered = 0
+    exact = 0
+    covered_exact = 0
+    uncovered_items: list[EvaluationItemRef] = []
+    pairs: list[tuple[set[str], set[str], bool]] = []
+    for row in ground_truth:
+        supported, predicted = _prediction(
+            predictions[row.material_id], "content_families"
+        )
+        expected = set(row.content_families) - {"unknown"}
+        if supported:
+            predicted_set = _content_set(predicted)
+            covered += 1
+            covered_exact += int(predicted_set == expected)
+        else:
+            predicted_set = set()
+            uncovered_items.append(_evaluation_ref(row))
+        exact += int(predicted_set == expected)
+        pairs.append((predicted_set, expected, supported))
+
+    per_label: dict[str, LabelEvaluation] = {}
+    total_tp = total_fp = total_fn = 0
+    for label in CONTENT_FAMILY_EVALUATION_LABELS:
+        tp = sum(label in predicted and label in expected for predicted, expected, _ in pairs)
+        fp = sum(label in predicted and label not in expected for predicted, expected, _ in pairs)
+        fn = sum(label not in predicted and label in expected for predicted, expected, _ in pairs)
+        per_label[label] = _label_evaluation(tp, fp, fn)
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+    return MultiLabelEvaluation(
+        total=total,
+        covered=covered,
+        uncovered=total - covered,
+        coverage=_safe_divide(covered, total),
+        label_universe=list(CONTENT_FAMILY_EVALUATION_LABELS),
+        micro_precision=_safe_divide(total_tp, total_tp + total_fp),
+        micro_recall=_safe_divide(total_tp, total_tp + total_fn),
+        micro_f1=_safe_divide(2 * total_tp, 2 * total_tp + total_fp + total_fn),
+        macro_f1=_safe_divide(
+            sum(metric.f1 for metric in per_label.values()), len(per_label)
+        ),
+        exact_set_accuracy=_safe_divide(exact, total),
+        covered_exact_set_accuracy=(covered_exact / covered if covered else None),
+        per_label=per_label,
+        uncovered_items=uncovered_items,
+    )
+
+
+def _evaluate_visual_track(
+    observations: ClipObservationBatch,
+    ground_truth: list[GroundTruthRecord],
+) -> VisualTrackEvaluation:
+    predictions = {
+        item.material.material_id: _assertion_map(item)
+        for item in observations.items
+    }
+    return VisualTrackEvaluation(
+        source_status=observations.status,
+        source_mode=observations.mode,
+        sample_count=len(ground_truth),
+        enum_fields=_evaluate_enum_fields(ground_truth, predictions),
+        content_families=_evaluate_content_families(ground_truth, predictions),
+    )
+
+
+def _evaluate_director(
+    ground_truth: list[DirectorGroundTruthRecord],
+    decisions: IntentDecisionBatch,
+) -> DirectorEvaluation:
+    expected = {row.material_id: row for row in ground_truth}
+    predicted = {row.material_id: row for row in decisions.items}
+    total = len(ground_truth)
+    confusion = {
+        actual: {prediction: 0 for prediction in BUCKET_EVALUATION_LABELS}
+        for actual in BUCKET_EVALUATION_LABELS
+    }
+    correct_buckets = 0
+    exact_functions = 0
+    function_pairs: list[tuple[set[str], set[str]]] = []
+    for material_id, truth in expected.items():
+        decision = predicted[material_id]
+        confusion[truth.bucket][decision.bucket] += 1
+        correct_buckets += int(truth.bucket == decision.bucket)
+        predicted_functions = set(decision.director_function_candidates)
+        expected_functions = set(truth.director_functions)
+        exact_functions += int(predicted_functions == expected_functions)
+        function_pairs.append((predicted_functions, expected_functions))
+
+    function_metrics: dict[str, LabelEvaluation] = {}
+    total_tp = total_fp = total_fn = 0
+    for label in DIRECTOR_FUNCTION_EVALUATION_LABELS:
+        tp = sum(label in prediction and label in truth for prediction, truth in function_pairs)
+        fp = sum(label in prediction and label not in truth for prediction, truth in function_pairs)
+        fn = sum(label not in prediction and label in truth for prediction, truth in function_pairs)
+        function_metrics[label] = _label_evaluation(tp, fp, fn)
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+    return DirectorEvaluation(
+        bucket_labels=list(BUCKET_EVALUATION_LABELS),
+        bucket_accuracy=_safe_divide(correct_buckets, total),
+        bucket_confusion_matrix=confusion,
+        function_labels=list(DIRECTOR_FUNCTION_EVALUATION_LABELS),
+        function_metrics=function_metrics,
+        function_micro_precision=_safe_divide(total_tp, total_tp + total_fp),
+        function_micro_recall=_safe_divide(total_tp, total_tp + total_fn),
+        function_micro_f1=_safe_divide(
+            2 * total_tp, 2 * total_tp + total_fp + total_fn
+        ),
+        function_exact_set_accuracy=_safe_divide(exact_functions, total),
+    )
+
+
+def evaluate_blind_annotation_files(
+    *,
+    split_path: Path,
+    brief_confirmation_path: Path,
+    annotation_path: Path,
+    raw_observations_path: Path,
+    assisted_observations_path: Path,
+    intent_decisions_path: Path,
+) -> BlindAnnotationEvaluationReport:
+    """Validate frozen inputs and evaluate V0.2 predictions without modifying rules."""
+
+    split = DirectorVisualSplit.model_validate_json(
+        split_path.read_text(encoding="utf-8")
+    )
+    brief = BriefConfirmation.model_validate_json(
+        brief_confirmation_path.read_text(encoding="utf-8")
+    )
+    annotation = BlindAnnotationBundle.model_validate_json(
+        annotation_path.read_text(encoding="utf-8")
+    )
+    raw = ClipObservationBatch.model_validate_json(
+        raw_observations_path.read_text(encoding="utf-8")
+    )
+    assisted = ClipObservationBatch.model_validate_json(
+        assisted_observations_path.read_text(encoding="utf-8")
+    )
+    decisions = IntentDecisionBatch.model_validate_json(
+        intent_decisions_path.read_text(encoding="utf-8")
+    )
+    brief_hash = sha256_file(brief_confirmation_path)
+    validate_blind_annotation_bundle(
+        annotation,
+        split,
+        brief_confirmation_sha256=brief_hash,
+    )
+    if brief.status != "completed":
+        raise ValueError("completed brief confirmation is required")
+    if raw.status not in {"partial", "completed"}:
+        raise ValueError("raw observations must be partial or completed")
+    if assisted.status != "completed" or any(
+        item.review_required_fields for item in assisted.items
+    ):
+        raise ValueError("completed assisted observations are required")
+    if decisions.status != "completed":
+        raise ValueError("completed intent decisions are required")
+
+    visual_ground_truth = [
+        row for row in annotation.visual_ground_truth.records if row.split == "blind"
+    ]
+    expected_membership = {
+        (row.material_id, row.file) for row in visual_ground_truth
+    }
+    _validate_observation_membership(raw, expected_membership, label="raw")
+    _validate_observation_membership(
+        assisted, expected_membership, label="assisted"
+    )
+    expected_ids = {row.material_id for row in visual_ground_truth}
+    decision_ids = [row.material_id for row in decisions.items]
+    if len(decision_ids) != len(set(decision_ids)) or set(decision_ids) != expected_ids:
+        raise ValueError("intent decision membership differs from blind split")
+
+    return BlindAnnotationEvaluationReport(
+        source_manifest_sha256=split.source_manifest_sha256,
+        blind_membership_sha256=split.blind_membership_sha256,
+        input_sha256=EvaluationInputSha256(
+            split=sha256_file(split_path),
+            brief_confirmation=brief_hash,
+            annotation=sha256_file(annotation_path),
+            raw_observations=sha256_file(raw_observations_path),
+            assisted_observations=sha256_file(assisted_observations_path),
+            intent_decisions=sha256_file(intent_decisions_path),
+        ),
+        brief=brief.normalized_fields.model_dump(mode="json"),
+        sample_count=len(visual_ground_truth),
+        visual_results={
+            "raw": _evaluate_visual_track(raw, visual_ground_truth),
+            "assisted": _evaluate_visual_track(assisted, visual_ground_truth),
+        },
+        director_results=_evaluate_director(annotation.director_records, decisions),
+    )
+
+
+def write_blind_annotation_evaluation(
+    report: BlindAnnotationEvaluationReport,
+    output: Path,
+) -> Path:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(_canonical_bytes(report.model_dump(mode="json")))
+    return output
 
 
 class FieldConfirmation(VisualStrictModel):

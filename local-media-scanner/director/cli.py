@@ -724,6 +724,45 @@ def validate_blind_annotation_command(
     typer.echo("valid")
 
 
+@app.command("evaluate-blind-annotation")
+def evaluate_blind_annotation_command(
+    split: Path = typer.Option(..., "--split", exists=True, dir_okay=False),
+    brief_confirmation: Path = typer.Option(
+        ..., "--brief-confirmation", exists=True, dir_okay=False
+    ),
+    annotation: Path = typer.Option(
+        ..., "--annotation", exists=True, dir_okay=False
+    ),
+    raw_observations: Path = typer.Option(
+        ..., "--raw-observations", exists=True, dir_okay=False
+    ),
+    assisted_observations: Path = typer.Option(
+        ..., "--assisted-observations", exists=True, dir_okay=False
+    ),
+    intent_decisions: Path = typer.Option(
+        ..., "--intent-decisions", exists=True, dir_okay=False
+    ),
+    output: Path = typer.Option(..., "--output", dir_okay=False),
+) -> None:
+    """Write a deterministic, hash-bound report for the frozen blind split."""
+
+    from director.evaluation import (
+        evaluate_blind_annotation_files,
+        write_blind_annotation_evaluation,
+    )
+
+    report = evaluate_blind_annotation_files(
+        split_path=split,
+        brief_confirmation_path=brief_confirmation,
+        annotation_path=annotation,
+        raw_observations_path=raw_observations,
+        assisted_observations_path=assisted_observations,
+        intent_decisions_path=intent_decisions,
+    )
+    write_blind_annotation_evaluation(report, output)
+    typer.echo(str(output))
+
+
 @app.command("validate-visual-confirmation")
 def validate_visual_confirmation_command(
     observations: Path = typer.Option(

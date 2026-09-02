@@ -236,24 +236,36 @@ def merge_agent_batch_results(
         ]
         if agent_assertions:
             assertions.extend(agent_assertions)
-        review_fields = set(scanner_item.review_required_fields)
+        resolved_fields = {
+            assertion.field
+            for assertion in agent_assertions
+            if assertion.status == "candidate"
+        }
+        abstained_fields = {
+            assertion.field
+            for assertion in agent_assertions
+            if assertion.status == "abstained"
+        }
+        review_fields = set(scanner_item.review_required_fields) - resolved_fields
+        unknown_fields = set(scanner_item.unknown_fields) - resolved_fields
         errors = list(scanner_item.errors)
         if packet.status != "ready" or batch.batch_id in unavailable_batches:
             review_fields.update(AGENT_VISUAL_FIELDS)
+            unknown_fields.update(AGENT_VISUAL_FIELDS)
             errors.append(ProviderIssue(
                 code="agent_batch_unavailable",
                 message="No completed contact-sheet result is available for this material.",
             ))
-        elif agent_assertions:
-            review_fields.update(
-                assertion.field for assertion in agent_assertions if assertion.status == "abstained"
-            )
+        else:
+            review_fields.update(abstained_fields)
+            unknown_fields.update(abstained_fields)
         if review_fields:
             has_review = True
         merged_items.append(scanner_item.model_copy(update={
             "provider": "invoking_agent" if agent_assertions else scanner_item.provider,
             "observation_status": "assisted" if review_fields else "automatic",
             "assertions": _dedupe_assertions(assertions),
+            "unknown_fields": sorted(unknown_fields),
             "review_required_fields": sorted(review_fields),
             "errors": errors,
         }))

@@ -336,9 +336,27 @@ def test_workflow_reference_orders_brief_before_merge_and_review():
         workflow_text,
         "uv run travel-director merge-agent-batches --project <project> --scanner-observations <project>/visual/scanner_only.json --manifest <project>/visual/agent_batches/manifest.json --result-dir <project>/visual/agent_batches/results --output <project>/visual/drafts/clip_observations.merged.json",
     )
+    prepare_review = _index_or_fail(
+        workflow_text,
+        "uv run travel-director prepare-visual-review --observations <project>/visual/drafts/clip_observations.merged.json --frame-map <project>/visual/material_frame_map.json --output-dir <project>/visual/review",
+    )
+    record_observations = _index_or_fail(
+        workflow_text,
+        "uv run travel-director record-visual-stage --project <project> --stage clip_observations --artifact <project>/visual/drafts/clip_observations.merged.json",
+    )
+    record_brief = _index_or_fail(
+        workflow_text,
+        "uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json",
+    )
+    record_confirmation = _index_or_fail(
+        workflow_text,
+        "uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json",
+    )
 
     assert brief_section < review_section
     assert normalize_brief < merge_batches
+    assert merge_batches < prepare_review < record_observations
+    assert record_observations < record_brief < record_confirmation
 
 
 def test_workflow_reference_includes_manual_director_review_command_sequence():

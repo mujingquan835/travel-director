@@ -7,6 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from director.agent_batches import AgentBatchManifest, AgentMaterialPacket
+from director.agent_batches import AGENT_VISUAL_FIELDS
 from director.agent_observations import AgentBatchResult, merge_agent_batch_results, validate_agent_batch_result, write_agent_batch_checkpoint
 from director.cli import app
 from director.project import create_visual_project
@@ -27,7 +28,7 @@ def _manifest(tmp_path: Path, count: int = 2, *, ready: set[int] | None = None) 
         if index in ready:
             sheet.parent.mkdir(parents=True, exist_ok=True)
             sheet.write_bytes(f"sheet-{index}".encode())
-        packets.append(AgentMaterialPacket(material_id=material.material_id, relative_path=material.relative_path, status="ready" if index in ready else "review_required", contact_sheet_path=str(sheet) if index in ready else None, allowed_fields=["technical_usability", "content_family", "setting", "lighting", "people_presence", "people_count_band", "subject_candidates", "activity_candidates"], source_evidence_refs=[]))
+        packets.append(AgentMaterialPacket(material_id=material.material_id, relative_path=material.relative_path, status="ready" if index in ready else "review_required", contact_sheet_path=str(sheet) if index in ready else None, allowed_fields=list(AGENT_VISUAL_FIELDS), source_evidence_refs=[]))
     batches = [{"batch_id": f"batch-{batch_index:03d}", "batch_index": batch_index, "items": packets[start : start + 10], "result_path": str(tmp_path / "results" / f"batch-{batch_index:03d}.json")} for batch_index, start in enumerate(range(0, count, 10))]
     return AgentBatchManifest(items=packets, batches=batches)
 
@@ -132,6 +133,35 @@ def test_merge_two_result_files_preserves_measured_assertions_and_sorts_paths(tm
     assert merged.mode == "automatic"
     assert [item.material.relative_path for item in merged.items] == sorted(item.material.relative_path for item in merged.items)
     assert all(any(assertion.field == "technical_usability" and assertion.status == "measured" for assertion in item.assertions) and any(assertion.field == "lighting" and assertion.status == "candidate" for assertion in item.assertions) for item in merged.items)
+
+
+def test_agent_contract_uses_downstream_content_families_field() -> None:
+    assert "content_families" in AGENT_VISUAL_FIELDS
+    assert "content_family" not in AGENT_VISUAL_FIELDS
+
+
+def test_merge_clears_scanner_review_fields_resolved_by_agent(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 1)
+    scanner_item = _scanner_batch(1).items[0].model_copy(
+        update={
+            "observation_status": "assisted",
+            "unknown_fields": ["lighting", "people_presence"],
+            "review_required_fields": ["lighting", "people_presence"],
+        }
+    )
+    scanner = ClipObservationBatch(
+        status="partial", mode="scanner_only", items=[scanner_item]
+    )
+    result = _result(manifest)
+    checkpoint = tmp_path / "results" / "batch-000.json"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_text(result.model_dump_json(), encoding="utf-8")
+
+    merged = merge_agent_batch_results(scanner, manifest, [checkpoint])
+
+    assert merged.status == "partial"
+    assert merged.items[0].review_required_fields == ["people_presence"]
+    assert merged.items[0].unknown_fields == ["people_presence"]
 
 
 def test_merge_does_not_add_agent_candidate_over_scanner_measured_field(tmp_path: Path) -> None:

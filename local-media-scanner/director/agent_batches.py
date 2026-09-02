@@ -13,7 +13,7 @@ from director.visual_schema import EvidenceRef, MaterialRef, VisualStrictModel
 
 AGENT_VISUAL_FIELDS = (
     "technical_usability",
-    "content_family",
+    "content_families",
     "setting",
     "lighting",
     "people_presence",

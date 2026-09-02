@@ -770,10 +770,10 @@ Run:
 git worktree list
 git branch --show-current
 git status --short
-shasum -a 256 benchmark/director_visual_blind_manifest.json
+uv run python -c 'from pathlib import Path; from scanner.schema import TestManifest; from director.evaluation import membership_hash; p=Path("benchmark/director_visual_blind_manifest.json"); print(membership_hash(TestManifest.model_validate_json(p.read_text())))'
 ```
 
-Verify the frozen blind membership digest recorded by the evaluation contract is still:
+Verify the frozen blind membership digest recorded by the evaluation contract is still. This is the SHA-256 of the sorted relative-path membership list, not the whole manifest file bytes:
 
 ```text
 3023699191e13c8ebe493c3426356e763bf091eeafc5ef4adb4bc38a240a544f

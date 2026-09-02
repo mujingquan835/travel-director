@@ -7,7 +7,7 @@ This reference governs the invoking-agent batch JSON saved under `<project>/visu
 Supported assertion fields:
 
 - `technical_usability`
-- `content_family`
+- `content_families`
 - `setting`
 - `lighting`
 - `people_presence`
@@ -43,8 +43,8 @@ Each candidate assertion must reference the batch contact sheet as `visual_provi
       "observation_status": "automatic",
       "assertions": [
         {
-          "field": "lighting",
-          "value": "daylight",
+          "field": "content_families",
+          "value": ["culture_architecture"],
           "status": "candidate",
           "confidence": 0.84,
           "evidence_refs": [

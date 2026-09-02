@@ -51,18 +51,18 @@ Resolve blocking brief conflicts before observation merge or visual review routi
 
 ```bash
 uv run travel-director normalize-brief --brief <project>/brief.json --output <project>/visual/drafts/intent_brief.json
-uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json
 ```
+
+Keep this validated Brief as a draft until `clip_observations` has been published. The V0.2 stage graph records observations first, then the normalized Brief.
 
 If the normalized brief has blocking conflicts or missing required fields, render the offline confirmation form and wait for the user’s `brief_confirmation.json`:
 
 ```bash
 uv run travel-director render-brief-review --draft <project>/visual/intent_brief.json --output <project>/visual/review/brief_review.html
 uv run travel-director confirm-brief --draft <project>/visual/intent_brief.json --confirmation <project>/visual/review/brief_confirmation.json --output <project>/visual/drafts/brief_confirmation.confirmed.json
-uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json
 ```
 
-If the normalized brief is already complete and conflict-free, the agent may write a matching `brief_confirmation.json` with the required draft hash and immediately validate it with `confirm-brief` before recording the stage.
+If the normalized brief is already complete and conflict-free, the agent may write a matching `brief_confirmation.json` with the required draft hash and immediately validate it with `confirm-brief`. In both cases, keep the validated confirmation under `visual/drafts/` until the completed observation artifact has been published.
 
 ## Review Routing
 
@@ -70,21 +70,27 @@ After the brief is confirmed, merge the saved agent batches into a draft observa
 
 ```bash
 uv run travel-director merge-agent-batches --project <project> --scanner-observations <project>/visual/scanner_only.json --manifest <project>/visual/agent_batches/manifest.json --result-dir <project>/visual/agent_batches/results --output <project>/visual/drafts/clip_observations.merged.json
-uv run travel-director record-visual-stage --project <project> --stage clip_observations --artifact <project>/visual/drafts/clip_observations.merged.json
 ```
 
 If no agent batches are available, keep the Scanner artifact as the working observation set, mark the outcome `scanner_only + assisted`, and surface that status in the final response.
 
-Plan or prepare review from the canonical `clip_observations.json`:
+Plan or prepare review from the merged draft. Do not publish a `partial` observation artifact:
 
 ```bash
-uv run travel-director plan-review --observations <project>/visual/clip_observations.json --output <project>/visual/drafts/review_route.json
-uv run travel-director prepare-visual-review --observations <project>/visual/clip_observations.json --frame-map <project>/visual/material_frame_map.json --output-dir <project>/visual/review
+uv run travel-director plan-review --observations <project>/visual/drafts/clip_observations.merged.json --output <project>/visual/drafts/review_route.json
+uv run travel-director prepare-visual-review --observations <project>/visual/drafts/clip_observations.merged.json --frame-map <project>/visual/material_frame_map.json --output-dir <project>/visual/review
 ```
 
 prepare-visual-review may return `none`, `chat`, or `local_page` and never opens the browser.
 
-- `none`: proceed without asking for observation confirmation.
+- `none`: publish the completed merged observations, then publish the already validated Brief artifacts in stage order:
+
+```bash
+uv run travel-director record-visual-stage --project <project> --stage clip_observations --artifact <project>/visual/drafts/clip_observations.merged.json
+uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json
+uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json
+```
+
 - `chat`: ask the questions from `review_route.json` in one conversation turn.
 - `local_page`: only after this result, or if the user explicitly asks, point the user to the generated local review page and its expected `visual_confirmation.json`.
 
@@ -96,9 +102,11 @@ Thresholds:
 When the user supplies a visual confirmation file, validate and import it:
 
 ```bash
-uv run travel-director validate-visual-confirmation --observations <project>/visual/clip_observations.json --confirmation <project>/visual/review/visual_confirmation.json
-uv run travel-director import-visual-confirmation --observations <project>/visual/clip_observations.json --confirmation <project>/visual/review/visual_confirmation.json --output <project>/visual/drafts/clip_observations.assisted.json
+uv run travel-director validate-visual-confirmation --observations <project>/visual/drafts/clip_observations.merged.json --confirmation <project>/visual/review/visual_confirmation.json
+uv run travel-director import-visual-confirmation --observations <project>/visual/drafts/clip_observations.merged.json --confirmation <project>/visual/review/visual_confirmation.json --output <project>/visual/drafts/clip_observations.assisted.json
 uv run travel-director record-visual-stage --project <project> --stage clip_observations --artifact <project>/visual/drafts/clip_observations.assisted.json
+uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json
+uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json
 ```
 
 If required visual confirmation is declined, stop with `blocked` and report the preserved Scanner and draft artifacts instead of guessing.

@@ -32,9 +32,21 @@ def _copy_tree(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination, copy_function=shutil.copy2)
 
 
-def _backup_path(parent: Path) -> Path:
+def _backup_path(backup_root: Path) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    return parent / f"{SKILL_NAME}.backup-{timestamp}"
+    return backup_root / f"{SKILL_NAME}.backup-{timestamp}"
+
+
+def _migrate_legacy_backups(skills_root: Path, backup_root: Path) -> None:
+    legacy_backups = sorted(skills_root.glob(f"{SKILL_NAME}.backup-*"))
+    if not legacy_backups:
+        return
+    backup_root.mkdir(parents=True, exist_ok=True)
+    for legacy in legacy_backups:
+        destination = backup_root / legacy.name
+        if destination.exists():
+            raise RuntimeError(f"backup destination already exists: {destination}")
+        legacy.replace(destination)
 
 
 def install_skill(codex_home: Path, *, replace: bool) -> Path:
@@ -42,6 +54,8 @@ def install_skill(codex_home: Path, *, replace: bool) -> Path:
     source_manifest = _file_manifest(source)
     destination_parent = codex_home.resolve() / "skills"
     destination_parent.mkdir(parents=True, exist_ok=True)
+    backup_root = codex_home.resolve() / "skill-backups"
+    _migrate_legacy_backups(destination_parent, backup_root)
     destination = destination_parent / SKILL_NAME
 
     if destination.exists():
@@ -66,7 +80,8 @@ def install_skill(codex_home: Path, *, replace: bool) -> Path:
             raise RuntimeError("staging manifest does not match source manifest")
 
         if destination.exists():
-            backup = _backup_path(destination_parent)
+            backup_root.mkdir(parents=True, exist_ok=True)
+            backup = _backup_path(backup_root)
             if backup.exists():
                 raise RuntimeError(f"backup destination already exists: {backup}")
             destination.replace(backup)

@@ -164,10 +164,35 @@ def test_installer_replace_creates_timestamped_backup(tmp_path):
         check=True,
     )
 
-    backups = sorted((codex_home / "skills").glob("travel-director.backup-*"))
+    backups = sorted(
+        (codex_home / "skill-backups").glob("travel-director.backup-*")
+    )
     assert len(backups) == 1
     assert (backups[0] / "SKILL.md").read_text(encoding="utf-8") == "different\n"
+    assert not list((codex_home / "skills").glob("travel-director.backup-*"))
     assert _manifest(SKILL_ROOT) == _manifest(destination)
+
+
+def test_installer_migrates_legacy_backups_out_of_skill_discovery(tmp_path):
+    codex_home = tmp_path / "codex-home"
+    subprocess.run(
+        ["uv", "run", "python", str(INSTALLER), "--codex-home", str(codex_home)],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    legacy = codex_home / "skills" / "travel-director.backup-20260901-010203"
+    legacy.mkdir()
+    (legacy / "SKILL.md").write_text("legacy\n", encoding="utf-8")
+
+    subprocess.run(
+        ["uv", "run", "python", str(INSTALLER), "--codex-home", str(codex_home)],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    migrated = codex_home / "skill-backups" / legacy.name
+    assert not legacy.exists()
+    assert (migrated / "SKILL.md").read_text(encoding="utf-8") == "legacy\n"
 
 
 def test_resolver_prefers_explicit_workspace(tmp_path):

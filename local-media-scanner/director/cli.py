@@ -53,6 +53,12 @@ def run_command(
         dir_okay=False,
         help="Import one downloaded local-page confirmation into this project.",
     ),
+    music: Path | None = typer.Option(
+        None,
+        "--music",
+        dir_okay=False,
+        help="Freeze and analyze one user-provided local music file.",
+    ),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -64,6 +70,7 @@ def run_command(
         project=project,
         run_root=run_root,
         response_file=response_file,
+        music=music,
     )
     typer.echo(result.model_dump_json(indent=2))
 

@@ -7,8 +7,10 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
+from typer.testing import CliRunner
 
 import director.runner as runner_module
+from director.cli import app
 from director.agent_batches import (
     MaterialFrameMap,
     MaterialFrameSet,
@@ -302,6 +304,221 @@ def test_run_stops_for_visual_observation_then_waits_for_music_idempotently(
     assert music_wait.actions[0].result_path == str(
         (project / "visual" / "final_summary.json").resolve()
     )
+
+
+def test_run_freezes_and_analyzes_uploaded_music_idempotently(
+    tmp_path: Path, monkeypatch, click_track: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    project = tmp_path / "runs" / "demo"
+    _finish_visual_flow(input_dir, project, monkeypatch)
+    original_music = click_track.read_bytes()
+
+    analyzed = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=click_track,
+    )
+
+    assert analyzed.status == "waiting_for_timeline"
+    assert analyzed.current_stage == "music_analysis"
+    assert analyzed.actions[0].kind == "read_music_analysis"
+    assert analyzed.external_call_count == 0
+    assert click_track.read_bytes() == original_music
+    asset = json.loads(
+        (project / "generation" / "music_asset.json").read_text(encoding="utf-8")
+    )
+    frozen = project / asset["frozen_relative_path"]
+    structure = json.loads(
+        (project / "music_structure.json").read_text(encoding="utf-8")
+    )
+    assert frozen.is_file()
+    assert hashlib.sha256(frozen.read_bytes()).hexdigest() == asset["source_sha256"]
+    assert structure["source_sha256"] == asset["source_sha256"]
+    assert 116 <= structure["bpm"] <= 124
+    before = {
+        path: path.read_bytes()
+        for path in (
+            project / "project_state.json",
+            project / "generation" / "music_asset.json",
+            project / "music_structure.json",
+            frozen,
+        )
+    }
+
+    def analysis_must_not_repeat(*_args, **_kwargs):
+        raise AssertionError("unchanged frozen music must reuse recorded analysis")
+
+    monkeypatch.setattr(
+        "director.audio_import.analyze_music", analysis_must_not_repeat
+    )
+    resumed = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=click_track,
+    )
+
+    assert resumed.status == "waiting_for_timeline"
+    assert {path: path.read_bytes() for path in before} == before
+    status = inspect_travel_director(project)
+    assert status.run_state == "waiting_for_timeline"
+    assert status.current_stage == "music_analysis"
+
+
+def test_run_rejects_different_music_without_mutating_frozen_evidence(
+    tmp_path: Path, monkeypatch, click_track: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    project = tmp_path / "runs" / "demo"
+    _finish_visual_flow(input_dir, project, monkeypatch)
+    accepted = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=click_track,
+    )
+    assert accepted.status == "waiting_for_timeline"
+    asset = json.loads(
+        (project / "generation" / "music_asset.json").read_text(encoding="utf-8")
+    )
+    frozen = project / asset["frozen_relative_path"]
+    protected = {
+        path: path.read_bytes()
+        for path in (
+            project / "project_state.json",
+            project / "generation" / "music_asset.json",
+            project / "music_structure.json",
+            frozen,
+        )
+    }
+    replacement = tmp_path / "replacement.wav"
+    changed = bytearray(click_track.read_bytes())
+    changed[-1] ^= 1
+    replacement.write_bytes(changed)
+
+    blocked = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=replacement,
+    )
+
+    assert blocked.status == "blocked"
+    assert "different music" in blocked.message
+    assert {path: path.read_bytes() for path in protected} == protected
+
+
+def test_run_rejects_music_before_visual_flow_is_ready_without_importing_it(
+    tmp_path: Path, monkeypatch, click_track: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    project = tmp_path / "runs" / "demo"
+    monkeypatch.setattr(runner_module, "_prepare_local_scanner", _prepared_scanner)
+    run_travel_director(input_dir, BRIEF, project=project)
+    before = (project / "project_state.json").read_bytes()
+
+    blocked = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=click_track,
+    )
+
+    assert blocked.status == "blocked"
+    assert "not waiting for music" in blocked.message
+    assert not (project / "generation" / "music_asset.json").exists()
+    assert not (project / "music_structure.json").exists()
+    assert (project / "project_state.json").read_bytes() == before
+
+
+def test_run_reports_local_analysis_failure_as_blocked(
+    tmp_path: Path, monkeypatch, click_track: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    project = tmp_path / "runs" / "demo"
+    _finish_visual_flow(input_dir, project, monkeypatch)
+
+    def fail_analysis(*_args, **_kwargs):
+        raise RuntimeError("decoder stopped")
+
+    monkeypatch.setattr("director.audio_import.analyze_music", fail_analysis)
+    blocked = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=click_track,
+    )
+
+    assert blocked.status == "blocked"
+    assert "local music analysis failed" in blocked.message
+    assert (project / "generation" / "music_asset.json").is_file()
+    assert not (project / "music_structure.json").exists()
+
+
+def test_run_cli_reports_missing_music_as_blocked_json(
+    tmp_path: Path, monkeypatch
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    project = tmp_path / "runs" / "demo"
+    _finish_visual_flow(input_dir, project, monkeypatch)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--input",
+            str(input_dir),
+            "--brief",
+            BRIEF,
+            "--project",
+            str(project),
+            "--music",
+            str(tmp_path / "missing.wav"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "blocked"
+    assert "music file does not exist" in payload["message"]
+
+
+def test_run_reports_music_filesystem_failure_as_blocked(
+    tmp_path: Path, monkeypatch, click_track: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    project = tmp_path / "runs" / "demo"
+    _finish_visual_flow(input_dir, project, monkeypatch)
+
+    def fail_copy(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("director.audio_import._atomic_copy_verified", fail_copy)
+    blocked = run_travel_director(
+        input_dir,
+        BRIEF,
+        project=project,
+        music=click_track,
+    )
+
+    assert blocked.status == "blocked"
+    assert "disk full" in blocked.message
+    assert not (project / "generation" / "music_asset.json").exists()
+    assert not (project / "music_structure.json").exists()
 
 
 def test_incomplete_agent_result_routes_to_immutable_supplement(tmp_path: Path) -> None:

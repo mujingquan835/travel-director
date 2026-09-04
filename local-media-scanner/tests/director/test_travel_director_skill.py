@@ -65,6 +65,8 @@ def test_skill_metadata_and_product_boundary():
     assert "completed" in skill_text
     assert "blocked" in skill_text
     assert "--response-file" in skill_text
+    assert "--music" in skill_text
+    assert "waiting_for_timeline" in skill_text
     assert "external_call_count=0" in skill_text
     assert "Codex API" in skill_text
 

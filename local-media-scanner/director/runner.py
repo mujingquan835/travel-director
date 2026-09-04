@@ -84,6 +84,7 @@ RunState = Literal[
     "needs_visual_observation",
     "needs_user_confirmation",
     "waiting_for_music",
+    "waiting_for_timeline",
     "completed",
     "blocked",
 ]
@@ -95,6 +96,7 @@ class RunAction(VisualStrictModel):
         "confirm_brief",
         "confirm_visual_fields",
         "provide_music",
+        "read_music_analysis",
         "read_summary",
         "resolve_blocker",
     ]
@@ -160,6 +162,7 @@ class DirectorStatusResult(VisualStrictModel):
         "needs_visual_observation",
         "needs_user_confirmation",
         "waiting_for_music",
+        "waiting_for_timeline",
         "completed",
         "blocked",
     ]
@@ -1093,10 +1096,43 @@ def _waiting_for_music_result(
     )
 
 
+def _waiting_for_timeline_result(
+    paths: ProjectPaths,
+    summary: "SkillRunSummary",
+) -> DirectorRunResult:
+    from director.audio_import import load_music_evidence
+
+    evidence = load_music_evidence(paths)
+    if evidence is None:
+        raise ProjectConflict("music evidence is not complete")
+    asset, structure = evidence
+    return _result(
+        paths,
+        "waiting_for_timeline",
+        "music_analysis",
+        "The uploaded music is frozen and analyzed. Timeline work is not enabled yet.",
+        actions=[
+            RunAction(
+                kind="read_music_analysis",
+                message="Review the measured local music analysis.",
+                result_path=str(paths.music_structure.resolve()),
+            )
+        ],
+        artifacts={
+            **summary.artifact_paths,
+            "music_asset": str(paths.generated_music.resolve()),
+            "frozen_music": str((paths.root / asset.frozen_relative_path).resolve()),
+            "music_structure": str(paths.music_structure.resolve()),
+        },
+        recommended_duration_seconds=round(structure.duration_seconds),
+    )
+
+
 def _advance_run(
     paths: ProjectPaths,
     input_dir: Path,
     response_file: Path | None = None,
+    music: Path | None = None,
 ) -> DirectorRunResult:
     existing_review = _load_recorded_stage(
         paths, "visual_review", VisualReviewArtifact
@@ -1109,7 +1145,16 @@ def _advance_run(
             raise ProjectConflict(
                 "final summary gates are blocked: " + ", ".join(summary.material_gaps)
             )
+        from director.audio_import import freeze_and_analyze_music, load_music_evidence
+
+        if music is not None:
+            freeze_and_analyze_music(paths, music)
+            return _waiting_for_timeline_result(paths, summary)
+        if load_music_evidence(paths) is not None:
+            return _waiting_for_timeline_result(paths, summary)
         return _waiting_for_music_result(paths, summary)
+    if music is not None:
+        raise ValueError("project is not waiting for music")
 
     observations = _load_recorded_stage(
         paths, "clip_observations", ClipObservationBatch
@@ -1305,6 +1350,7 @@ def run_travel_director(
     project: Path | None = None,
     run_root: Path = Path("prototype/runs"),
     response_file: Path | None = None,
+    music: Path | None = None,
 ) -> DirectorRunResult:
     """Advance one local visual project to its next explicit stop state."""
 
@@ -1321,6 +1367,14 @@ def run_travel_director(
                 raise ValueError("response file import requires --project")
             if not response_file.is_file():
                 raise ValueError(f"response file does not exist: {response_file}")
+        if music is not None:
+            music = music.resolve()
+            if project is None:
+                raise ValueError("music import requires --project")
+            if response_file is not None:
+                raise ValueError("music and response file cannot be imported together")
+            if not music.is_file():
+                raise ValueError(f"music file does not exist: {music}")
         paths, new_project = _resolve_project(
             resolved_input,
             raw_brief,
@@ -1333,8 +1387,8 @@ def run_travel_director(
             media,
             new_project=new_project,
         )
-        return _advance_run(paths, resolved_input, response_file)
-    except (FileNotFoundError, ProjectConflict, ValueError) as exc:
+        return _advance_run(paths, resolved_input, response_file, music)
+    except (OSError, ProjectConflict, ValueError) as exc:
         if paths is None:
             intended = (
                 project.resolve()
@@ -1382,6 +1436,7 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
         for stage in VISUAL_STAGE_ORDER
         if stage in state.completed_artifact_hashes
     ]
+    current_stage = state.current_stage
     for stage in completed:
         artifact = paths.artifact_for(stage)
         if (
@@ -1392,15 +1447,25 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
 
     if "visual_review" in completed:
         summary = build_skill_run_summary(paths.root)
-        run_state = (
-            "waiting_for_music" if summary.project_mode != "blocked" else "blocked"
-        )
+        if summary.project_mode == "blocked":
+            run_state = "blocked"
+        else:
+            from director.audio_import import load_music_evidence
+
+            run_state = (
+                "waiting_for_timeline"
+                if load_music_evidence(paths) is not None
+                else "waiting_for_music"
+            )
+            if run_state == "waiting_for_timeline":
+                current_stage = "music_analysis"
     else:
         run_state: Literal[
             "ready",
             "needs_visual_observation",
             "needs_user_confirmation",
             "waiting_for_music",
+            "waiting_for_timeline",
             "completed",
             "blocked",
         ] = "ready"
@@ -1439,7 +1504,7 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
         project_path=str(paths.root.resolve()),
         project_schema_version=state.schema_version,
         project_status=state.status,
-        current_stage=state.current_stage,
+        current_stage=current_stage,
         completed_stages=completed,
         run_state=run_state,
     )

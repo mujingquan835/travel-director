@@ -86,6 +86,14 @@ The runner validates the response kind and source hashes before atomically recor
 
 ## Waiting For Music
 
-On `waiting_for_music`, read the `provide_music` action's `result_path`. Use only its recorded recommended duration, counts, gaps, artifact paths, and exactly three music prompts. Ask the user to upload the generated music in the same conversation, then stop. This package does not accept or analyze that music and does not create a timeline or editing draft.
+On `waiting_for_music`, read the `provide_music` action's `result_path`. Use only its recorded recommended duration, counts, gaps, artifact paths, and exactly three music prompts. Ask the user to upload the generated music in the same conversation. After the upload is available as a local file, resume the exact project with unchanged input and Brief:
+
+```bash
+uv run travel-director run --input <absolute-folder> --brief <description> --project <project_path> --music <local-audio>
+```
+
+The Runner accepts WAV, MP3, or M4A, verifies that the visual project is waiting for music, hashes the source, copies it atomically into the project without changing the original, and analyzes only the frozen copy. The first accepted music file is immutable. Repeating the same file reuses the recorded asset and analysis; a different file, drifted artifact, invalid audio, or simultaneous `--response-file` import returns `blocked`.
+
+On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, and `music_structure` paths. The measured structure contains the actual BPM, beats, downbeats, energy curve, section candidates, ending behavior, confidence, and source hash. Stop there: this package does not create timeline slots or an editing draft.
 
 `completed` is reserved for a future package that actually creates the requested editing draft. Do not recalculate summary values, introduce provider results, or claim completion early. On `blocked`, report the saved project and the exact blocker without producing prompts.

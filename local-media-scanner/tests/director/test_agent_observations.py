@@ -135,6 +135,53 @@ def test_merge_two_result_files_preserves_measured_assertions_and_sorts_paths(tm
     assert all(any(assertion.field == "technical_usability" and assertion.status == "measured" for assertion in item.assertions) and any(assertion.field == "lighting" and assertion.status == "candidate" for assertion in item.assertions) for item in merged.items)
 
 
+def test_merge_accepts_monotonic_supplement_for_same_batch(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 1)
+    packet = manifest.batches[0].items[0]
+    base = _result(manifest)
+    supplement = AgentBatchResult(
+        batch_id="batch-000",
+        status="completed",
+        items=[_agent_item(0, packet, field="people_presence")],
+    )
+    paths = []
+    for name, result in (("batch-000.json", base), ("batch-000-001.json", supplement)):
+        path = tmp_path / "results" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(result.model_dump_json(), encoding="utf-8")
+        paths.append(path)
+
+    merged = merge_agent_batch_results(_scanner_batch(1), manifest, paths)
+
+    fields = {assertion.field for assertion in merged.items[0].assertions}
+    assert {"technical_usability", "lighting", "people_presence"} <= fields
+
+
+def test_merge_rejects_supplement_that_changes_existing_field(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 1)
+    packet = manifest.batches[0].items[0]
+    base = _result(manifest)
+    changed = _agent_item(0, packet).model_copy(
+        update={
+            "assertions": [
+                base.items[0].assertions[0].model_copy(update={"value": "night"})
+            ]
+        }
+    )
+    supplement = AgentBatchResult(
+        batch_id="batch-000", status="completed", items=[changed]
+    )
+    paths = []
+    for name, result in (("batch-000.json", base), ("batch-000-001.json", supplement)):
+        path = tmp_path / "results" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(result.model_dump_json(), encoding="utf-8")
+        paths.append(path)
+
+    with pytest.raises(ValueError, match="supplement changes"):
+        merge_agent_batch_results(_scanner_batch(1), manifest, paths)
+
+
 def test_agent_contract_uses_downstream_content_families_field() -> None:
     assert "content_families" in AGENT_VISUAL_FIELDS
     assert "content_family" not in AGENT_VISUAL_FIELDS
@@ -196,6 +243,28 @@ def test_missing_or_failed_batch_keeps_agent_fields_for_review(tmp_path: Path) -
     failed_last = next(item for item in failed_merge.items if item.material.relative_path == "trip/clip-10.mov")
     assert failed_merge.status == "partial"
     assert "lighting" in failed_last.review_required_fields
+
+
+def test_material_without_contact_sheet_stays_unavailable_without_user_review(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path, 1, ready=set())
+    scanner_item = _scanner_batch(1).items[0].model_copy(
+        update={
+            "unknown_fields": list(AGENT_VISUAL_FIELDS),
+            "review_required_fields": list(AGENT_VISUAL_FIELDS),
+        }
+    )
+    scanner = ClipObservationBatch(
+        status="partial", mode="scanner_only", items=[scanner_item]
+    )
+
+    merged = merge_agent_batch_results(scanner, manifest, [])
+
+    item = merged.items[0]
+    assert merged.status == "completed"
+    assert item.observation_status == "unavailable"
+    assert item.review_required_fields == []
+    assert "lighting" in item.unknown_fields
+    assert item.errors[0].code == "contact_sheet_unavailable"
 
 
 def test_merge_rejects_scanner_material_set_that_omits_manifest_item(tmp_path: Path) -> None:

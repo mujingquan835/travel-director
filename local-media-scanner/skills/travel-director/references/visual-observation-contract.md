@@ -92,6 +92,9 @@ Never add:
 
 Rules:
 
+- Treat the action's `required_fields` as the required coverage for every ready material in that action. Use one candidate or abstained assertion per required field; do not silently omit a field.
+- When `result_path` is under `results/supplements/`, preserve the earlier batch result unchanged. The supplement may repeat an identical assertion or add a missing field, but it must not revise an existing field.
+- Materials without a contact sheet remain unavailable and are not fabricated into a batch result or delegated to the user for exhaustive confirmation.
 - Do not repair freeform prose into JSON. If the output is malformed, rewrite once as structured JSON and validate.
 - Do not mix `unknown` with a concrete value for the same supported field.
 - Do not invent values from memory, from the user’s earlier wording, or from adjacent materials.

@@ -304,6 +304,80 @@ def test_run_stops_for_visual_observation_then_waits_for_music_idempotently(
     )
 
 
+def test_incomplete_agent_result_routes_to_immutable_supplement(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "clip.mov").write_bytes(b"local source")
+    paths = create_visual_project(
+        tmp_path / "runs", "supplement", RawCreativeBrief(raw_description=BRIEF)
+    )
+    prepared = _prepared_scanner(paths, input_dir)
+    scanner_item = prepared.observations.items[0].model_copy(
+        update={"unknown_fields": ["lighting"], "review_required_fields": ["lighting"]}
+    )
+    scanner = prepared.observations.model_copy(update={"items": [scanner_item]})
+    first_actions, _ = runner_module._pending_agent_actions(
+        prepared.batch_manifest, scanner
+    )
+    base_path = Path(first_actions[0].result_path or "")
+    _write_agent_result(base_path, input_dir)
+
+    supplement_actions, checkpoints = runner_module._pending_agent_actions(
+        prepared.batch_manifest, scanner
+    )
+
+    assert len(checkpoints) == 1
+    assert supplement_actions[0].required_fields == ["lighting"]
+    supplement_path = Path(supplement_actions[0].result_path or "")
+    assert supplement_path.parent.name == "supplements"
+    material = _material(input_dir)
+    sheet = next(base_path.parent.parent.glob("contact_sheets/*.jpg"))
+    evidence = EvidenceRef(
+        material_id=material.material_id,
+        artifact_path=str(sheet.resolve()),
+        field_path="contact_sheet",
+        source_kind="visual_provider",
+        status="candidate",
+        confidence=0.9,
+        sha256=hashlib.sha256(sheet.read_bytes()).hexdigest(),
+    )
+    supplement_path.parent.mkdir(parents=True, exist_ok=True)
+    supplement_path.write_text(
+        AgentBatchResult(
+            batch_id="batch-000",
+            status="completed",
+            items=[
+                ClipObservation(
+                    material=material,
+                    provider="invoking_agent",
+                    observation_status="automatic",
+                    assertions=[
+                        ObservationAssertion(
+                            field="lighting",
+                            value="daylight",
+                            status="candidate",
+                            confidence=0.9,
+                            evidence_refs=[evidence],
+                        )
+                    ],
+                )
+            ],
+        ).model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    final_actions, final_checkpoints = runner_module._pending_agent_actions(
+        prepared.batch_manifest, scanner
+    )
+    merged = runner_module.merge_agent_batch_results(
+        scanner, prepared.batch_manifest, final_checkpoints
+    )
+
+    assert final_actions == []
+    assert len(final_checkpoints) == 2
+    assert merged.status == "completed"
+
+
 def test_run_resumes_existing_visual_project_without_rebuilding_scanner(
     tmp_path: Path, monkeypatch
 ) -> None:

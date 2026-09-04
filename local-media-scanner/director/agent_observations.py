@@ -194,28 +194,58 @@ def merge_agent_batch_results(
     if scanner_keys != manifest_keys:
         raise ValueError("scanner observations must exactly match manifest materials")
 
-    results: dict[str, AgentBatchResult] = {}
+    results: dict[str, list[AgentBatchResult]] = {}
     for path in result_paths:
         result = _load_checkpoint(path)
         validate_agent_batch_result(manifest, result)
-        if result.batch_id in results:
-            raise ValueError(f"duplicate checkpoint for batch: {result.batch_id}")
-        results[result.batch_id] = result
+        results.setdefault(result.batch_id, []).append(result)
 
     packets = {packet.material_id: packet for packet in manifest.items}
-    agent_items = {
-        item.material.material_id: item
-        for result in results.values()
-        if result.status == "completed"
-        for item in result.items
-    }
+    agent_items: dict[str, ClipObservation] = {}
+    for batch_results in results.values():
+        for result in batch_results:
+            if result.status != "completed":
+                continue
+            for item in result.items:
+                existing = agent_items.get(item.material.material_id)
+                if existing is None:
+                    agent_items[item.material.material_id] = item
+                    continue
+                assertions = list(existing.assertions)
+                by_field = {assertion.field: assertion for assertion in assertions}
+                for assertion in item.assertions:
+                    prior = by_field.get(assertion.field)
+                    if prior is not None and prior != assertion:
+                        raise ValueError(
+                            "supplement changes an existing agent assertion: "
+                            f"{item.material.material_id}:{assertion.field}"
+                        )
+                    if prior is None:
+                        assertions.append(assertion)
+                        by_field[assertion.field] = assertion
+                agent_items[item.material.material_id] = existing.model_copy(
+                    update={
+                        "assertions": assertions,
+                        "unknown_fields": sorted(
+                            set(existing.unknown_fields) | set(item.unknown_fields)
+                        ),
+                        "review_required_fields": sorted(
+                            set(existing.review_required_fields)
+                            | set(item.review_required_fields)
+                        ),
+                        "errors": [*existing.errors, *item.errors],
+                    }
+                )
     unavailable_batches = {
         batch.batch_id
         for batch in manifest.batches
-        if batch.batch_id not in results or results[batch.batch_id].status == "failed"
+        if not any(
+            result.status == "completed"
+            for result in results.get(batch.batch_id, [])
+        )
     }
     merged_items: list[ClipObservation] = []
-    has_review = bool(unavailable_batches)
+    has_review = False
     for scanner_item in scanner_observations.items:
         packet = packets.get(scanner_item.material.material_id)
         if packet is None or packet.relative_path != scanner_item.material.relative_path:
@@ -249,7 +279,14 @@ def merge_agent_batch_results(
         review_fields = set(scanner_item.review_required_fields) - resolved_fields
         unknown_fields = set(scanner_item.unknown_fields) - resolved_fields
         errors = list(scanner_item.errors)
-        if packet.status != "ready" or batch.batch_id in unavailable_batches:
+        if packet.status != "ready":
+            review_fields.clear()
+            unknown_fields.update(AGENT_VISUAL_FIELDS)
+            errors.append(ProviderIssue(
+                code="contact_sheet_unavailable",
+                message="No bounded contact sheet is available for this material.",
+            ))
+        elif batch.batch_id in unavailable_batches:
             review_fields.update(AGENT_VISUAL_FIELDS)
             unknown_fields.update(AGENT_VISUAL_FIELDS)
             errors.append(ProviderIssue(
@@ -263,7 +300,11 @@ def merge_agent_batch_results(
             has_review = True
         merged_items.append(scanner_item.model_copy(update={
             "provider": "invoking_agent" if agent_assertions else scanner_item.provider,
-            "observation_status": "assisted" if review_fields else "automatic",
+            "observation_status": (
+                "unavailable"
+                if packet.status != "ready"
+                else ("assisted" if review_fields else "automatic")
+            ),
             "assertions": _dedupe_assertions(assertions),
             "unknown_fields": sorted(unknown_fields),
             "review_required_fields": sorted(review_fields),

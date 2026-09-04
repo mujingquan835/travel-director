@@ -35,6 +35,8 @@ from director.project import (
     ProjectConflict,
     ProjectPaths,
     VISUAL_STAGE_ORDER,
+    _atomic_write,
+    _canonical_bytes,
     _sha256_file,
     create_visual_project,
     load_project_state,
@@ -595,11 +597,16 @@ def _publish_stage(
 
 def _pending_agent_actions(
     manifest: AgentBatchManifest,
+    scanner_observations: ClipObservationBatch,
 ) -> tuple[list[RunAction], list[Path]]:
     actions: list[RunAction] = []
     checkpoints: list[Path] = []
+    scanner_by_material = {
+        item.material.material_id: item for item in scanner_observations.items
+    }
     for batch in manifest.batches:
         result_path = Path(batch.result_path).resolve()
+        batch_results: list[AgentBatchResult] = []
         if result_path.is_file():
             result = AgentBatchResult.model_validate_json(
                 result_path.read_text(encoding="utf-8")
@@ -607,27 +614,87 @@ def _pending_agent_actions(
             validate_agent_batch_result(manifest, result)
             write_agent_batch_checkpoint(result, result_path)
             checkpoints.append(result_path)
-            continue
+            batch_results.append(result)
+            supplement_dir = result_path.parent / "supplements"
+            for supplement_path in sorted(
+                supplement_dir.glob(f"{batch.batch_id}-*.json")
+            ):
+                supplement = AgentBatchResult.model_validate_json(
+                    supplement_path.read_text(encoding="utf-8")
+                )
+                validate_agent_batch_result(manifest, supplement)
+                if supplement.batch_id != batch.batch_id:
+                    raise ValueError("supplement batch ID does not match its reservation")
+                write_agent_batch_checkpoint(supplement, supplement_path)
+                checkpoints.append(supplement_path)
+                batch_results.append(supplement)
         ready = [item for item in batch.items if item.status == "ready"]
         if not ready:
             continue
+        addressed: dict[str, set[str]] = {item.material_id: set() for item in ready}
+        for result in batch_results:
+            if result.status != "completed":
+                continue
+            for item in result.items:
+                addressed[item.material.material_id].update(
+                    assertion.field for assertion in item.assertions
+                )
+        missing: dict[str, set[str]] = {}
+        for packet in ready:
+            scanner_item = scanner_by_material[packet.material_id]
+            needed = (
+                set(scanner_item.unknown_fields)
+                | set(scanner_item.review_required_fields)
+            ) & set(packet.allowed_fields)
+            unresolved = needed - addressed[packet.material_id]
+            if unresolved:
+                missing[packet.material_id] = unresolved
+        if batch_results and not missing:
+            continue
+        if batch_results:
+            supplement_dir = result_path.parent / "supplements"
+            supplement_count = len(list(supplement_dir.glob(f"{batch.batch_id}-*.json")))
+            target_path = supplement_dir / f"{batch.batch_id}-{supplement_count + 1:03d}.json"
+            message = (
+                "Supplement only unresolved fields without changing prior assertions, "
+                "then save a validated AgentBatchResult to the reserved supplement path."
+            )
+        else:
+            target_path = result_path
+            message = (
+                "Observe only the reserved contact sheets and save one "
+                "validated AgentBatchResult to the reserved result path."
+            )
         actions.append(
             RunAction(
                 kind="observe_contact_sheets",
-                message=(
-                    "Observe only the reserved contact sheets and save one "
-                    "validated AgentBatchResult to the reserved result path."
-                ),
+                message=message,
                 batch_id=batch.batch_id,
                 contact_sheet_paths=[
                     item.contact_sheet_path
                     for item in ready
                     if item.contact_sheet_path is not None
                 ],
-                result_path=str(result_path),
+                result_path=str(target_path.resolve()),
+                required_fields=sorted(
+                    {field for fields in missing.values() for field in fields}
+                ),
             )
         )
     return actions, checkpoints
+
+
+def _write_pending_merged_observations(
+    paths: ProjectPaths, value: ClipObservationBatch
+) -> Path:
+    """Refresh a derived draft only before final observations are published."""
+
+    state = load_project_state(paths)
+    if "clip_observations" in state.completed_artifact_hashes:
+        raise ProjectConflict("published clip observations cannot be refreshed")
+    destination = paths.visual_drafts / "clip_observations.merged.json"
+    _atomic_write(destination, _canonical_bytes(value.model_dump(mode="json")))
+    return destination
 
 
 def _brief_confirmation_from_response(
@@ -893,7 +960,8 @@ def _visual_confirmation(
 
     review_dir = paths.visual_dir / "review"
     prepared_path = review_dir / "review_route.json"
-    if prepared_path.is_file():
+    confirmation_path = review_dir / "visual_confirmation.json"
+    if confirmation_path.is_file() and prepared_path.is_file():
         prepared = PreparedVisualReview.model_validate_json(
             prepared_path.read_text(encoding="utf-8")
         )
@@ -906,7 +974,6 @@ def _visual_confirmation(
                 paths.visual_drafts / "clip_observations.merged.json"
             ),
         )
-    confirmation_path = review_dir / "visual_confirmation.json"
     response_path = review_dir / "visual_response.json"
     if prepared.route.channel == "chat" and response_path.is_file():
         _visual_confirmation_from_response(
@@ -1050,7 +1117,8 @@ def _advance_run(
     if observations is None:
         prepared = _prepare_local_scanner(paths, input_dir)
         agent_actions, checkpoints = _pending_agent_actions(
-            prepared.batch_manifest
+            prepared.batch_manifest,
+            prepared.observations,
         )
         if agent_actions:
             if response_file is not None:
@@ -1074,8 +1142,7 @@ def _advance_run(
             prepared.batch_manifest,
             checkpoints,
         )
-        merged_path = paths.visual_drafts / "clip_observations.merged.json"
-        record_supporting_artifact(paths, merged_path, raw_draft)
+        _write_pending_merged_observations(paths, raw_draft)
     else:
         prepared = None
         raw_draft = observations

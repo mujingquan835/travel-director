@@ -1,33 +1,28 @@
 ---
 name: travel-director
-description: Use when a user wants to inspect a local travel-video folder, understand its footage from bounded contact sheets, turn the user's description into an evidence-bound director treatment, and return three ready-to-copy music-generation prompts without calling external music or generation services.
+description: Use when a user wants to inspect a local travel-video folder from bounded contact sheets, turn a natural-language brief into an evidence-bound director plan, receive exactly three music-generation prompts, and pause for user-supplied music without external services.
 ---
 
 # Travel Director
 
-Use the current invoking agent's existing visual capability. Do not declare or switch models, create another task, call Codex API, upload source media, or call any external or paid music/generation service.
+Use `$travel-director` with two inputs: an absolute local footage directory and the user's natural-language creative brief.
 
-Use `$travel-director` for the local V0.2 visual path in this repository. The runtime copy is installed from this folder with [scripts/install.py](scripts/install.py). Resolve the authoritative checkout first with [scripts/resolve_workspace.py](scripts/resolve_workspace.py). Keep the entrypoint compact here and read [references/workflow.md](references/workflow.md) for the exact CLI sequence and stop states, plus [references/visual-observation-contract.md](references/visual-observation-contract.md) for the strict allowed-field JSON contract and unsupported inference rules.
+Resolve the authoritative checkout with [scripts/resolve_workspace.py](scripts/resolve_workspace.py), work from the resolved package root, then call only:
 
-Core constraints:
+```bash
+uv run travel-director run --input <absolute-folder> --brief <description>
+```
 
-- 不得调用 Codex API，不得调用外部或付费音乐/生成服务，不得切换到别的任务。
-- All saved JSON must be validated immediately by the owning CLI before the workflow advances.
-- `merge-agent-batches` now requires `--project`, draft outputs must stay under `visual/drafts/`, and only `record-visual-stage` publishes canonical stage artifacts.
-- Invoking-agent visual passes are bounded: 每批最多 10 条素材 contact sheets, each material uses 3 to 5 frames, and the Scanner path here always uses `--no-models`.
-- The final music prompt artifact must contain exactly three prompts, each at most 200 characters, with `external_call_count=0`.
-- `prepare-visual-review` may return `none`, `chat`, or `local_page`; it never opens the browser.
-- Route review in chat only when pending work does not exceed the approved threshold. If 超过 5 个字段 or 超过 3 条素材, route to `local_page`.
+Reuse the returned `project_path` with `--project` on every later call. Read [references/workflow.md](references/workflow.md) only for confirmation or resume details.
 
-Decision sequence:
+Handle the returned state:
 
-1. Resolve and validate the authoritative workspace, inspect project state, and resume only verified artifacts.
-2. Get the source directory and the user's natural-language description; stop before scanning if either is absent.
-3. Run local Scanner preparation and build one 3 to 5 frame contact sheet per material.
-4. Read at most 10 contact sheets per batch, write `AgentBatchResult` JSON to its reserved result path, validate immediately, and retry malformed structured output at most once.
-5. If vision is unavailable, skip agent assertions, retain Scanner evidence, set `scanner_only + assisted`, and continue to review routing.
-6. Normalize the Brief and ask only about blocking conflicts.
-7. Merge observations and route review as `none`, `chat`, or `local_page` according to the approved thresholds. Open a page only after `local_page` is returned or the user explicitly asks.
-8. Import confirmation JSON with hash validation. If the user declines required confirmation, finish `blocked` and report the preserved checkpoints.
-9. Build intent decisions, project coverage, DirectorTreatment, DirectorReview, and exactly three music prompts of at most 200 characters each.
-10. Return compact results and clickable artifact paths in the current conversation; do not automatically open the final report.
+- `needs_visual_observation`: read [references/visual-observation-contract.md](references/visual-observation-contract.md), inspect only the returned contact sheets, write one valid batch to each `result_path`, then rerun. Keep each batch at 10 materials or fewer and each material at 3 to 5 frames.
+- `needs_user_confirmation`: ask only the returned fields. For `chat`, write the simple answer format from the workflow reference to `response_path`; for `local_page`, point the user to `page_path`, then import the downloaded JSON through `run --response-file <downloaded-json>`. Chat is limited to 5 fields across at most 3 materials.
+- `waiting_for_music`: read the returned summary `result_path`, report the recommended duration and exactly three prompts of at most 200 characters, then tell the user to upload the generated music in the same conversation to continue. Stop here: this package does not accept or analyze music yet.
+- `completed`: reserve this state for a future run that has actually created the requested editing draft. The current package must not claim it.
+- `blocked`: report the reason and preserved `project_path`; do not guess, restart, or bypass validation.
+
+Use `uv run travel-director status --project <project_path>` only to diagnose an ambiguous resume state.
+
+Never declare or switch models, start another task, call a local inference model, call Codex API, upload media, or call any external or paid service. Scanner execution must remain `--no-models`; the result must report `external_call_count=0`. Preserve uncertainty and validate every saved observation or confirmation through the next `run` call.

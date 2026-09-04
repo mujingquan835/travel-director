@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import subprocess
 from pathlib import Path
 
@@ -17,6 +16,9 @@ WORKFLOW_REF = SKILL_ROOT / "references" / "workflow.md"
 OBSERVATION_REF = SKILL_ROOT / "references" / "visual-observation-contract.md"
 RESOLVER = SKILL_ROOT / "scripts" / "resolve_workspace.py"
 INSTALLER = SKILL_ROOT / "scripts" / "install.py"
+QUICK_VALIDATOR = Path(
+    "/Users/meimaodawang/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
+)
 
 
 def _read_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -41,12 +43,6 @@ def _observation_text() -> str:
     return OBSERVATION_REF.read_text(encoding="utf-8")
 
 
-def _index_or_fail(text: str, needle: str) -> int:
-    index = text.find(needle)
-    assert index >= 0, needle
-    return index
-
-
 def _manifest(root: Path) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -55,35 +51,37 @@ def _manifest(root: Path) -> dict[str, str]:
     }
 
 
-def test_skill_frontmatter_and_entrypoint_contract():
+def test_skill_metadata_and_product_boundary():
     skill_text = _skill_text()
     frontmatter, body = _read_frontmatter(skill_text)
 
     assert frontmatter["name"] == "travel-director"
     assert "$travel-director" in skill_text
-    assert "每批最多 10" in skill_text
-    assert "超过 5 个字段" in skill_text
-    assert "超过 3 条素材" in skill_text
+    assert "travel-director run" in skill_text
+    assert "travel-director status" in skill_text
+    assert "needs_visual_observation" in skill_text
+    assert "needs_user_confirmation" in skill_text
+    assert "waiting_for_music" in skill_text
+    assert "completed" in skill_text
+    assert "blocked" in skill_text
+    assert "--response-file" in skill_text
     assert "external_call_count=0" in skill_text
-    assert not re.search(r"^model\s*:", skill_text, re.MULTILINE)
-    assert "Codex API" in skill_text and "不得调用" in skill_text
+    assert "Codex API" in skill_text
 
-    for phrase in (
-        "Resolve and validate the authoritative workspace",
-        "Get the source directory and the user's natural-language description",
-        "Run local Scanner preparation",
-        "Read at most 10 contact sheets per batch",
-        "If vision is unavailable, skip agent assertions",
-        "Normalize the Brief",
-        "Merge observations and route review",
-        "Import confirmation JSON with hash validation",
-        "Build intent decisions, project coverage, DirectorTreatment, DirectorReview, and exactly three music prompts",
-        "Return compact results and clickable artifact paths",
-    ):
-        assert phrase in body
+    excluded = (
+        "init-visual-project",
+        "record-visual-stage",
+        "normalize-brief",
+        "Ground Truth",
+        "blind annotation",
+        "evaluate-blind-annotation",
+        "analyze-music",
+        "render-project",
+    )
+    assert all(term not in body for term in excluded)
 
 
-def test_skill_links_and_reference_invariants():
+def test_skill_references_are_discoverable_and_keep_lab_commands_out():
     skill_text = _skill_text()
     workflow_text = _workflow_text()
     observation_text = _observation_text()
@@ -97,27 +95,44 @@ def test_skill_links_and_reference_invariants():
         "references/workflow.md",
         "references/visual-observation-contract.md",
         "scripts/resolve_workspace.py",
-        "scripts/install.py",
     ):
         assert relative in skill_text
 
-    assert "automatic" in workflow_text
-    assert "assisted" in workflow_text
-    assert "blocked" in workflow_text
-    assert "three music prompts" in workflow_text
-    assert "one final response" in workflow_text
-    assert "--project" in workflow_text
-    assert "visual/drafts/" in workflow_text
-    assert "record-visual-stage" in workflow_text
-    assert "prepare-visual-review may return `none`, `chat`, or `local_page`" in workflow_text
-    assert "never opens the browser" in workflow_text
+    assert '"kind": "brief"' in workflow_text
+    assert '"kind": "visual"' in workflow_text
+    assert "--response-file" in workflow_text
     assert "--no-models" in workflow_text
-    assert "RepresentativeFrame(path,timestamp)" in workflow_text
+    assert "external_call_count=0" in workflow_text
+    assert "waiting_for_music" in workflow_text
+    assert "provide_music" in workflow_text
+
+    excluded = (
+        "record-visual-stage",
+        "normalize-brief",
+        "Ground Truth",
+        "blind annotation",
+        "evaluate-blind-annotation",
+        "analyze-music",
+        "render-project",
+    )
+    assert all(term not in workflow_text for term in excluded)
 
     assert "unsupported inference" in observation_text.lower()
     assert "allowed fields" in observation_text.lower()
     assert "external_call_count" in observation_text
-    assert "validate-agent-batch" in workflow_text
+
+
+def test_skill_passes_official_quick_validation():
+    result = subprocess.run(
+        ["uv", "run", "python", str(QUICK_VALIDATOR), str(SKILL_ROOT)],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Skill is valid!" in result.stdout
 
 
 def test_installer_copies_identical_tree(tmp_path):
@@ -307,72 +322,3 @@ def test_resolver_prefers_git_root_and_never_selects_main_when_invalid(tmp_path)
 
     assert result.stdout.strip() == str(valid_root.resolve())
     assert result.stdout.strip() != str(invalid_root.resolve())
-
-
-def test_workflow_reference_lists_required_commands():
-    workflow_text = _workflow_text()
-
-    for command in (
-        "uv run travel-director init-visual-project --project-id <project-id> --raw-brief <raw-brief.json> --run-root <run-root>",
-        "uv run travel-scanner inspect --input <source-directory> --output <project>/visual/scanner/input_manifest.json",
-        "uv run travel-scanner scan --manifest <project>/visual/scanner/input_manifest.json --run-id scanner-v1 --runs-dir <project>/visual/scanner/runs --sampling-profile adaptive5 --device auto --no-models",
-        "uv run travel-director build-scanner-observations --scanner-result <project>/visual/scanner/runs/scanner-v1/scanner_result.json --scanner-manifest <project>/visual/scanner/input_manifest.json --output <project>/visual/scanner_only.json",
-        "uv run travel-director build-frame-map --scanner-result <project>/visual/scanner/runs/scanner-v1/scanner_result.json --scanner-observations <project>/visual/scanner_only.json --scanner-run-dir <project>/visual/scanner/runs/scanner-v1 --output <project>/visual/material_frame_map.json",
-        "uv run travel-director prepare-agent-batches --frame-map <project>/visual/material_frame_map.json --output-dir <project>/visual/agent_batches",
-    ):
-        assert command in workflow_text
-
-
-def test_workflow_reference_orders_brief_before_merge_and_review():
-    workflow_text = _workflow_text()
-
-    brief_section = _index_or_fail(workflow_text, "## Brief Normalization And Confirmation")
-    review_section = _index_or_fail(workflow_text, "## Review Routing")
-    normalize_brief = _index_or_fail(
-        workflow_text,
-        "uv run travel-director normalize-brief --brief <project>/brief.json --output <project>/visual/drafts/intent_brief.json",
-    )
-    merge_batches = _index_or_fail(
-        workflow_text,
-        "uv run travel-director merge-agent-batches --project <project> --scanner-observations <project>/visual/scanner_only.json --manifest <project>/visual/agent_batches/manifest.json --result-dir <project>/visual/agent_batches/results --output <project>/visual/drafts/clip_observations.merged.json",
-    )
-    prepare_review = _index_or_fail(
-        workflow_text,
-        "uv run travel-director prepare-visual-review --observations <project>/visual/drafts/clip_observations.merged.json --frame-map <project>/visual/material_frame_map.json --output-dir <project>/visual/review",
-    )
-    record_observations = _index_or_fail(
-        workflow_text,
-        "uv run travel-director record-visual-stage --project <project> --stage clip_observations --artifact <project>/visual/drafts/clip_observations.merged.json",
-    )
-    record_brief = _index_or_fail(
-        workflow_text,
-        "uv run travel-director record-visual-stage --project <project> --stage intent_brief --artifact <project>/visual/drafts/intent_brief.json",
-    )
-    record_confirmation = _index_or_fail(
-        workflow_text,
-        "uv run travel-director record-visual-stage --project <project> --stage brief_confirmation --artifact <project>/visual/drafts/brief_confirmation.confirmed.json",
-    )
-
-    assert brief_section < review_section
-    assert normalize_brief < merge_batches
-    assert merge_batches < prepare_review < record_observations
-    assert record_observations < record_brief < record_confirmation
-
-
-def test_workflow_reference_includes_manual_director_review_command_sequence():
-    workflow_text = _workflow_text()
-
-    render_review = _index_or_fail(
-        workflow_text,
-        "uv run travel-director render-director-review --treatment <project>/visual/director_treatment.json --output <project>/visual/review/director_review.html",
-    )
-    validate_review = _index_or_fail(
-        workflow_text,
-        "uv run travel-director validate-director-review --treatment <project>/visual/director_treatment.json --review <project>/visual/review/director_review.json",
-    )
-    record_review = _index_or_fail(
-        workflow_text,
-        "uv run travel-director record-visual-stage --project <project> --stage director_review --artifact <project>/visual/review/director_review.json",
-    )
-
-    assert render_review < validate_review < record_review

@@ -12,13 +12,19 @@ from pydantic import Field, field_validator, model_validator
 from director.project import (
     ProjectConflict,
     ProjectPaths,
+    _atomic_write,
+    _canonical_bytes,
     load_project_state,
     open_project,
+    preflight_visual_stage_checked,
+    record_supporting_artifact,
+    record_visual_stage_checked,
 )
 from director.schema import ExternalCallRecord
 from director.visual_schema import (
     Bucket,
     VisualProjectState,
+    VisualReviewArtifact,
     VisualStrictModel,
     validate_visual_stage_artifact,
 )
@@ -105,8 +111,10 @@ def _artifact_paths(paths, state) -> dict[str, str]:
     ordered = {
         name: str((paths.root / relative).resolve())
         for name, relative in state.artifact_paths.items()
+        if name != "input_manifest" or (paths.root / relative).is_file()
     }
-    ordered["review_route"] = str(paths.review_route.resolve())
+    if paths.review_route.is_file():
+        ordered["review_route"] = str(paths.review_route.resolve())
     ordered["final_summary"] = str(paths.final_summary.resolve())
     return ordered
 
@@ -318,3 +326,49 @@ def build_skill_run_summary(project_root: Path) -> SkillRunSummary:
             name: "not_executed" for name in EXTERNAL_SERVICES
         },
     )
+
+
+def write_skill_run_summary(project_root: Path) -> SkillRunSummary:
+    """Write and publish the canonical summary without changing its gates."""
+
+    paths = open_project(project_root.resolve())
+    summary = build_skill_run_summary(paths.root)
+    visual_review = None
+    draft = paths.visual_drafts / "visual_review.summary.json"
+    if summary.project_mode != "blocked":
+        state = load_project_state(paths)
+        visual_review = VisualReviewArtifact(
+            status="completed",
+            report_path=str(paths.final_summary.resolve()),
+            source_artifact_hashes={
+                stage: state.completed_artifact_hashes[stage]
+                for stage in (
+                    "clip_observations",
+                    "brief_confirmation",
+                    "director_treatment",
+                    "director_review",
+                    "music_style_recommendations",
+                )
+            },
+            external_call_count=0,
+        )
+        preflight_visual_stage_checked(
+            paths,
+            "visual_review",
+            draft,
+            visual_review,
+        )
+    summary_payload = _canonical_bytes(summary.model_dump(mode="json"))
+    if (
+        not paths.final_summary.is_file()
+        or paths.final_summary.read_bytes() != summary_payload
+    ):
+        _atomic_write(paths.final_summary, summary_payload)
+    if visual_review is not None:
+        record_supporting_artifact(
+            paths,
+            draft,
+            visual_review.model_dump(mode="json"),
+        )
+        record_visual_stage_checked(paths, "visual_review", draft)
+    return summary

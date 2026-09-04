@@ -40,6 +40,45 @@ def version() -> None:
     typer.echo(__version__)
 
 
+@app.command("run")
+def run_command(
+    input: Path = typer.Option(..., "--input", exists=True, file_okay=False),
+    brief: str = typer.Option(..., "--brief"),
+    project: Path | None = typer.Option(None, "--project", file_okay=False),
+    run_root: Path = typer.Option(Path("prototype/runs"), "--run-root", file_okay=False),
+    response_file: Path | None = typer.Option(
+        None,
+        "--response-file",
+        exists=True,
+        dir_okay=False,
+        help="Import one downloaded local-page confirmation into this project.",
+    ),
+) -> None:
+    """Advance the local visual workflow to its next explicit stop state."""
+
+    from director.runner import run_travel_director
+
+    result = run_travel_director(
+        input,
+        brief,
+        project=project,
+        run_root=run_root,
+        response_file=response_file,
+    )
+    typer.echo(result.model_dump_json(indent=2))
+
+
+@app.command("status")
+def status_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
+) -> None:
+    """Read simplified visual workflow status without changing the project."""
+
+    from director.runner import inspect_travel_director
+
+    typer.echo(inspect_travel_director(project).model_dump_json(indent=2))
+
+
 @app.command("build-scanner-observations")
 def build_scanner_observations_command(
     scanner_result: Path = typer.Option(..., "--scanner-result", exists=True, dir_okay=False),
@@ -988,16 +1027,8 @@ def skill_summary_command(
 ) -> None:
     """Write the compact final Skill summary from validated project artifacts."""
 
-    from director.project import (
-        ProjectConflict,
-        load_project_state,
-        open_project,
-        preflight_visual_stage_checked,
-        record_supporting_artifact,
-        record_visual_stage_checked,
-    )
-    from director.skill_summary import build_skill_run_summary
-    from director.visual_schema import VisualReviewArtifact
+    from director.project import ProjectConflict, open_project
+    from director.skill_summary import write_skill_run_summary
 
     paths = open_project(project.resolve())
     if output.resolve() != paths.final_summary.resolve():
@@ -1005,46 +1036,10 @@ def skill_summary_command(
             "output must be the project's canonical visual/final_summary.json path",
             param_hint="--output",
         )
-    summary = build_skill_run_summary(paths.root)
-    visual_review = None
-    draft = paths.visual_drafts / "visual_review.summary.json"
-    if summary.project_mode != "blocked":
-        state = load_project_state(paths)
-        visual_review = VisualReviewArtifact(
-            status="completed",
-            report_path=str(output.resolve()),
-            source_artifact_hashes={
-                stage: state.completed_artifact_hashes[stage]
-                for stage in (
-                    "clip_observations",
-                    "brief_confirmation",
-                    "director_treatment",
-                    "director_review",
-                    "music_style_recommendations",
-                )
-            },
-            external_call_count=0,
-        )
-        try:
-            preflight_visual_stage_checked(
-                paths,
-                "visual_review",
-                draft,
-                visual_review,
-            )
-        except ProjectConflict as exc:
-            raise typer.BadParameter(str(exc), param_hint="--project") from exc
-    record_supporting_artifact(
-        paths,
-        output,
-        summary.model_dump(mode="json"),
-    )
-    if visual_review is not None:
-        record_supporting_artifact(paths, draft, visual_review.model_dump(mode="json"))
-        try:
-            record_visual_stage_checked(paths, "visual_review", draft)
-        except ProjectConflict as exc:
-            raise typer.BadParameter(str(exc), param_hint="--project") from exc
+    try:
+        write_skill_run_summary(paths.root)
+    except ProjectConflict as exc:
+        raise typer.BadParameter(str(exc), param_hint="--project") from exc
     typer.echo(str(output.resolve()))
 
 

@@ -19,7 +19,11 @@ from director.project import (
     record_supporting_artifact,
     record_visual_stage_checked,
 )
-from director.skill_summary import EXTERNAL_SERVICES, build_skill_run_summary
+from director.skill_summary import (
+    EXTERNAL_SERVICES,
+    build_skill_run_summary,
+    write_skill_run_summary,
+)
 from director.visual_review import build_automatic_director_review
 from director.visual_schema import NormalizedIntentDraft, RawCreativeBrief
 from tests.director.test_intent_matcher import confirmed_brief, six_confirmed_observations
@@ -152,6 +156,8 @@ def test_completed_summary_uses_three_bounded_prompts_and_absolute_paths(
     assert all(len(prompt) <= 200 for prompt in result.music_prompts)
     assert all(Path(path).is_absolute() for path in result.artifact_paths.values())
     assert result.artifact_paths["final_summary"].endswith("visual/final_summary.json")
+    assert "input_manifest" not in result.artifact_paths
+    assert "review_route" not in result.artifact_paths
 
 
 @pytest.mark.parametrize(
@@ -304,6 +310,23 @@ def test_skill_summary_cli_writes_final_summary_and_records_visual_review(
         "director_review",
         "music_style_recommendations",
     }
+
+
+def test_write_summary_refreshes_only_derived_optional_paths(tmp_path: Path) -> None:
+    project_root = completed_project(tmp_path, observation_mode="automatic")
+    paths = open_project(project_root)
+    expected = write_skill_run_summary(project_root)
+    stale = expected.model_dump(mode="json")
+    stale["artifact_paths"]["input_manifest"] = str(paths.input_manifest.resolve())
+    stale["artifact_paths"]["review_route"] = str(paths.review_route.resolve())
+    paths.final_summary.write_text(json.dumps(stale), encoding="utf-8")
+
+    refreshed = write_skill_run_summary(project_root)
+
+    assert refreshed == expected
+    payload = json.loads(paths.final_summary.read_text(encoding="utf-8"))
+    assert "input_manifest" not in payload["artifact_paths"]
+    assert "review_route" not in payload["artifact_paths"]
 
 
 def test_summary_rejects_stale_brief_confirmation_hash_even_when_state_matches(

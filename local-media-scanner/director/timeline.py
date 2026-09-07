@@ -4,11 +4,28 @@ from __future__ import annotations
 
 from bisect import bisect_left
 import math
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from director.schema import MusicStructure, TimelineSlot, UserCreativeBrief
+
+
+TimelineRole = Literal["intro", "rise", "breath", "climax", "outro", "unknown"]
+
+
+class TimelineRoleOverride(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    start: float = Field(ge=0.0)
+    end: float = Field(gt=0.0)
+    role: TimelineRole
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> "TimelineRoleOverride":
+        if self.end <= self.start:
+            raise ValueError("override end must be greater than start")
+        return self
 
 
 class TimelineConfig(BaseModel):
@@ -55,6 +72,7 @@ def _nearest_beat_index(beats: list[float], time_seconds: float) -> int | None:
 def _snap_section_boundaries(
     structure: MusicStructure,
     target_duration: float,
+    role_overrides: list[TimelineRoleOverride] | None = None,
 ) -> list[float]:
     measured = sorted(
         {
@@ -73,6 +91,10 @@ def _snap_section_boundaries(
         snapped = _nearest(later, section.end)
         if snapped < target_duration:
             boundaries.append(snapped)
+    for override in role_overrides or []:
+        for value in (override.start, override.end):
+            if 0 < value < target_duration and measured:
+                boundaries.append(_nearest(measured, value))
     boundaries.append(target_duration)
     return sorted(set(boundaries))
 
@@ -82,6 +104,40 @@ def _section_for_time(structure: MusicStructure, midpoint: float):
         if section.start <= midpoint < section.end:
             return section
     return structure.sections[-1] if structure.sections else None
+
+
+def _override_for_time(
+    role_overrides: list[TimelineRoleOverride], midpoint: float
+) -> TimelineRoleOverride | None:
+    matches = [
+        override
+        for override in role_overrides
+        if override.start <= midpoint < override.end
+    ]
+    return matches[-1] if matches else None
+
+
+def _interval_energy(
+    structure: MusicStructure,
+    start: float,
+    end: float,
+    fallback: float,
+) -> float:
+    values = [
+        point.value
+        for point in structure.energy_curve
+        if start <= point.time_seconds < end
+    ]
+    if not values and structure.energy_curve:
+        midpoint = (start + end) / 2.0
+        nearest = min(
+            structure.energy_curve,
+            key=lambda point: abs(point.time_seconds - midpoint),
+        )
+        values = [nearest.value]
+    if not values:
+        return fallback
+    return float(min(1.0, max(0.0, sum(values) / len(values))))
 
 
 def _subdivide_on_beats(
@@ -141,6 +197,8 @@ def build_timeline_slots(
     structure: MusicStructure,
     brief: UserCreativeBrief | Any,
     config: TimelineConfig | None = None,
+    *,
+    role_overrides: list[TimelineRoleOverride] | None = None,
 ) -> list[TimelineSlot]:
     """Create contiguous editorial budgets without choosing any source file."""
 
@@ -158,15 +216,23 @@ def build_timeline_slots(
         raise ValueError("measured music structure has no sections")
 
     measured = sorted(set(structure.beats_seconds) | set(structure.downbeats_seconds))
-    section_boundaries = _snap_section_boundaries(structure, target_duration)
+    overrides = role_overrides or []
+    section_boundaries = _snap_section_boundaries(
+        structure, target_duration, overrides
+    )
     raw_slots: list[tuple[float, float, str, float]] = []
 
     for section_start, section_end in zip(
         section_boundaries, section_boundaries[1:]
     ):
         section = _section_for_time(structure, (section_start + section_end) / 2.0)
-        role = section.role if section else "unknown"
-        energy = section.energy if section else 0.5
+        role_override = _override_for_time(
+            overrides, (section_start + section_end) / 2.0
+        )
+        role = role_override.role if role_override else (
+            section.role if section else "unknown"
+        )
+        fallback_energy = section.energy if section else 0.5
         boundaries = _subdivide_on_beats(
             section_start,
             section_end,
@@ -175,13 +241,16 @@ def build_timeline_slots(
             config,
         )
         raw_slots.extend(
-            (start, end, role, energy)
+            (start, end, role, fallback_energy)
             for start, end in zip(boundaries, boundaries[1:])
             if end > start
         )
 
     slots: list[TimelineSlot] = []
-    for index, (start, end, role, energy) in enumerate(raw_slots):
+    for index, (start, end, role, fallback_energy) in enumerate(raw_slots):
+        energy = _interval_energy(
+            structure, start, end, fallback_energy
+        )
         slots.append(
             TimelineSlot(
                 slot_id=f"slot-{index + 1:03d}",

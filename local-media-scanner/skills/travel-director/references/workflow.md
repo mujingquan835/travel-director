@@ -106,6 +106,10 @@ This returns an independent new project path with reused visual evidence and new
 
 Unfrozen legacy projects reuse existing analysis and request a new creative plan; they do not rescan or overwrite historical summaries. Valid new submissions append creative revisions. Stale submissions are rejected; rerun to obtain the current request and author from its current source hashes. Corrupt records block rather than being silently regenerated. All already-frozen projects, whether legacy or using creative revisions, resume their existing contract even after reference-library updates, without replanning or reselection.
 
-On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, and `music_structure` paths. The measured structure contains the actual BPM, beats, downbeats, energy curve, section candidates, ending behavior, confidence, and source hash. Stop there: this package does not create timeline slots or an editing draft.
+On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, and `music_structure` paths. The measured structure contains the actual BPM, beats, downbeats, energy curve, section candidates, ending behavior, confidence, and source hash. To generate the beat grid timeline delivery:
 
-`completed` is reserved for a future package that actually creates the requested editing draft. Do not recalculate summary values, introduce provider results, or claim completion early. On `blocked`, report the saved project and the exact blocker without producing prompts.
+```bash
+uv run travel-director run --input <absolute-folder> --brief <description> --project <project_path> --build-timeline
+```
+
+On `completed`, report the generated `timeline_delivery` (JSON) and `timeline_markdown` (Markdown) paths. The delivery includes the beat-aligned slot grid, text placeholders, and audio packaging (Hook Riser+Hit, BGM ducking, and Outro SFX). On `blocked`, report the saved project and the exact blocker without producing prompts.

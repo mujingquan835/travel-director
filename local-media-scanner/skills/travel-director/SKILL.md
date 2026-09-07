@@ -23,8 +23,8 @@ Handle the returned state:
 - `waiting_for_music`: read the returned summary `result_path`. Present reference selections and the audiovisual table before the music brief and three prompts (each at most 200 characters); if already shown in this conversation, do not repeat the whole plan. The user selects or generates music externally and sends the selected file here.
 - Audio delivery: one file explicitly for editing is already selected; directly call `run --music <local-audio>` without another quality confirmation. Reference, analysis, failure-review, and rejected attachments are not formal music. When multiple editing tracks arrive without a choice, ask only which file to use. Rejected examples do not imply a universal ban on their instruments or genres.
 - Music replacement: when the user requests a different track after freezing, use `run --project <old-project> --music <new-audio> --new-music-version` and retain the returned new `project_path`. The original version remains unchanged. Without this explicit replacement request, do not switch tracks.
-- `waiting_for_timeline`: report the frozen music and measured analysis paths returned by the Runner. The music is ready, but stop here: this package does not create a timeline or editing draft.
-- `completed`: reserve this state for a future run that has actually created the requested editing draft. The current package must not claim it.
+- `waiting_for_timeline`: report the frozen music and measured analysis paths returned by the Runner. The music is ready; generate beat grid timeline delivery using `run --input <folder> --brief <brief> --project <project_path> --build-timeline`.
+- `completed`: reports the generated beat grid timeline delivery JSON (`timeline_delivery`) and Markdown walkthrough (`timeline_markdown`).
 - `blocked`: report the reason and preserved `project_path`; do not guess, restart, or bypass validation.
 
 Use `uv run travel-director status --project <project_path>` only to diagnose an ambiguous resume state.

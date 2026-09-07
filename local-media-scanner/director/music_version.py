@@ -62,7 +62,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
             build_skill_run_summary(child.root)
         return child
     excluded = {"generation", "music_structure.json", "timeline_slots.json",
-                "clip_placements.json", "sfx_plan.json", "render", "music_version.json"}
+                "clip_placements.json", "sfx_plan.json", "render", "music_version.json", "delivery"}
     for path in parent.root.rglob('*'):
         if path.is_symlink():
             raise ProjectConflict("music version evidence must not contain symbolic links")
@@ -77,7 +77,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
         child_state = load_project_state(child)
         child_state.project_id = target.name
         removed = {"music_asset", "music_structure", "music_version", "timeline",
-                   "clip_placements", "sfx_plan", "render", "generation"}
+                   "clip_placements", "sfx_plan", "render", "generation", "timeline_delivery"}
         for key in removed:
             child_state.completed_artifact_hashes.pop(key, None)
             child_state.artifact_paths.pop(key, None)

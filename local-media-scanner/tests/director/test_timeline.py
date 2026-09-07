@@ -105,3 +105,16 @@ def test_unknown_section_records_a_continuity_fallback() -> None:
         and slot.content_need == "continuity_fallback"
         for slot in slots
     )
+
+
+def test_slots_accept_numeric_duration_and_default_config() -> None:
+    slots_num = build_timeline_slots(structure(), 60.0)
+    assert len(slots_num) > 0
+    assert slots_num[0].start == 0.0
+    assert slots_num[-1].end == 60.0
+
+    class DummyDirection:
+        target_duration_seconds = 60.0
+
+    slots_obj = build_timeline_slots(structure(), DummyDirection())
+    assert len(slots_obj) == len(slots_num)

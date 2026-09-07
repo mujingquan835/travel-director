@@ -67,6 +67,10 @@ def run_command(
         False, "--new-music-version",
         help="With --music, create an independent replacement version; preserve the frozen parent.",
     ),
+    build_timeline: bool = typer.Option(
+        False, "--build-timeline",
+        help="Advance from waiting_for_timeline to completed by generating beat grid delivery.",
+    ),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -81,6 +85,7 @@ def run_command(
         music=music,
         creative_response=creative_response,
         new_music_version=new_music_version,
+        build_timeline=build_timeline,
     )
     typer.echo(result.model_dump_json(indent=2))
 

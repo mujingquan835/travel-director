@@ -1131,10 +1131,100 @@ def _waiting_for_timeline_result(
     )
 
 
+def _completed_timeline_result(
+    paths: ProjectPaths,
+    summary: "SkillRunSummary",
+    timeline_path: Path,
+    markdown_path: Path,
+) -> DirectorRunResult:
+    from director.audio_import import load_music_evidence
+
+    evidence = load_music_evidence(paths)
+    if evidence is None:
+        raise ProjectConflict("music evidence is not complete")
+    asset, structure = evidence
+    return _result(
+        paths,
+        "completed",
+        "timeline_delivery",
+        "The editing timeline and audio packaging delivery are complete.",
+        actions=[
+            RunAction(
+                kind="read_summary",
+                message="Review the generated timeline delivery Markdown.",
+                result_path=str(markdown_path.resolve()),
+            )
+        ],
+        artifacts={
+            **summary.artifact_paths,
+            "music_asset": str(paths.generated_music.resolve()),
+            "frozen_music": str((paths.root / asset.frozen_relative_path).resolve()),
+            "music_structure": str(paths.music_structure.resolve()),
+            "timeline_delivery": str(timeline_path.resolve()),
+            "timeline_markdown": str(markdown_path.resolve()),
+        },
+        recommended_duration_seconds=round(structure.duration_seconds),
+    )
+
+
+def _build_and_record_delivery(
+    paths: ProjectPaths,
+    summary: "SkillRunSummary",
+) -> tuple[Path, Path]:
+    from director.audio_import import load_music_evidence
+    from director.creative_direction import load_creative
+    from director.delivery import build_fast_mode_timeline, save_fast_mode_delivery
+    from director.audio_catalog import build_audio_catalog, resolve_audio_root
+
+    evidence = load_music_evidence(paths)
+    if evidence is None:
+        raise ProjectConflict("music evidence is not complete")
+    asset, structure = evidence
+
+    creative = load_creative(paths, validate_sources=False)
+    creative_sections = None
+    target_duration = structure.duration_seconds
+    if creative is not None:
+        creative_direction, _, _ = creative
+        creative_sections = creative_direction.sections
+        target_duration = creative_direction.target_duration_seconds
+
+    sfx_entries = None
+    try:
+        audio_root = resolve_audio_root()
+        catalog = build_audio_catalog(audio_root)
+        sfx_entries = catalog.sfx
+    except Exception:
+        pass
+
+    frozen_music_path = str((paths.root / asset.frozen_relative_path).resolve())
+    timeline = build_fast_mode_timeline(
+        music_structure=structure,
+        target_duration_seconds=target_duration,
+        music_asset_path=frozen_music_path,
+        creative_sections=creative_sections,
+        sfx_entries=sfx_entries,
+    )
+
+    from director.export.markdown import render_fast_mode_markdown
+
+    delivery_dir = paths.root / "delivery"
+    delivery_dir.mkdir(parents=True, exist_ok=True)
+    json_path = delivery_dir / "fast_mode_timeline.json"
+    md_path = delivery_dir / "timeline_delivery.md"
+
+    md_content = render_fast_mode_markdown(timeline)
+    md_path.write_text(md_content, encoding="utf-8")
+
+    record_supporting_artifact(paths, json_path, timeline, state_key="timeline_delivery")
+    return json_path, md_path
+
+
 def _advance_creative(
     paths: ProjectPaths,
     creative_response: Path | None,
     music: Path | None,
+    build_timeline: bool = False,
 ) -> DirectorRunResult:
     from director.audio_import import freeze_and_analyze_music, load_music_evidence
     from director.creative_direction import creative_request, import_creative, load_creative, load_current_creative, _context
@@ -1159,6 +1249,17 @@ def _advance_creative(
         summary = creative[1] if creative is not None else build_skill_run_summary(paths.root)
         if music is not None:
             freeze_and_analyze_music(paths, music)
+
+        state = load_project_state(paths)
+        if "timeline_delivery" in state.completed_artifact_hashes:
+            json_path = paths.root / "delivery" / "fast_mode_timeline.json"
+            md_path = paths.root / "delivery" / "timeline_delivery.md"
+            return _completed_timeline_result(paths, summary, json_path, md_path)
+
+        if build_timeline:
+            json_path, md_path = _build_and_record_delivery(paths, summary)
+            return _completed_timeline_result(paths, summary, json_path, md_path)
+
         return _waiting_for_timeline_result(paths, summary)
 
     creative = import_creative(paths, creative_response) if creative_response is not None else load_current_creative(paths)
@@ -1166,10 +1267,15 @@ def _advance_creative(
         _, summary, summary_path = creative
         if music is not None:
             freeze_and_analyze_music(paths, music)
+            if build_timeline:
+                json_path, md_path = _build_and_record_delivery(paths, summary)
+                return _completed_timeline_result(paths, summary, json_path, md_path)
             return _waiting_for_timeline_result(paths, summary)
         return _waiting_for_music_result(paths, summary, summary_path)
     if music is not None:
         raise ValueError("creative direction is required before importing music")
+    if build_timeline:
+        raise ValueError("music and creative direction are required before building timeline")
     request, request_path = creative_request(paths)
     return _result(
         paths, "needs_creative_direction", "creative_direction",
@@ -1192,6 +1298,7 @@ def _advance_run(
     response_file: Path | None = None,
     music: Path | None = None,
     creative_response: Path | None = None,
+    build_timeline: bool = False,
 ) -> DirectorRunResult:
     # Validate every recorded visual source even when resuming beyond it.
     state = load_project_state(paths)
@@ -1204,7 +1311,7 @@ def _advance_run(
     if existing_review is not None:
         if response_file is not None:
             raise ValueError("project is not waiting for a confirmation file")
-        return _advance_creative(paths, creative_response, music)
+        return _advance_creative(paths, creative_response, music, build_timeline=build_timeline)
     if creative_response is not None:
         raise ValueError("project is not waiting for creative direction")
     if music is not None:
@@ -1377,7 +1484,7 @@ def _advance_run(
 
     if response_file is not None:
         raise ValueError("project is not waiting for a confirmation file")
-    return _advance_creative(paths, None, None)
+    return _advance_creative(paths, None, None, build_timeline=build_timeline)
 
 
 def run_travel_director(
@@ -1390,6 +1497,7 @@ def run_travel_director(
     music: Path | None = None,
     creative_response: Path | None = None,
     new_music_version: bool = False,
+    build_timeline: bool = False,
 ) -> DirectorRunResult:
     """Advance one local visual project to its next explicit stop state."""
 
@@ -1444,8 +1552,11 @@ def run_travel_director(
             creative = load_creative(paths, validate_sources=False)
             summary = creative[1] if creative is not None else build_skill_run_summary(paths.root)
             freeze_and_analyze_music(paths, music)
+            if build_timeline:
+                json_path, md_path = _build_and_record_delivery(paths, summary)
+                return _completed_timeline_result(paths, summary, json_path, md_path)
             return _waiting_for_timeline_result(paths, summary)
-        return _advance_run(paths, resolved_input, response_file, music, creative_response)
+        return _advance_run(paths, resolved_input, response_file, music, creative_response, build_timeline=build_timeline)
     except (OSError, ProjectConflict, ValueError) as exc:
         if paths is None:
             intended = (
@@ -1508,12 +1619,21 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
         from director.creative_direction import load_creative, load_current_creative, _context
 
         _context(paths)
+        delivered = "timeline_delivery" in state.completed_artifact_hashes
         frozen = load_music_evidence(paths) is not None
         creative = load_creative(paths, validate_sources=False) if frozen else load_current_creative(paths)
-        run_state = "waiting_for_timeline" if frozen else (
-            "waiting_for_music" if creative is not None else "needs_creative_direction"
-        )
-        current_stage = "music_analysis" if frozen else "creative_direction"
+        if delivered:
+            run_state = "completed"
+            current_stage = "timeline_delivery"
+        elif frozen:
+            run_state = "waiting_for_timeline"
+            current_stage = "music_analysis"
+        elif creative is not None:
+            run_state = "waiting_for_music"
+            current_stage = "creative_direction"
+        else:
+            run_state = "needs_creative_direction"
+            current_stage = "creative_direction"
     else:
         run_state: Literal[
             "ready",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from bisect import bisect_left
 import math
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -138,12 +139,19 @@ def _desired_motion(role: str) -> str:
 
 def build_timeline_slots(
     structure: MusicStructure,
-    brief: UserCreativeBrief,
-    config: TimelineConfig,
+    brief: UserCreativeBrief | Any,
+    config: TimelineConfig | None = None,
 ) -> list[TimelineSlot]:
     """Create contiguous editorial budgets without choosing any source file."""
 
-    target_duration = float(brief.target_duration_seconds)
+    if config is None:
+        config = TimelineConfig()
+    if isinstance(brief, (int, float)):
+        target_duration = float(brief)
+    elif hasattr(brief, "target_duration_seconds"):
+        target_duration = float(brief.target_duration_seconds)
+    else:
+        raise ValueError("brief must provide target_duration_seconds or be a numeric duration")
     if structure.duration_seconds + 1e-6 < target_duration:
         raise ValueError("measured music is shorter than the requested timeline")
     if not structure.sections:

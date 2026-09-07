@@ -251,3 +251,27 @@ def test_frozen_projects_ignore_reference_upgrade_without_mutation(tmp_path, mon
     assert runner_module._advance_run(paths, tmp_path).status == 'waiting_for_timeline'
     assert inspect_travel_director(project).run_state == 'waiting_for_timeline'
     assert snapshot(project) == before
+
+
+def test_advance_to_completed_with_build_timeline(tmp_path, monkeypatch, click_track):
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    frozen = run_travel_director(source, BRIEF, project=project, music=click_track)
+    assert frozen.status == 'waiting_for_timeline'
+    assert inspect_travel_director(project).run_state == 'waiting_for_timeline'
+
+    completed = run_travel_director(source, BRIEF, project=project, build_timeline=True)
+    assert completed.status == 'completed', completed.message
+    assert completed.current_stage == 'timeline_delivery'
+    assert 'timeline_delivery' in completed.artifact_paths
+    assert 'timeline_markdown' in completed.artifact_paths
+    assert Path(completed.artifact_paths['timeline_delivery']).is_file()
+    assert Path(completed.artifact_paths['timeline_markdown']).is_file()
+
+    # Status check confirms completed
+    assert inspect_travel_director(project).run_state == 'completed'
+
+    # Resuming without build_timeline preserves completed state
+    resumed = run_travel_director(source, BRIEF, project=project)
+    assert resumed.status == 'completed'
+

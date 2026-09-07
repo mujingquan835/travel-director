@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from click.utils import strip_ansi
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
@@ -80,7 +81,8 @@ def test_old_cli_redirects_without_writing_or_overwriting(tmp_path: Path, existi
         "--output", str(output),
     ], terminal_width=200)
     assert result.exit_code != 0
-    assert "--creative-response" in result.output
+    normalized_output = "".join(strip_ansi(result.output).split())
+    assert "--creative-response" in normalized_output
     if existing_output:
         assert output.read_text(encoding="utf-8") == "preserved"
     else:

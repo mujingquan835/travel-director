@@ -59,6 +59,14 @@ def run_command(
         dir_okay=False,
         help="Freeze and analyze one user-provided local music file.",
     ),
+    creative_response: Path | None = typer.Option(
+        None, "--creative-response", exists=True, dir_okay=False,
+        help="Import the invoking session's reference selection, AV plan and music prompts.",
+    ),
+    new_music_version: bool = typer.Option(
+        False, "--new-music-version",
+        help="With --music, create an independent replacement version; preserve the frozen parent.",
+    ),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -71,6 +79,8 @@ def run_command(
         run_root=run_root,
         response_file=response_file,
         music=music,
+        creative_response=creative_response,
+        new_music_version=new_music_version,
     )
     typer.echo(result.model_dump_json(indent=2))
 
@@ -974,35 +984,11 @@ def recommend_music_prompts_command(
     coverage: Path = typer.Option(..., "--coverage", exists=True, dir_okay=False),
     output: Path = typer.Option(..., "--output", dir_okay=False),
 ) -> None:
-    """Write three offline, ready-to-use music generation prompts."""
+    """Retired: use run and submit session-authored --creative-response."""
 
-    from director.music_prompt_recommender import recommend_music_prompts
-    from director.visual_schema import (
-        BriefConfirmation,
-        DirectorTreatment,
-        ProjectCoverage,
-    )
+    from director.music_prompt_recommender import CREATIVE_DIRECTION_REQUIRED
 
-    inputs = {treatment.resolve(), brief_confirmation.resolve(), coverage.resolve()}
-    if output.resolve() in inputs:
-        raise typer.BadParameter("output cannot overwrite an input artifact")
-    parsed_treatment = DirectorTreatment.model_validate_json(
-        treatment.read_text(encoding="utf-8")
-    )
-    parsed_brief = BriefConfirmation.model_validate_json(
-        brief_confirmation.read_text(encoding="utf-8")
-    )
-    parsed_coverage = ProjectCoverage.model_validate_json(
-        coverage.read_text(encoding="utf-8")
-    )
-    recommendations = recommend_music_prompts(
-        parsed_treatment,
-        parsed_brief,
-        parsed_coverage,
-    )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(recommendations.model_dump_json(indent=2), encoding="utf-8")
-    typer.echo(str(output))
+    raise typer.BadParameter(CREATIVE_DIRECTION_REQUIRED)
 
 
 @app.command("validate-director-review")

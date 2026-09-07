@@ -10,7 +10,6 @@ from typer.testing import CliRunner
 from director.cli import app
 from director.director_treatment import build_director_treatment
 from director.intent_matcher import build_intent_decisions, build_project_coverage
-from director.music_prompt_recommender import recommend_music_prompts
 from director.project import (
     ProjectConflict,
     create_visual_project,
@@ -25,7 +24,9 @@ from director.skill_summary import (
     write_skill_run_summary,
 )
 from director.visual_review import build_automatic_director_review
-from director.visual_schema import NormalizedIntentDraft, RawCreativeBrief
+from director.visual_schema import (
+    MusicGenerationPromptRecommendationBatch, NormalizedIntentDraft, RawCreativeBrief,
+)
 from tests.director.test_intent_matcher import confirmed_brief, six_confirmed_observations
 
 
@@ -80,6 +81,32 @@ def _rewrite_recorded_stage(paths, stage: str, payload: dict[str, object]) -> No
     )
 
 
+def legacy_prompt_fixture(treatment):
+    """Historical artifact fixture, never an active prompt-generation route."""
+    items = []
+    for direction_id, genre, mood, bpm in (
+        ("balanced-pulse", "轻电子旅行器乐", "清晰", 90),
+        ("organic-breath", "原声城市民谣器乐", "温暖", 80),
+        ("cinematic-rise", "电影感氛围电子", "开阔", 100),
+    ):
+        items.append({
+            "direction_id": direction_id,
+            "title": genre,
+            "generation_prompt": f"生成60秒{genre}，情绪{mood}，{bpm} BPM；使用钢琴，低密度鼓点；结构：平稳展开；器乐为主，无清晰歌词。原创，不模仿具体歌曲或艺人。",
+            "parameters": {
+                "duration_seconds": 60, "genre": genre, "mood": mood,
+                "bpm": bpm, "instruments": ["钢琴"], "drum_density": "low",
+                "vocals": "instrumental_preferred", "energy_structure": "平稳展开",
+            },
+            "difference_axes": ["genre", "mood", "rhythm"],
+            "fit_reason": "历史制品读取兼容性测试。",
+            "director_evidence_refs": [ref.model_dump(mode="json") for ref in treatment.evidence_refs],
+        })
+    return MusicGenerationPromptRecommendationBatch.model_validate({
+        "status": "completed", "items": items, "external_call_count": 0,
+    })
+
+
 def completed_project(
     tmp_path: Path,
     *,
@@ -105,7 +132,7 @@ def completed_project(
     if treatment_override:
         treatment = treatment.model_copy(update=treatment_override)
     prompts_batch = (
-        recommend_music_prompts(treatment, brief, coverage) if prompts else None
+        legacy_prompt_fixture(treatment) if prompts else None
     )
 
     _record_visual_draft(

@@ -1,6 +1,6 @@
 # Runtime Reference
 
-Read this reference only when `run` requests confirmation or an existing project has an ambiguous resume state. The runner owns all internal stages, hashes, and strict confirmation artifacts.
+Read this reference for confirmation, music import, or resume details. The runner owns internal stages, hashes, and strict artifacts. For `needs_creative_direction`, read [creative-direction.md](creative-direction.md).
 
 ## Run And Resume
 
@@ -86,13 +86,25 @@ The runner validates the response kind and source hashes before atomically recor
 
 ## Waiting For Music
 
-On `waiting_for_music`, read the `provide_music` action's `result_path`. Use only its recorded recommended duration, counts, gaps, artifact paths, and exactly three music prompts. Ask the user to upload the generated music in the same conversation. After the upload is available as a local file, resume the exact project with unchanged input and Brief:
+On `waiting_for_music`, read the `provide_music` action's `result_path`. Report the recorded plan in this order: reference selections and reasons, audiovisual section table, music requirements and three prompts. Keep the confirmed duration, location and orientation. If these were already shown, report only the saved result and next step. The user selects or generates music externally. A single file delivered for editing is already selected: resume with unchanged input and Brief, without asking whether its quality is approved:
 
 ```bash
 uv run travel-director run --input <absolute-folder> --brief <description> --project <project_path> --music <local-audio>
 ```
 
-The Runner accepts WAV, MP3, or M4A, verifies that the visual project is waiting for music, hashes the source, copies it atomically into the project without changing the original, and analyzes only the frozen copy. The first accepted music file is immutable. Repeating the same file reuses the recorded asset and analysis; a different file, drifted artifact, invalid audio, or simultaneous `--response-file` import returns `blocked`.
+The Runner accepts WAV, MP3, or M4A, verifies the creative checkpoint, hashes the source, copies it atomically without changing the original, and analyzes the frozen copy. Repeating the same file reuses the asset and analysis; if analysis failed after freezing, the same `--music` retries analysis without replacing the frozen bytes. A different file, drifted artifact, invalid audio, or simultaneous confirmation/creative response import returns `blocked`.
+
+Do not call `--music` for reference, analysis, failure-review, or rejected audio. If multiple files are delivered for editing without a choice, ask only which file should be used. Do not infer genre or instrument dislikes from a rejected track. If delivery purpose itself is unclear, clarify that purpose before importing.
+
+For an explicitly requested replacement of already-frozen music:
+
+```bash
+uv run travel-director run --input <absolute-folder> --brief <description> --project <old-project> --music <new-audio> --new-music-version
+```
+
+This returns an independent new project path with reused visual evidence and new frozen music. Continue from that path; retain the parent. Retrying the same replacement against the same parent reuses the version. It is not an overwrite flag.
+
+Unfrozen legacy projects reuse existing analysis and request a new creative plan; they do not rescan or overwrite historical summaries. Valid new submissions append creative revisions. Stale submissions are rejected; rerun to obtain the current request and author from its current source hashes. Corrupt records block rather than being silently regenerated. All already-frozen projects, whether legacy or using creative revisions, resume their existing contract even after reference-library updates, without replanning or reselection.
 
 On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, and `music_structure` paths. The measured structure contains the actual BPM, beats, downbeats, energy curve, section candidates, ending behavior, confidence, and source hash. Stop there: this package does not create timeline slots or an editing draft.
 

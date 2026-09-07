@@ -1,6 +1,6 @@
 ---
 name: travel-director
-description: Use when a user wants to inspect a local travel-video folder from bounded contact sheets, turn a natural-language brief into an evidence-bound director plan, receive exactly three music-generation prompts, and continue with user-supplied local music without external services.
+description: Use when a user needs evidence-based creative direction for local travel footage, reference-film adaptation, audiovisual planning, or continuation with selected local music.
 ---
 
 # Travel Director
@@ -13,13 +13,16 @@ Resolve the authoritative checkout with [scripts/resolve_workspace.py](scripts/r
 uv run travel-director run --input <absolute-folder> --brief <description>
 ```
 
-Reuse the returned `project_path` with `--project` on every later call. Read [references/workflow.md](references/workflow.md) only for confirmation or resume details.
+Reuse the returned `project_path` with `--project` on every later call. Read [references/workflow.md](references/workflow.md) for confirmation, music import, or resume details.
 
 Handle the returned state:
 
 - `needs_visual_observation`: read [references/visual-observation-contract.md](references/visual-observation-contract.md), inspect only the returned contact sheets, and write one valid batch to each `result_path`. Cover every returned `required_fields` entry for every ready material with either a supported candidate or an explicit abstention, then rerun. A path under `results/supplements/` is an immutable additive checkpoint: read the earlier batch result, add only the requested missing fields, and never change a prior assertion. Keep each batch at 10 materials or fewer and each material at 3 to 5 frames.
 - `needs_user_confirmation`: ask only the returned fields. For `chat`, write the simple answer format from the workflow reference to `response_path`; for `local_page`, point the user to `page_path`, then import the downloaded JSON through `run --response-file <downloaded-json>`. Chat is limited to 5 fields across at most 3 materials.
-- `waiting_for_music`: read the returned summary `result_path`, report the recommended duration and exactly three prompts of at most 200 characters, then ask the user to upload the generated music in the same conversation. Continue the same immutable project with `run --music <local-audio>`; never replace a different music file already bound to it.
+- `needs_creative_direction`: read [references/creative-direction.md](references/creative-direction.md) and the returned request `result_path`. In this conversation, select reference methods using the current Brief and material evidence, show the audiovisual section table, then provide music requirements and exactly three prompts. Write the response against the returned schema and submit through `run --creative-response <response_path>`. This is session-authored planning, not another model service or a user approval gate.
+- `waiting_for_music`: read the returned summary `result_path`. Present reference selections and the audiovisual table before the music brief and three prompts (each at most 200 characters); if already shown in this conversation, do not repeat the whole plan. The user selects or generates music externally and sends the selected file here.
+- Audio delivery: one file explicitly for editing is already selected; directly call `run --music <local-audio>` without another quality confirmation. Reference, analysis, failure-review, and rejected attachments are not formal music. When multiple editing tracks arrive without a choice, ask only which file to use. Rejected examples do not imply a universal ban on their instruments or genres.
+- Music replacement: when the user requests a different track after freezing, use `run --project <old-project> --music <new-audio> --new-music-version` and retain the returned new `project_path`. The original version remains unchanged. Without this explicit replacement request, do not switch tracks.
 - `waiting_for_timeline`: report the frozen music and measured analysis paths returned by the Runner. The music is ready, but stop here: this package does not create a timeline or editing draft.
 - `completed`: reserve this state for a future run that has actually created the requested editing draft. The current package must not claim it.
 - `blocked`: report the reason and preserved `project_path`; do not guess, restart, or bypass validation.

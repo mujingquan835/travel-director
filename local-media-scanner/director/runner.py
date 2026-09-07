@@ -30,7 +30,6 @@ from director.brief_interpreter import (
 )
 from director.director_treatment import build_director_treatment
 from director.intent_matcher import build_intent_decisions, build_project_coverage
-from director.music_prompt_recommender import recommend_music_prompts
 from director.project import (
     ProjectConflict,
     ProjectPaths,
@@ -83,6 +82,7 @@ from scanner.schema import ScannerResult, TestManifest
 RunState = Literal[
     "needs_visual_observation",
     "needs_user_confirmation",
+    "needs_creative_direction",
     "waiting_for_music",
     "waiting_for_timeline",
     "completed",
@@ -95,6 +95,7 @@ class RunAction(VisualStrictModel):
         "observe_contact_sheets",
         "confirm_brief",
         "confirm_visual_fields",
+        "draft_creative_direction",
         "provide_music",
         "read_music_analysis",
         "read_summary",
@@ -161,6 +162,7 @@ class DirectorStatusResult(VisualStrictModel):
         "ready",
         "needs_visual_observation",
         "needs_user_confirmation",
+        "needs_creative_direction",
         "waiting_for_music",
         "waiting_for_timeline",
         "completed",
@@ -1070,6 +1072,7 @@ def _result(
 def _waiting_for_music_result(
     paths: ProjectPaths,
     summary: "SkillRunSummary",
+    summary_path: Path | None = None,
 ) -> DirectorRunResult:
     confirmation = _load_recorded_stage(
         paths, "brief_confirmation", BriefConfirmation
@@ -1079,13 +1082,13 @@ def _waiting_for_music_result(
     return _result(
         paths,
         "waiting_for_music",
-        "visual_review",
+        "creative_direction" if summary_path is not None else "visual_review",
         "The Director plan is ready. Upload a local music file to continue this project.",
         actions=[
             RunAction(
                 kind="provide_music",
                 message="Upload the generated local music file in this conversation.",
-                result_path=str(paths.final_summary.resolve()),
+                result_path=str((summary_path or paths.final_summary).resolve()),
             )
         ],
         artifacts=summary.artifact_paths,
@@ -1128,31 +1131,82 @@ def _waiting_for_timeline_result(
     )
 
 
+def _advance_creative(
+    paths: ProjectPaths,
+    creative_response: Path | None,
+    music: Path | None,
+) -> DirectorRunResult:
+    from director.audio_import import freeze_and_analyze_music, load_music_evidence
+    from director.creative_direction import creative_request, import_creative, load_creative, load_current_creative, _context
+
+    # Check the local-only ledger before any music recovery/import can write.
+    _context(paths)
+    frozen_plan = load_creative(paths, validate_sources=False)
+    if "music_asset" in load_project_state(paths).completed_artifact_hashes and frozen_plan is None:
+        build_skill_run_summary(paths.root)
+
+    # Existing frozen music remains a completed input, including legacy projects.
+    if (music is not None and creative_response is None
+            and "music_asset" in load_project_state(paths).completed_artifact_hashes):
+        # The immutable asset can precede analysis after an interrupted/failed run.
+        # This function verifies both the recorded asset and matching source hash.
+        freeze_and_analyze_music(paths, music)
+    music_evidence = load_music_evidence(paths)
+    if music_evidence is not None:
+        if creative_response is not None:
+            raise ProjectConflict("music is already frozen; use a new version for creative changes")
+        creative = load_creative(paths, validate_sources=False)
+        summary = creative[1] if creative is not None else build_skill_run_summary(paths.root)
+        if music is not None:
+            freeze_and_analyze_music(paths, music)
+        return _waiting_for_timeline_result(paths, summary)
+
+    creative = import_creative(paths, creative_response) if creative_response is not None else load_current_creative(paths)
+    if creative is not None:
+        _, summary, summary_path = creative
+        if music is not None:
+            freeze_and_analyze_music(paths, music)
+            return _waiting_for_timeline_result(paths, summary)
+        return _waiting_for_music_result(paths, summary, summary_path)
+    if music is not None:
+        raise ValueError("creative direction is required before importing music")
+    request, request_path = creative_request(paths)
+    return _result(
+        paths, "needs_creative_direction", "creative_direction",
+        "Use the reference evidence to author an AV section plan and three music prompts in this conversation.",
+        actions=[RunAction(
+            kind="draft_creative_direction",
+            message="Read the request and submit the invoking session's plan using --creative-response. No routine user approval is required.",
+            result_path=str(request_path.resolve()),
+            response_path=request["response_path"],
+            review_channel="chat",
+        )],
+        artifacts=request["artifact_paths"] | {"creative_request": str(request_path.resolve())},
+        recommended_duration_seconds=request["brief"]["normalized_fields"]["target_duration_seconds"],
+    )
+
+
 def _advance_run(
     paths: ProjectPaths,
     input_dir: Path,
     response_file: Path | None = None,
     music: Path | None = None,
+    creative_response: Path | None = None,
 ) -> DirectorRunResult:
-    existing_review = _load_recorded_stage(
-        paths, "visual_review", VisualReviewArtifact
-    )
+    # Validate every recorded visual source even when resuming beyond it.
+    state = load_project_state(paths)
+    for stage in VISUAL_STAGE_ORDER:
+        if stage in state.completed_artifact_hashes:
+            path = paths.artifact_for(stage)
+            if not path.is_file() or _sha256_file(path) != state.completed_artifact_hashes[stage]:
+                raise ProjectConflict(f"completed artifact drifted: {stage}")
+    existing_review = _load_recorded_stage(paths, "director_review", DirectorReview)
     if existing_review is not None:
         if response_file is not None:
             raise ValueError("project is not waiting for a confirmation file")
-        summary = write_skill_run_summary(paths.root)
-        if summary.project_mode == "blocked":
-            raise ProjectConflict(
-                "final summary gates are blocked: " + ", ".join(summary.material_gaps)
-            )
-        from director.audio_import import freeze_and_analyze_music, load_music_evidence
-
-        if music is not None:
-            freeze_and_analyze_music(paths, music)
-            return _waiting_for_timeline_result(paths, summary)
-        if load_music_evidence(paths) is not None:
-            return _waiting_for_timeline_result(paths, summary)
-        return _waiting_for_music_result(paths, summary)
+        return _advance_creative(paths, creative_response, music)
+    if creative_response is not None:
+        raise ValueError("project is not waiting for creative direction")
     if music is not None:
         raise ValueError("project is not waiting for music")
 
@@ -1321,26 +1375,9 @@ def _advance_run(
             build_automatic_director_review(treatment),
         )
 
-    prompts = _load_recorded_stage(
-        paths,
-        "music_style_recommendations",
-        MusicGenerationPromptRecommendationBatch,
-    )
-    if prompts is None:
-        _publish_stage(
-            paths,
-            "music_style_recommendations",
-            recommend_music_prompts(treatment, confirmation, coverage),
-        )
-
-    summary = write_skill_run_summary(paths.root)
-    if summary.project_mode == "blocked":
-        raise ProjectConflict(
-            "final summary gates are blocked: " + ", ".join(summary.material_gaps)
-        )
     if response_file is not None:
         raise ValueError("project is not waiting for a confirmation file")
-    return _waiting_for_music_result(paths, summary)
+    return _advance_creative(paths, None, None)
 
 
 def run_travel_director(
@@ -1351,6 +1388,8 @@ def run_travel_director(
     run_root: Path = Path("prototype/runs"),
     response_file: Path | None = None,
     music: Path | None = None,
+    creative_response: Path | None = None,
+    new_music_version: bool = False,
 ) -> DirectorRunResult:
     """Advance one local visual project to its next explicit stop state."""
 
@@ -1358,9 +1397,19 @@ def run_travel_director(
     raw_brief = RawCreativeBrief(raw_description=raw_description)
     paths: ProjectPaths | None = None
     try:
+        if new_music_version and (project is None or music is None or creative_response is not None or response_file is not None):
+            raise ValueError("--new-music-version requires --project and --music only")
         if not resolved_input.is_dir():
             raise ValueError(f"input directory does not exist: {resolved_input}")
         media = _media_inventory(resolved_input)
+        if creative_response is not None:
+            creative_response = creative_response.resolve()
+            if project is None:
+                raise ValueError("creative response import requires --project")
+            if response_file is not None or music is not None:
+                raise ValueError("creative response cannot be combined with music or confirmation")
+            if not creative_response.is_file():
+                raise ValueError(f"creative response file does not exist: {creative_response}")
         if response_file is not None:
             response_file = response_file.resolve()
             if project is None:
@@ -1387,7 +1436,16 @@ def run_travel_director(
             media,
             new_project=new_project,
         )
-        return _advance_run(paths, resolved_input, response_file, music)
+        if new_music_version:
+            from director.music_version import create_music_version
+            from director.audio_import import freeze_and_analyze_music
+            from director.creative_direction import load_creative
+            paths = create_music_version(paths, music)
+            creative = load_creative(paths, validate_sources=False)
+            summary = creative[1] if creative is not None else build_skill_run_summary(paths.root)
+            freeze_and_analyze_music(paths, music)
+            return _waiting_for_timeline_result(paths, summary)
+        return _advance_run(paths, resolved_input, response_file, music, creative_response)
     except (OSError, ProjectConflict, ValueError) as exc:
         if paths is None:
             intended = (
@@ -1445,25 +1503,23 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
         ):
             raise ProjectConflict(f"completed artifact drifted: {stage}")
 
-    if "visual_review" in completed:
-        summary = build_skill_run_summary(paths.root)
-        if summary.project_mode == "blocked":
-            run_state = "blocked"
-        else:
-            from director.audio_import import load_music_evidence
+    if "director_review" in completed:
+        from director.audio_import import load_music_evidence
+        from director.creative_direction import load_creative, load_current_creative, _context
 
-            run_state = (
-                "waiting_for_timeline"
-                if load_music_evidence(paths) is not None
-                else "waiting_for_music"
-            )
-            if run_state == "waiting_for_timeline":
-                current_stage = "music_analysis"
+        _context(paths)
+        frozen = load_music_evidence(paths) is not None
+        creative = load_creative(paths, validate_sources=False) if frozen else load_current_creative(paths)
+        run_state = "waiting_for_timeline" if frozen else (
+            "waiting_for_music" if creative is not None else "needs_creative_direction"
+        )
+        current_stage = "music_analysis" if frozen else "creative_direction"
     else:
         run_state: Literal[
             "ready",
             "needs_visual_observation",
             "needs_user_confirmation",
+            "needs_creative_direction",
             "waiting_for_music",
             "waiting_for_timeline",
             "completed",

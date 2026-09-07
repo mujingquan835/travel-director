@@ -291,6 +291,7 @@ def test_run_stops_for_visual_observation_then_waits_for_music_idempotently(
 
     _write_agent_result(result_path, input_dir)
     music_wait = run_travel_director(input_dir, BRIEF, project=project)
+    music_wait = _submit_creative(input_dir, project, BRIEF, music_wait)
     hashes = dict(load_project_state(project).completed_artifact_hashes)
     resumed = run_travel_director(input_dir, BRIEF, project=project)
 
@@ -302,7 +303,7 @@ def test_run_stops_for_visual_observation_then_waits_for_music_idempotently(
     assert len(music_wait.music_prompts) == 3
     assert music_wait.actions[0].kind == "provide_music"
     assert music_wait.actions[0].result_path == str(
-        (project / "visual" / "final_summary.json").resolve()
+        Path(music_wait.artifact_paths["creative_summary"]).resolve()
     )
 
 
@@ -653,7 +654,7 @@ def test_run_resumes_existing_visual_project_without_rebuilding_scanner(
     monkeypatch.setattr(runner_module, "_sha256_file", tracking_sha256_file)
     result = run_travel_director(input_dir, BRIEF, project=paths.root)
 
-    assert result.status == "waiting_for_music"
+    assert result.status == "needs_creative_direction"
     assert source_hash_calls == 1
     assert (
         load_project_state(paths).completed_artifact_hashes["clip_observations"]
@@ -690,7 +691,7 @@ def test_completed_run_reports_tampered_stage_as_blocked(
     _write_agent_result(Path(waiting.actions[0].result_path or ""), input_dir)
     assert (
         run_travel_director(input_dir, BRIEF, project=project).status
-        == "waiting_for_music"
+        == "needs_creative_direction"
     )
     (project / "visual" / "director_treatment.json").write_text(
         "{}", encoding="utf-8"
@@ -768,7 +769,7 @@ def test_run_converts_simple_brief_response_to_strict_confirmation(
             encoding="utf-8"
         )
     )
-    assert music_wait.status == "waiting_for_music"
+    assert music_wait.status == "needs_creative_direction"
     assert strict["draft_sha256"]
     assert strict["changed_fields"] == ["mood", "rhythm", "style"]
     assert strict["normalized_fields"]["style"] == "纪实"
@@ -816,7 +817,7 @@ def test_run_converts_simple_visual_response_to_strict_confirmation(
             encoding="utf-8"
         )
     )
-    assert music_wait.status == "waiting_for_music"
+    assert music_wait.status == "needs_creative_direction"
     assert strict["source_observations_sha256"]
     assert strict["items"][0]["original_status"] == "abstained"
     assert strict["items"][0]["confirmed_value"] == "daylight"
@@ -846,6 +847,21 @@ def test_run_blocks_when_required_confirmation_is_declined(
     assert not (project / "visual" / "music_style_recommendations.json").exists()
 
 
+def _submit_creative(input_dir, project, brief, result):
+    from tests.director.test_creative_schema import build_creative_payload
+    request = json.loads(Path(result.actions[0].result_path).read_text())
+    confirmation = BriefConfirmation.model_validate(request["brief"])
+    treatment = json.loads((project / "visual/director_treatment.json").read_text())
+    payload = build_creative_payload(
+        source_hashes=request["source_hashes"], brief=confirmation,
+        material_ids=set(treatment["core_materials"] + treatment["candidate_materials"]),
+    )
+    response = Path(result.actions[0].response_path)
+    response.parent.mkdir(parents=True, exist_ok=True)
+    response.write_text(json.dumps(payload, ensure_ascii=False))
+    return run_travel_director(input_dir, brief, project=project, creative_response=response)
+
+
 def _finish_visual_flow(
     input_dir: Path,
     project: Path,
@@ -855,6 +871,7 @@ def _finish_visual_flow(
     first = run_travel_director(input_dir, BRIEF, project=project)
     _write_agent_result(Path(first.actions[0].result_path or ""), input_dir)
     result = run_travel_director(input_dir, BRIEF, project=project)
+    result = _submit_creative(input_dir, project, BRIEF, result)
     assert result.status == "waiting_for_music"
 
 
@@ -903,7 +920,7 @@ def test_unchanged_resume_does_not_rehash_source_media(
     first = run_travel_director(input_dir, BRIEF, project=project)
     _write_agent_result(Path(first.actions[0].result_path or ""), input_dir)
     assert run_travel_director(input_dir, BRIEF, project=project).status == (
-        "waiting_for_music"
+        "needs_creative_direction"
     )
     original_sha256_file = runner_module._sha256_file
     source_hash_calls = 0
@@ -918,7 +935,7 @@ def test_unchanged_resume_does_not_rehash_source_media(
 
     resumed = run_travel_director(input_dir, BRIEF, project=project)
 
-    assert resumed.status == "waiting_for_music"
+    assert resumed.status == "needs_creative_direction"
     assert source_hash_calls == 0
 
 
@@ -938,7 +955,7 @@ def test_completed_visual_project_rejects_a_different_input_without_mutation(
         for path in (
             project / "project_state.json",
             project / "visual" / "run_contract.json",
-            project / "visual" / "final_summary.json",
+            project / "creative" / "current.json",
         )
     }
 
@@ -964,7 +981,7 @@ def test_completed_visual_project_rejects_changed_media_without_mutation(
         for path in (
             project / "project_state.json",
             project / "visual" / "run_contract.json",
-            project / "visual" / "final_summary.json",
+            project / "creative" / "current.json",
         )
     }
 
@@ -1068,7 +1085,7 @@ def test_run_imports_a_downloaded_brief_page_confirmation(
         response_file=download,
     )
 
-    assert music_wait.status == "waiting_for_music"
+    assert music_wait.status == "needs_creative_direction"
     assert repeated.status == "blocked"
     assert "not waiting" in repeated.message
     assert (project / "project_state.json").read_bytes() == state_after_import
@@ -1203,7 +1220,7 @@ def test_run_imports_a_downloaded_visual_page_confirmation(
         response_file=download,
     )
 
-    assert music_wait.status == "waiting_for_music"
+    assert music_wait.status == "needs_creative_direction"
     assert (project / "visual" / "review" / "visual_confirmation.json").is_file()
 
 

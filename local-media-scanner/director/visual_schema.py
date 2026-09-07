@@ -552,12 +552,6 @@ class MusicGenerationPromptRecommendation(VisualStrictModel):
             {"low": "低密度鼓点", "medium": "中密度鼓点", "high": "高密度鼓点"}[
                 parameters.drum_density
             ],
-            {
-                "instrumental_only": "纯器乐，无人声",
-                "instrumental_preferred": "器乐为主，无清晰歌词",
-                "allowed": "可用轻量无语义哼唱",
-            }[parameters.vocals],
-            "不模仿具体歌曲或艺人",
         ]
         missing = [token for token in required if token not in self.generation_prompt]
         if missing:

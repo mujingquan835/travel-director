@@ -14,7 +14,11 @@ from director.export.markdown import render_fast_mode_markdown
 from director.hook_builder import HookConfig, HookPlan, build_hook_plan
 from director.outro_builder import OutroConfig, OutroPlan, build_outro_plan
 from director.schema import MusicStructure, StrictModel
-from director.timeline import TimelineConfig, build_timeline_slots
+from director.timeline import (
+    TimelineConfig,
+    TimelineRoleOverride,
+    build_timeline_slots,
+)
 
 
 class FastModeSlot(StrictModel):
@@ -58,8 +62,20 @@ def build_fast_mode_timeline(
     timeline_config: TimelineConfig | None = None,
 ) -> FastModeTimeline:
     """Build a beat-aligned Fast Mode timeline with text placeholders and audio packaging."""
+    role_overrides = [
+        TimelineRoleOverride(
+            start=section.start,
+            end=section.end,
+            role="climax",
+        )
+        for section in creative_sections or []
+        if section.climax
+    ]
     raw_slots = build_timeline_slots(
-        music_structure, target_duration_seconds, timeline_config
+        music_structure,
+        target_duration_seconds,
+        timeline_config,
+        role_overrides=role_overrides,
     )
 
     hook_plan: HookPlan | None = None

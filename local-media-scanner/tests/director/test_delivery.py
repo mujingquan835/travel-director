@@ -135,6 +135,44 @@ def test_build_fast_mode_timeline_with_creative_sections() -> None:
 
     last_slot = tl.slots[-1]
     assert last_slot.narrative_task == "高潮展现古城全貌与市集"
+    climax_slots = [slot for slot in tl.slots if slot.start >= 30.0]
+    assert climax_slots
+    assert all(slot.section_role == "climax" for slot in climax_slots)
+    assert all(slot.desired_motion == "high" for slot in climax_slots)
+    assert all(slot.content_need == "high_visual_impact" for slot in climax_slots)
+    assert all("运镜: high" in slot.placeholder_text for slot in climax_slots)
+
+
+def test_non_climax_creative_section_preserves_music_breath_role() -> None:
+    sections = [
+        CreativeSection(
+            section_id="sec-breath",
+            start=30.0,
+            end=40.0,
+            narrative_task="停下来观察环境",
+            material_ids=[],
+            material_gaps=[],
+            visual_plan="保持长镜头",
+            music_change="降低密度",
+            sfx_plan=[],
+            packaging=[],
+            reference_ids=[],
+        )
+    ]
+
+    timeline = build_fast_mode_timeline(
+        music_structure=sample_structure(),
+        target_duration_seconds=60.0,
+        music_asset_path="/path/to/music.wav",
+        creative_sections=sections,
+    )
+
+    breath_slots = [
+        slot for slot in timeline.slots if 30.0 <= slot.start and slot.end <= 40.0
+    ]
+    assert breath_slots
+    assert all(slot.section_role == "breath" for slot in breath_slots)
+    assert all(slot.desired_motion == "low" for slot in breath_slots)
 
 
 def test_build_fast_mode_timeline_with_sfx() -> None:

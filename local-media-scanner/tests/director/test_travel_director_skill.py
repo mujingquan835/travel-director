@@ -16,8 +16,13 @@ WORKFLOW_REF = SKILL_ROOT / "references" / "workflow.md"
 OBSERVATION_REF = SKILL_ROOT / "references" / "visual-observation-contract.md"
 RESOLVER = SKILL_ROOT / "scripts" / "resolve_workspace.py"
 INSTALLER = SKILL_ROOT / "scripts" / "install.py"
-QUICK_VALIDATOR = Path(
-    "/Users/meimaodawang/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
+QUICK_VALIDATOR = (
+    Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    / "skills"
+    / ".system"
+    / "skill-creator"
+    / "scripts"
+    / "quick_validate.py"
 )
 
 
@@ -125,6 +130,8 @@ def test_skill_references_are_discoverable_and_keep_lab_commands_out():
 
 
 def test_skill_passes_official_quick_validation():
+    if not QUICK_VALIDATOR.is_file():
+        pytest.skip("official Codex skill validator is not installed")
     result = subprocess.run(
         ["uv", "run", "python", str(QUICK_VALIDATOR), str(SKILL_ROOT)],
         cwd=REPO_ROOT,

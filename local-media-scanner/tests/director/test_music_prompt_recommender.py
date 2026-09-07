@@ -78,7 +78,7 @@ def test_old_cli_redirects_without_writing_or_overwriting(tmp_path: Path, existi
         "recommend-music-prompts", "--treatment", str(paths[0]),
         "--brief-confirmation", str(paths[1]), "--coverage", str(paths[2]),
         "--output", str(output),
-    ])
+    ], terminal_width=200)
     assert result.exit_code != 0
     assert "--creative-response" in result.output
     if existing_output:

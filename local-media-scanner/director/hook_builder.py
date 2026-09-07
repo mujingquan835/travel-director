@@ -35,17 +35,34 @@ def _get_sfx_path(e: any) -> str:
 
 def select_hook_sfx(sfx_entries: list, rng: random.Random | None = None) -> tuple[str, str]:
     """Select a riser and a hit for the hook from the audio catalog."""
-    if rng is None:
-        rng = random.Random()
-
-    risers = [e for e in sfx_entries if getattr(e, "role", "") in ("riser", "whoosh")]
-    hits = [e for e in sfx_entries if getattr(e, "role", "") in ("hook_hit", "hook_subdrop")]
+    risers = sorted(
+        (
+            entry
+            for entry in sfx_entries
+            if getattr(entry, "role", "") in ("riser", "whoosh")
+        ),
+        key=lambda entry: (
+            abs(getattr(entry, "duration_seconds", 1.8) - 1.8),
+            _get_sfx_path(entry),
+        ),
+    )
+    hits = sorted(
+        (
+            entry
+            for entry in sfx_entries
+            if getattr(entry, "role", "") in ("hook_hit", "hook_subdrop")
+        ),
+        key=lambda entry: (
+            abs(getattr(entry, "duration_seconds", 1.5) - 1.5),
+            _get_sfx_path(entry),
+        ),
+    )
 
     if not risers or not hits:
         raise ValueError("Missing risers or hits in the provided sfx entries")
 
-    riser = min(risers, key=lambda e: abs(getattr(e, "duration_seconds", 1.8) - 1.8))
-    hit = rng.choice(hits)
+    riser = risers[0]
+    hit = hits[0] if rng is None else rng.choice(hits)
 
     return _get_sfx_path(riser), _get_sfx_path(hit)
 

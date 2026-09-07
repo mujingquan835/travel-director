@@ -64,6 +64,24 @@ def test_select_hook_sfx():
         select_hook_sfx([DummySfx(role="riser", name="Riser 1", file="/riser1.wav")])
 
 
+def test_select_hook_sfx_is_independent_of_catalog_order() -> None:
+    sfx_entries = [
+        DummySfx(role="riser", name="Riser B", file="/riser-b.wav", duration_seconds=1.8),
+        DummySfx(role="riser", name="Riser A", file="/riser-a.wav", duration_seconds=1.8),
+        DummySfx(role="hook_hit", name="Hit B", file="/hit-b.wav", duration_seconds=1.5),
+        DummySfx(role="hook_subdrop", name="Hit A", file="/hit-a.wav", duration_seconds=1.5),
+    ]
+
+    forward = select_hook_sfx(sfx_entries, rng=random.Random(42))
+    reversed_order = select_hook_sfx(
+        list(reversed(sfx_entries)), rng=random.Random(42)
+    )
+    default_selection = select_hook_sfx(sfx_entries)
+
+    assert forward == reversed_order
+    assert default_selection == ("/riser-a.wav", "/hit-a.wav")
+
+
 def test_build_hook_filters():
     config = HookConfig(
         hook_duration_seconds=2.0,

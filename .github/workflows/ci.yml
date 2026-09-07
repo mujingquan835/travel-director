@@ -30,9 +30,10 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-          cache-dependency-glob: uv.lock
+          cache-dependency-glob: local-media-scanner/uv.lock
 
       - name: Install development dependencies
+        working-directory: local-media-scanner
         run: uv sync --locked --extra dev --extra vision
 
       - name: Check pull request diff
@@ -44,4 +45,5 @@ jobs:
         run: git diff --check "${{ github.event.before }}...HEAD"
 
       - name: Run test suite
+        working-directory: local-media-scanner
         run: uv run pytest -q

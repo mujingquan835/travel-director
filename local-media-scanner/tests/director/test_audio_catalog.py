@@ -134,3 +134,43 @@ def test_sfx_entry_model_validation():
             duration_seconds=1.0
         )
 
+
+
+@pytest.mark.parametrize("music_dir,sfx_dir", [("音乐", "音效"), ("BGM", "SFX")])
+def test_real_audio_scan_to_recommendation(tmp_path, music_dir, sfx_dir):
+    """Exercise ffprobe and the shared catalog across the module boundary."""
+    import wave
+    from director.audio_catalog import build_audio_catalog
+    from director.music_recommender import recommend_music
+
+    music = tmp_path / music_dir / "旅拍风" / "测试曲" / "30s.wav"
+    sfx = tmp_path / sfx_dir / "上升音效" / "Rising_Hit.wav"
+    ambient = tmp_path / sfx_dir / "风沙.wav"
+    for path in (music, sfx, ambient):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(path), "wb") as audio:
+            audio.setnchannels(1)
+            audio.setsampwidth(2)
+            audio.setframerate(8000)
+            audio.writeframes(b"\0\0" * 8000)
+    # Empty legacy directories must not hide a populated Chinese library.
+    if music_dir == "音乐":
+        (tmp_path / "BGM").mkdir()
+        (tmp_path / "SFX").mkdir()
+    catalog = build_audio_catalog(tmp_path)
+    assert len(catalog.tracks) == 1
+    assert len(catalog.sfx) == 2
+    assert any(e.relative_path == "风沙.wav" and e.role == "env_ambient" for e in catalog.sfx)
+    result = recommend_music(catalog, "旅行", 1)
+    assert Path(result.recommendations[0].version_path) == music.resolve()
+    assert result.recommendations[0].version_duration_seconds == pytest.approx(1)
+
+
+def test_missing_library_directories_do_not_create_source_folders(tmp_path):
+    from director.audio_catalog import build_audio_catalog
+
+    missing_root = tmp_path / "missing-directories"
+    missing_root.mkdir()
+    with pytest.raises(ValueError, match="Missing audio library directories"):
+        build_audio_catalog(missing_root)
+    assert list(missing_root.iterdir()) == []

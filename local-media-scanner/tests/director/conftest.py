@@ -36,3 +36,14 @@ def click_track(tmp_path: Path) -> Path:
     output = tmp_path / "click-track-120bpm.wav"
     sf.write(output, audio, sample_rate, subtype="PCM_16")
     return output
+
+
+@pytest.fixture(autouse=True)
+def isolated_audio_library(tmp_path, monkeypatch):
+    # Unit/integration tests must not scan or cache the user's real library.
+    root = tmp_path / "test-audio-library"
+    (root / "音乐").mkdir(parents=True)
+    (root / "音效").mkdir()
+    monkeypatch.setenv("TRAVEL_DIRECTOR_AUDIO_ROOT", str(root))
+    monkeypatch.setenv("TRAVEL_DIRECTOR_AUDIO_CACHE", str(tmp_path / "audio-cache"))
+    return root

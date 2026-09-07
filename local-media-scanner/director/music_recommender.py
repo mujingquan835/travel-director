@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import ConfigDict, Field
+from pathlib import Path
+
+from pydantic import Field
+from director.audio_catalog import AudioCatalog, CatalogTrack, CatalogVersion
 from director.schema import StrictModel
 
 
@@ -63,19 +66,6 @@ CATEGORY_KEYWORD_MAP: dict[str, list[str]] = {
     "奢侈品": ["慢节奏｜高级感 奢侈品"],
 }
 
-class CatalogVersion(StrictModel):
-    duration_seconds: float
-    path: str
-
-class CatalogTrack(StrictModel):
-    track_id: str
-    title: str
-    category: str
-    versions: dict[str, CatalogVersion]
-
-class AudioCatalog(StrictModel):
-    tracks: list[CatalogTrack]
-
 class MusicRecommendation(StrictModel):
     track_id: str
     title: str
@@ -127,39 +117,21 @@ def match_categories(keywords: list[str]) -> list[str]:
 def select_best_version(track: CatalogTrack, target_seconds: float) -> tuple[str, CatalogVersion]:
     """
     Given a CatalogTrack and target duration, select the best pre-made version
-    Priority: prefer cutdowns within 10s of target, then closest cutdown, then full
+    Require enough duration and the importer limit; prefer cutdowns within +10s,
+    otherwise select the shortest eligible version.
     Return (version_tag, version)
     """
-    cutdowns = {}
-    full_version = None
-    
-    for tag, ver in track.versions.items():
-        if tag.lower() in ("full", "完整版", "full_track"):
-            full_version = (tag, ver)
-        else:
-            cutdowns[tag] = ver
-            
-    if not full_version and "full" in track.versions:
-        full_version = ("full", track.versions["full"])
-        
-    valid_cutdowns = {t: v for t, v in cutdowns.items() if abs(v.duration_seconds - target_seconds) <= 10.0}
-    if valid_cutdowns:
-        best_tag = min(valid_cutdowns.keys(), key=lambda t: abs(valid_cutdowns[t].duration_seconds - target_seconds))
-        return best_tag, valid_cutdowns[best_tag]
-        
-    if cutdowns:
-        best_tag = min(cutdowns.keys(), key=lambda t: abs(cutdowns[t].duration_seconds - target_seconds))
-        return best_tag, cutdowns[best_tag]
-        
-    if full_version:
-        return full_version
-        
-    # fallback
-    if track.versions:
-        best_tag = min(track.versions.keys(), key=lambda t: abs(track.versions[t].duration_seconds - target_seconds))
-        return best_tag, track.versions[best_tag]
-        
-    raise ValueError("Track has no versions")
+    eligible = {tag: ver for tag, ver in track.versions.items()
+                if target_seconds <= ver.duration_seconds <= 600}
+    if not eligible:
+        raise ValueError("No version can cover the target duration within the 600s import limit")
+    cutdowns = {tag: ver for tag, ver in eligible.items() if tag.lower() not in
+                {"full", "完整版", "full_track"}}
+    near = {tag: ver for tag, ver in cutdowns.items()
+            if ver.duration_seconds - target_seconds <= 10}
+    candidates = near or eligible
+    tag = min(candidates, key=lambda tag: (candidates[tag].duration_seconds, tag))
+    return tag, candidates[tag]
 
 
 def recommend_music(catalog: AudioCatalog, music_brief: str, target_duration_seconds: float, limit: int = 5) -> RecommendationResult:
@@ -179,14 +151,18 @@ def recommend_music(catalog: AudioCatalog, music_brief: str, target_duration_sec
     for track in catalog.tracks:
         if track.category in matched_cats:
             cat_rank = matched_cats.index(track.category)
-            best_tag, best_ver = select_best_version(track, target_duration_seconds)
+            try:
+                best_tag, best_ver = select_best_version(track, target_duration_seconds)
+            except ValueError:
+                continue
             dur_diff = abs(best_ver.duration_seconds - target_duration_seconds)
             
             cat_score = 1.0 - (cat_rank * 0.1)
             dur_penalty = dur_diff * 0.001
             score = max(0.0, min(1.0, cat_score - dur_penalty))
             
-            reasons = [f"Matched category '{track.category}' from keywords"]
+            reasons = [f"关键词匹配分类：{track.category}",
+                       f"{best_tag} 版本 {best_ver.duration_seconds:.2f} 秒，可覆盖目标 {target_duration_seconds:.2f} 秒"]
             
             recommendations.append(MusicRecommendation(
                 track_id=track.track_id,
@@ -194,7 +170,7 @@ def recommend_music(catalog: AudioCatalog, music_brief: str, target_duration_sec
                 category=track.category,
                 selected_version=best_tag,
                 version_duration_seconds=best_ver.duration_seconds,
-                version_path=best_ver.path,
+                version_path=str((Path(catalog.music_root) / best_ver.relative_path).resolve()),
                 match_score=round(score, 4),
                 match_reasons=reasons
             ))

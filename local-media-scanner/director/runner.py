@@ -1079,19 +1079,43 @@ def _waiting_for_music_result(
     )
     if confirmation is None or confirmation.normalized_fields.target_duration_seconds is None:
         raise ProjectConflict("confirmed Brief is missing target duration")
+    from director.audio_catalog_cache import get_audio_catalog, write_json_if_changed
+    from director.music_recommender import recommend_music
+
+    recommendation_path = paths.root / "music_selection" / "recommendations.json"
+    music_brief = getattr(summary, "music_brief", "")
+    target = confirmation.normalized_fields.target_duration_seconds
+    try:
+        catalog, signature = get_audio_catalog()
+        recommendations = recommend_music(catalog, music_brief, target)
+        payload = {"status": "ready" if recommendations.recommendations else "no_matches",
+                   "music_brief": music_brief, "inventory": signature,
+                   **recommendations.model_dump(mode="json")}
+    except (OSError, ValueError) as exc:
+        payload = {"status": "unavailable", "reason": str(exc),
+                   "target_duration_seconds": target, "recommendations": []}
+    write_json_if_changed(recommendation_path, payload)
+    available = bool(payload["recommendations"])
+    selection_message = (
+        "Choose one recommended local file, then import its version_path with --music. "
+        "Do not auto-select. You may also provide another local music file."
+        if available else
+        "Local recommendations unavailable or no eligible matches; provide a local music file. "
+        + payload.get("reason", "No sufficiently long matching versions.")
+    )
     return _result(
         paths,
         "waiting_for_music",
         "creative_direction" if summary_path is not None else "visual_review",
-        "The Director plan is ready. Upload a local music file to continue this project.",
+        selection_message,
         actions=[
             RunAction(
                 kind="provide_music",
-                message="Upload the generated local music file in this conversation.",
+                message=selection_message,
                 result_path=str((summary_path or paths.final_summary).resolve()),
             )
         ],
-        artifacts=summary.artifact_paths,
+        artifacts={**summary.artifact_paths, "music_recommendations": str(recommendation_path.resolve())},
         recommended_duration_seconds=(
             confirmation.normalized_fields.target_duration_seconds
         ),
@@ -1139,6 +1163,9 @@ def _completed_timeline_result(
 ) -> DirectorRunResult:
     from director.audio_import import load_music_evidence
 
+    from director.timeline_delivery_store import validate_timeline_delivery
+
+    timeline = validate_timeline_delivery(paths)
     evidence = load_music_evidence(paths)
     if evidence is None:
         raise ProjectConflict("music evidence is not complete")
@@ -1147,7 +1174,7 @@ def _completed_timeline_result(
         paths,
         "completed",
         "timeline_delivery",
-        "The editing timeline and audio packaging delivery are complete.",
+        "The timeline plan and Markdown delivery are verified; footage slots remain placeholders.",
         actions=[
             RunAction(
                 kind="read_summary",
@@ -1163,7 +1190,7 @@ def _completed_timeline_result(
             "timeline_delivery": str(timeline_path.resolve()),
             "timeline_markdown": str(markdown_path.resolve()),
         },
-        recommended_duration_seconds=round(structure.duration_seconds),
+        recommended_duration_seconds=round(timeline.target_duration_seconds),
     )
 
 
@@ -1173,7 +1200,7 @@ def _build_and_record_delivery(
 ) -> tuple[Path, Path]:
     from director.audio_import import load_music_evidence
     from director.creative_direction import load_creative
-    from director.delivery import build_fast_mode_timeline, save_fast_mode_delivery
+    from director.delivery import build_fast_mode_timeline
     from director.audio_catalog import build_audio_catalog, resolve_audio_root
 
     evidence = load_music_evidence(paths)
@@ -1206,18 +1233,9 @@ def _build_and_record_delivery(
         sfx_entries=sfx_entries,
     )
 
-    from director.export.markdown import render_fast_mode_markdown
+    from director.timeline_delivery_store import record_timeline_delivery
 
-    delivery_dir = paths.root / "delivery"
-    delivery_dir.mkdir(parents=True, exist_ok=True)
-    json_path = delivery_dir / "fast_mode_timeline.json"
-    md_path = delivery_dir / "timeline_delivery.md"
-
-    md_content = render_fast_mode_markdown(timeline)
-    md_path.write_text(md_content, encoding="utf-8")
-
-    record_supporting_artifact(paths, json_path, timeline, state_key="timeline_delivery")
-    return json_path, md_path
+    return record_timeline_delivery(paths, timeline)
 
 
 def _advance_creative(
@@ -1623,6 +1641,8 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
         frozen = load_music_evidence(paths) is not None
         creative = load_creative(paths, validate_sources=False) if frozen else load_current_creative(paths)
         if delivered:
+            from director.timeline_delivery_store import validate_timeline_delivery
+            validate_timeline_delivery(paths)
             run_state = "completed"
             current_stage = "timeline_delivery"
         elif frozen:

@@ -57,9 +57,10 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
             "",
         ])
     else:
+        reason = timeline.outro_plan.reason if timeline.outro_plan else "未生成收尾音效规划，需人工检查剪辑点"
         lines.extend([
             "### 2. 结尾收尾音效",
-            "- *原曲自然淡出/收尾，无需额外覆盖音效*",
+            f"- {reason}",
             "",
         ])
 

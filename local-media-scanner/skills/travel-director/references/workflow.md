@@ -86,6 +86,12 @@ The runner validates the response kind and source hashes before atomically recor
 
 ## Waiting For Music
 
+The Runner also returns `artifact_paths.music_recommendations`, a refreshable recommendation document. Read its `status`, `recommendations`, and any `reason`. For `ready`, present up to five candidates with title, `selected_version`, `version_duration_seconds`, `match_reasons`, and a clickable absolute `version_path`. Ask the user to select a candidate; fewer than three eligible tracks is valid and must not be padded with unrelated or too-short music. Recommendations use keyword/category matching, not listening-based quality judgments.
+
+Once the user selects one, use its exact `version_path` with the existing `--music` command below. Never bind a candidate merely because it ranks first. Reuse the same project and input/Brief. A user-provided alternative remains valid. A `no_matches` or `unavailable` response does not block external music or local file upload; explain the reason and retain the three prompts.
+
+The library index is cached outside the source library. File additions, deletions, renames, or size/timestamp changes refresh the index on the next recommendation run. Only versions at least as long as the target and at most 600 seconds are recommended. Cached indexing is not audio freezing; the existing importer validates and hashes the selected source again.
+
 On `waiting_for_music`, read the `provide_music` action's `result_path`. Report the recorded plan in this order: reference selections and reasons, audiovisual section table, music requirements and three prompts. Keep the confirmed duration, location and orientation. If these were already shown, report only the saved result and next step. The user selects or generates music externally. A single file delivered for editing is already selected: resume with unchanged input and Brief, without asking whether its quality is approved:
 
 ```bash
@@ -113,3 +119,6 @@ uv run travel-director run --input <absolute-folder> --brief <description> --pro
 ```
 
 On `completed`, report the generated `timeline_delivery` (JSON) and `timeline_markdown` (Markdown) paths. The delivery includes the beat-aligned slot grid, text placeholders, and audio packaging (Hook Riser+Hit, BGM ducking, and Outro SFX). On `blocked`, report the saved project and the exact blocker without producing prompts.
+
+
+Timeline completion verifies both JSON and Markdown against a recorded delivery receipt. Missing or changed files, an interrupted receipt write, or a legacy delivery without a receipt returns `blocked`; report the reason and preserve the existing files rather than treating a saved completion key as sufficient. When the target ends before the measured music ends, Outro timing uses the target duration and automatic ending-based SFX selection is deferred because the cut point has not been analyzed. `completed` describes the placeholder timeline plan, not a rendered or mixed video.

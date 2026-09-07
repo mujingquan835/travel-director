@@ -275,3 +275,123 @@ def test_advance_to_completed_with_build_timeline(tmp_path, monkeypatch, click_t
     resumed = run_travel_director(source, BRIEF, project=project)
     assert resumed.status == 'completed'
 
+
+
+def test_local_recommendation_selection_and_resume(tmp_path, monkeypatch, click_track, isolated_audio_library):
+    import hashlib
+    song = isolated_audio_library / '音乐/旅拍风/test/60s.wav'
+    song.parent.mkdir(parents=True)
+    song.write_bytes(click_track.read_bytes())
+    source_hash = hashlib.sha256(song.read_bytes()).hexdigest()
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    response = Path(request.actions[0].response_path)
+    payload = json.loads(response.read_text())
+    payload['music_brief'] = '旅行，轻松'
+    response.write_text(json.dumps(payload, ensure_ascii=False))
+    waiting = run_travel_director(source, BRIEF, project=project, creative_response=response)
+    assert waiting.status == 'waiting_for_music'
+    choices = json.loads(Path(waiting.artifact_paths['music_recommendations']).read_text())
+    assert choices['status'] == 'ready'
+    selected = Path(choices['recommendations'][0]['version_path'])
+    assert selected == song
+    assert not (project / 'generation/music_asset.json').exists()
+    before = snapshot(project)
+    assert run_travel_director(source, BRIEF, project=project).status == 'waiting_for_music'
+    assert snapshot(project) == before
+    # Simulate the user's explicit selection through the existing --music input.
+    frozen = run_travel_director(source, BRIEF, project=project, music=selected)
+    assert frozen.status == 'waiting_for_timeline'
+    assert frozen.external_call_count == 0
+    assert hashlib.sha256(song.read_bytes()).hexdigest() == source_hash
+    before = snapshot(project)
+    assert run_travel_director(source, BRIEF, project=project, music=selected).status == 'waiting_for_timeline'
+    assert snapshot(project) == before
+
+
+def test_recommendation_failure_preserves_manual_music_import(tmp_path, monkeypatch, click_track):
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    monkeypatch.setenv('TRAVEL_DIRECTOR_AUDIO_ROOT', str(tmp_path / 'missing-library'))
+    waiting = _submit_creative(source, project, BRIEF, request)
+    choices = json.loads(Path(waiting.artifact_paths['music_recommendations']).read_text())
+    assert waiting.status == 'waiting_for_music'
+    assert choices['status'] == 'unavailable'
+    assert choices['reason']
+    assert run_travel_director(source, BRIEF, project=project, music=click_track).status == 'waiting_for_timeline'
+
+
+@pytest.mark.parametrize('artifact', ['timeline_delivery', 'timeline_markdown', 'receipt'])
+@pytest.mark.parametrize('damage', ['missing', 'drifted'])
+def test_completed_delivery_damage_blocks_without_rewriting(tmp_path, monkeypatch, click_track, artifact, damage):
+    from director.project import ProjectConflict
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    run_travel_director(source, BRIEF, project=project, music=click_track)
+    completed = run_travel_director(source, BRIEF, project=project, build_timeline=True)
+    assert completed.status == 'completed', completed.message
+    path = project / 'delivery/receipt.json' if artifact == 'receipt' else Path(completed.artifact_paths[artifact])
+    if damage == 'missing':
+        path.unlink()
+    else:
+        path.write_bytes(path.read_bytes() + b'\nchanged')
+    before = snapshot(project)
+    for build in (False, True):
+        result = run_travel_director(source, BRIEF, project=project, build_timeline=build)
+        assert result.status == 'blocked'
+        assert 'delivery' in result.message
+        assert snapshot(project) == before
+    with pytest.raises(ProjectConflict, match='delivery'):
+        inspect_travel_director(project)
+    assert snapshot(project) == before
+
+
+def test_legacy_delivery_without_receipt_is_not_claimed_verified(tmp_path, monkeypatch, click_track):
+    from director.project import open_project, load_project_state, _write_state, ProjectConflict
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    run_travel_director(source, BRIEF, project=project, music=click_track)
+    assert run_travel_director(source, BRIEF, project=project, build_timeline=True).status == 'completed'
+    paths = open_project(project)
+    state = load_project_state(paths)
+    del state.completed_artifact_hashes['timeline_delivery_receipt']
+    _write_state(paths, state)
+    (project / 'delivery/receipt.json').unlink()
+    before = snapshot(project)
+    result = run_travel_director(source, BRIEF, project=project)
+    assert result.status == 'blocked'
+    assert 'missing timeline_delivery_receipt record' in result.message
+    assert snapshot(project) == before
+
+
+def test_completed_delivery_receipt_is_not_inherited_by_music_version(tmp_path, monkeypatch, click_track):
+    from director.project import open_project, load_project_state
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    run_travel_director(source, BRIEF, project=project, music=click_track)
+    assert run_travel_director(source, BRIEF, project=project, build_timeline=True).status == 'completed'
+    before = snapshot(project)
+    replacement = tmp_path / 'replacement.wav'
+    replacement.write_bytes(click_track.read_bytes() + b'\0\0')
+    child = run_travel_director(source, BRIEF, project=project, music=replacement, new_music_version=True)
+    assert child.status == 'waiting_for_timeline', child.message
+    child_path = Path(child.project_path)
+    assert 'timeline_delivery_receipt' not in load_project_state(open_project(child_path)).completed_artifact_hashes
+    assert not (child_path / 'delivery').exists()
+    assert snapshot(project) == before
+
+
+def test_interrupted_receipt_write_never_reports_completed(tmp_path, monkeypatch, click_track):
+    import director.timeline_delivery_store as store
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    run_travel_director(source, BRIEF, project=project, music=click_track)
+    original = store.record_supporting_artifact
+    def fail_receipt(*args, **kwargs):
+        if kwargs.get('state_key') == 'timeline_delivery_receipt':
+            raise OSError('simulated interrupted receipt write')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(store, 'record_supporting_artifact', fail_receipt)
+    interrupted = run_travel_director(source, BRIEF, project=project, build_timeline=True)
+    assert interrupted.status == 'blocked'
+    monkeypatch.setattr(store, 'record_supporting_artifact', original)
+    assert run_travel_director(source, BRIEF, project=project).status == 'blocked'

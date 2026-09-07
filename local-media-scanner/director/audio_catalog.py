@@ -300,10 +300,7 @@ def scan_sfx_catalog(sfx_root: Path) -> list[SfxEntry]:
             continue
             
         parts = rel_root.parts
-        if not parts:
-            continue
-            
-        raw_category = parts[0]
+        raw_category = parts[0] if parts else "环境"
         # Map or validate category
         category = raw_category if raw_category in allowed_categories else "环境"
         
@@ -338,14 +335,14 @@ def build_audio_catalog(root: Path | None = None) -> AudioCatalog:
     if root is None:
         root = resolve_audio_root()
         
-    music_root = root / "BGM"
-    sfx_root = root / "SFX"
-    
-    if not music_root.exists():
-        music_root.mkdir(parents=True, exist_ok=True)
-    if not sfx_root.exists():
-        sfx_root.mkdir(parents=True, exist_ok=True)
-        
+    root = root.resolve()
+    # Prefer the actual library layout; retain legacy English directory support.
+    music_root = root / "音乐" if (root / "音乐").is_dir() else root / "BGM"
+    sfx_root = root / "音效" if (root / "音效").is_dir() else root / "SFX"
+    missing = [str(path) for path in (music_root, sfx_root) if not path.is_dir()]
+    if missing:
+        raise ValueError("Missing audio library directories: " + ", ".join(missing))
+
     tracks = scan_music_catalog(music_root)
     sfx = scan_sfx_catalog(sfx_root)
     

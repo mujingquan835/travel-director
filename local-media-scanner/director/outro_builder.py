@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import math
 from typing import Literal
+
+from pydantic import Field
 
 from director.schema import MusicStructure, StrictModel
 
 
 class OutroConfig(StrictModel):
-    outro_volume: float = 0.7
-    outro_pre_end_seconds: float = 1.0
+    outro_volume: float = Field(default=0.7, ge=0.0, le=1.0)
+    outro_pre_end_seconds: float = Field(default=1.0, ge=0.0)
     enable_auto_outro: bool = True
 
 
@@ -50,16 +53,23 @@ def select_outro_sfx(ending_behavior: str, sfx_entries: list) -> str | None:
 
 
 def build_outro_plan(
-    music_structure: MusicStructure, sfx_entries: list, config: OutroConfig | None = None
+    music_structure: MusicStructure, sfx_entries: list, config: OutroConfig | None = None,
+    *, target_duration_seconds: float | None = None,
 ) -> OutroPlan:
     """Build a plan for the outro effect."""
     if config is None:
         config = OutroConfig()
 
+    duration = music_structure.duration_seconds if target_duration_seconds is None else target_duration_seconds
+    if not math.isfinite(duration) or duration <= 0 or duration > music_structure.duration_seconds + 1e-6:
+        raise ValueError("outro target duration must be positive and within the measured music")
+    truncated = duration < music_structure.duration_seconds - 1e-6
     sfx_path = None
     reason = "Auto outro disabled"
 
-    if config.enable_auto_outro:
+    if config.enable_auto_outro and truncated:
+        reason = "剪辑点早于原曲结尾，剪辑点收尾特征尚未分析；暂不自动叠加收尾音效"
+    elif config.enable_auto_outro:
         behavior = music_structure.ending.behavior
         sfx_path = select_outro_sfx(behavior, sfx_entries)
         if sfx_path:
@@ -67,7 +77,7 @@ def build_outro_plan(
         else:
             reason = f"No SFX found for behavior: {behavior}"
 
-    trigger_time = max(0.0, music_structure.duration_seconds - config.outro_pre_end_seconds)
+    trigger_time = max(0.0, duration - config.outro_pre_end_seconds)
 
     return OutroPlan(
         sfx_path=sfx_path,

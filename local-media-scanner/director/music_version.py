@@ -77,7 +77,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
         child_state = load_project_state(child)
         child_state.project_id = target.name
         removed = {"music_asset", "music_structure", "music_version", "timeline",
-                   "clip_placements", "sfx_plan", "render", "generation", "timeline_delivery"}
+                   "clip_placements", "sfx_plan", "render", "generation", "timeline_delivery", "timeline_delivery_receipt"}
         for key in removed:
             child_state.completed_artifact_hashes.pop(key, None)
             child_state.artifact_paths.pop(key, None)

@@ -72,7 +72,10 @@ def build_fast_mode_timeline(
     outro_plan: OutroPlan | None = None
     if sfx_entries:
         try:
-            outro_plan = build_outro_plan(music_structure, sfx_entries, outro_config)
+            outro_plan = build_outro_plan(
+                music_structure, sfx_entries, outro_config,
+                target_duration_seconds=target_duration_seconds,
+            )
         except Exception:
             outro_plan = None
 

@@ -186,3 +186,24 @@ def test_save_fast_mode_delivery(tmp_path: Path) -> None:
     assert md_path.is_file()
     assert "slot-001" in json_path.read_text(encoding="utf-8")
     assert "# 🎬 旅行导演" in md_path.read_text(encoding="utf-8")
+
+
+def test_truncated_music_uses_timeline_end_and_preserves_uncertainty():
+    timeline = build_fast_mode_timeline(
+        sample_structure(), 30.0, "/music.wav", sfx_entries=sample_sfx_entries(),
+    )
+    assert timeline.slots[-1].end == 30.0
+    assert timeline.outro_plan.trigger_time_seconds == 29.0
+    assert timeline.outro_plan.sfx_path is None
+    assert "尚未分析" in timeline.outro_plan.reason
+    markdown = render_fast_mode_markdown(timeline)
+    assert "尚未分析" in markdown
+    assert "原曲自然淡出" not in markdown
+
+
+def test_full_music_keeps_measured_outro():
+    timeline = build_fast_mode_timeline(
+        sample_structure(), 60.0, "/music.wav", sfx_entries=sample_sfx_entries(),
+    )
+    assert timeline.outro_plan.trigger_time_seconds == 59.0
+    assert timeline.outro_plan.sfx_path == "收尾/13 Deep Hit.wav"

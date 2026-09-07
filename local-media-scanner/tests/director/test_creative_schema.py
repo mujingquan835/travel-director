@@ -182,3 +182,31 @@ def test_creative_direction_rejects_unsupported_treatment_inferences():
     kwargs["treatment"].unsupported_inferences = ["无证据的地点判断"]
     with pytest.raises(ValueError, match="unsupported"):
         module().validate_creative_direction(payload, **kwargs)
+
+
+def test_reference_library_evidence_paths_are_relative_and_resolvable():
+    lib = module().load_reference_library()
+    for ref in lib["references"]:
+        assert not ref["audio_notes"].startswith("/"), "audio_notes should not hardcode root paths"
+        for obs in ref["observations"]:
+            assert not obs["evidence_path"].startswith("/"), f"path must be relative: {obs['evidence_path']}"
+            resolved = module().resolve_reference_evidence(obs["evidence_path"])
+            assert resolved.is_file(), f"evidence file must exist: {resolved}"
+
+    resolved_lib = module().load_reference_library(resolve_paths=True)
+    for ref in resolved_lib["references"]:
+        for obs in ref["observations"]:
+            assert obs["evidence_path"].startswith("/"), f"path must be absolute when resolved: {obs['evidence_path']}"
+            assert module().Path(obs["evidence_path"]).is_file()
+
+
+def test_resolve_reference_evidence_respects_env_overrides(tmp_path, monkeypatch):
+    custom_root = tmp_path / "custom_root"
+    custom_root.mkdir()
+    fake_img = custom_root / "evidence/case1/t002.5.jpg"
+    fake_img.parent.mkdir(parents=True)
+    fake_img.write_text("fake", encoding="utf-8")
+
+    monkeypatch.setenv("TRAVEL_DIRECTOR_REFERENCE_ROOT", str(custom_root))
+    resolved = module().resolve_reference_evidence("evidence/case1/t002.5.jpg")
+    assert resolved == fake_img.resolve()

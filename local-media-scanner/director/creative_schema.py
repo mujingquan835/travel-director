@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from importlib.resources import files
+from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -108,9 +110,60 @@ def _library_bytes() -> bytes:
     return files("director").joinpath("references/defaults.json").read_bytes()
 
 
-def load_reference_library() -> dict:
-    """Load fresh validated package data, independent of the process directory."""
-    return ReferenceLibrary.model_validate(json.loads(_library_bytes())).model_dump(mode="json")
+def resolve_reference_evidence(evidence_path: str) -> Path:
+    """Resolve an evidence path to a concrete filesystem Path.
+
+    Supports explicit environment variables (TRAVEL_DIRECTOR_REFERENCE_ROOT,
+    TRAVEL_DIRECTOR_WORKSPACE), package-internal resources, and absolute paths.
+    """
+    raw = Path(evidence_path)
+    if raw.is_absolute() and raw.exists():
+        return raw
+
+    custom_root = os.environ.get("TRAVEL_DIRECTOR_REFERENCE_ROOT")
+    if custom_root:
+        candidate = Path(custom_root) / evidence_path
+        if candidate.exists():
+            return candidate.resolve()
+
+    workspace = os.environ.get("TRAVEL_DIRECTOR_WORKSPACE")
+    if workspace:
+        ws_path = Path(workspace)
+        for candidate in (
+            ws_path / "director" / "references" / evidence_path,
+            ws_path / "local-media-scanner" / "director" / "references" / evidence_path,
+            ws_path / evidence_path,
+        ):
+            if candidate.exists():
+                return candidate.resolve()
+
+    try:
+        pkg_ref = files("director").joinpath("references").joinpath(evidence_path)
+        pkg_path = Path(str(pkg_ref))
+        if pkg_path.exists():
+            return pkg_path.resolve()
+    except (TypeError, FileNotFoundError):
+        pass
+
+    file_ref = Path(__file__).resolve().parent / "references" / evidence_path
+    if file_ref.exists():
+        return file_ref.resolve()
+
+    return file_ref
+
+
+def load_reference_library(*, resolve_paths: bool = False) -> dict:
+    """Load fresh validated package data, independent of the process directory.
+
+    When resolve_paths is True, observation evidence paths are resolved to absolute
+    paths on the local filesystem.
+    """
+    data = ReferenceLibrary.model_validate(json.loads(_library_bytes())).model_dump(mode="json")
+    if resolve_paths:
+        for ref in data.get("references", []):
+            for obs in ref.get("observations", []):
+                obs["evidence_path"] = str(resolve_reference_evidence(obs["evidence_path"]))
+    return data
 
 
 def reference_library_sha256() -> str:

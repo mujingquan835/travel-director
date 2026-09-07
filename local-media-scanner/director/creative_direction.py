@@ -81,7 +81,7 @@ def creative_request(paths: ProjectPaths) -> tuple[dict, Path]:
         "schema_version": "1.0.0", "kind": "draft_creative_direction",
         "source_hashes": hashes,
         "brief": artifacts["brief_confirmation"],
-        "reference_library": load_reference_library(),
+        "reference_library": load_reference_library(resolve_paths=True),
         "artifact_paths": {
             key: str(paths.artifact_for(key).resolve()) for key in artifacts
         },

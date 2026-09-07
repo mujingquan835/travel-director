@@ -9,26 +9,26 @@
       "end": 113.557,
       "visual_verified": true,
       "audio_listened": false,
-      "audio_notes": "未进行听觉语义审片；乐器、人声、音乐结构与具体音效未知。公开播放副本为AAC、44.1kHz双声道；技术证据：/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case1/analysis.md，证据边界及技术测量章节。技术格式不是音乐审美结论。",
+      "audio_notes": "未进行听觉语义审片；乐器、人声、音乐结构与具体音效未知。公开播放副本为AAC、44.1kHz双声道；技术证据：evidence/case1/analysis.md，证据边界及技术测量章节。技术格式不是音乐审美结论。",
       "applicability": "人景交错、身体体验与落日回访；宽银幕需适配用户画幅",
       "observations": [
         {
           "observation_id": "case1-title",
           "time": 2.5,
           "description": "日落公路与车辆上叠白色窄长 PERFECT WORLD 标题及小字署名",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case1/t002.5.jpg"
+          "evidence_path": "evidence/case1/t002.5.jpg"
         },
         {
           "observation_id": "case1-body",
           "time": 72,
           "description": "第一人称草地视角，鞋尖在前景，野花与阳光在眼前",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case1/t072.jpg"
+          "evidence_path": "evidence/case1/t072.jpg"
         },
         {
           "observation_id": "case1-ending",
           "time": 110,
           "description": "落日下的大范围山谷",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case1/t110.jpg"
+          "evidence_path": "evidence/case1/t110.jpg"
         }
       ]
     },
@@ -47,19 +47,19 @@
           "observation_id": "case2-title",
           "time": 15,
           "description": "黑底白色手写《新西兰》与小号英文",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case2/intro-5sec.jpg"
+          "evidence_path": "evidence/case2/intro-5sec.jpg"
         },
         {
           "observation_id": "case2-detail",
           "time": 125,
           "description": "溪流石头近景",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case2/intro-5sec.jpg"
+          "evidence_path": "evidence/case2/intro-5sec.jpg"
         },
         {
           "observation_id": "case2-person",
           "time": 170,
           "description": "风中人像",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case2/intro-5sec.jpg"
+          "evidence_path": "evidence/case2/intro-5sec.jpg"
         }
       ]
     },
@@ -71,26 +71,26 @@
       "end": 113.3667,
       "visual_verified": true,
       "audio_listened": false,
-      "audio_notes": "未进行听觉语义审片；乐器、人声、音乐结构与具体音效未知。公开音轨113.51秒、44.1kHz双声道HE-AACv2；loudnorm测得-9.51 LUFS、LRA 6.80 LU、真峰值+4.06 dBTP。技术证据：/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case3/analysis.md，声音证据与局限。测值仅代表该压缩副本，不是推荐混音目标或作者母带。",
+      "audio_notes": "未进行听觉语义审片；乐器、人声、音乐结构与具体音效未知。公开音轨113.51秒、44.1kHz双声道HE-AACv2；loudnorm测得-9.51 LUFS、LRA 6.80 LU、真峰值+4.06 dBTP。技术证据：evidence/case3/analysis.md，声音证据与局限。测值仅代表该压缩副本，不是推荐混音目标或作者母带。",
       "applicability": "道路母题、观看者特写和标题节点；视觉字幕不证明歌唱",
       "observations": [
         {
           "observation_id": "case3-title",
           "time": 24,
           "description": "人物背影、金色手写《旅途梦想家》及多色条块错位效果",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case3/contact-exact-4sec.jpg"
+          "evidence_path": "evidence/case3/contact-exact-4sec.jpg"
         },
         {
           "observation_id": "case3-eye",
           "time": 32,
           "description": "人眼与相机附近的极近景",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case3/contact-exact-4sec.jpg"
+          "evidence_path": "evidence/case3/contact-exact-4sec.jpg"
         },
         {
           "observation_id": "case3-ending",
           "time": 108,
           "description": "正中公路延向地平线，画面明显变暗",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case3/contact-exact-4sec.jpg"
+          "evidence_path": "evidence/case3/contact-exact-4sec.jpg"
         }
       ]
     },
@@ -102,26 +102,26 @@
       "end": 64.36,
       "visual_verified": true,
       "audio_listened": false,
-      "audio_notes": "未进行听觉语义审片；乐器、人声、音乐结构与具体音效未知。公开音轨64.55秒、44.1kHz双声道HE-AACv2；loudnorm测得-17.54 LUFS、LRA 12.40 LU、真峰值+0.85 dBTP。技术证据：/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case4/analysis.md，声音证据和局限。测值仅代表该压缩副本，不混同页面另一版本元数据，不是推荐混音目标。",
+      "audio_notes": "未进行听觉语义审片；乐器、人声、音乐结构与具体音效未知。公开音轨64.55秒、44.1kHz双声道HE-AACv2；loudnorm测得-17.54 LUFS、LRA 12.40 LU、真峰值+0.85 dBTP。技术证据：evidence/case4/analysis.md，声音证据和局限。测值仅代表该压缩副本，不混同页面另一版本元数据，不是推荐混音目标。",
       "applicability": "地景、劳动细节、同行关系与海浪收束；16:9构图",
       "observations": [
         {
           "observation_id": "case4-title",
           "time": 4,
           "description": "岩体上方大幅细线黄色手写标题，小号白色制作文字",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case4/contact-exact-2sec.jpg"
+          "evidence_path": "evidence/case4/contact-exact-2sec.jpg"
         },
         {
           "observation_id": "case4-hands",
           "time": 14,
           "description": "织或理网的手部特写",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case4/contact-exact-2sec.jpg"
+          "evidence_path": "evidence/case4/contact-exact-2sec.jpg"
         },
         {
           "observation_id": "case4-ending",
           "time": 62,
           "description": "蓝色海水与礁石；精确采样62秒可见，64秒采样已黑场",
-          "evidence_path": "/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/case4/contact-exact-2sec.jpg"
+          "evidence_path": "evidence/case4/contact-exact-2sec.jpg"
         }
       ]
     }

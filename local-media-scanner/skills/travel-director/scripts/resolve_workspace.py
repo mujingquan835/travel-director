@@ -54,20 +54,28 @@ def _git_root_from_cwd() -> Path | None:
 
 def _known_candidates() -> list[Path]:
     candidates: list[Path] = []
-    for candidate in [
-        KNOWN_ROOT / ".worktrees" / "local-media-scanner-v0.1" / "local-media-scanner",
-        KNOWN_ROOT / "local-media-scanner",
-        KNOWN_ROOT,
-    ]:
-        candidates.append(candidate)
-    worktrees_root = KNOWN_ROOT / ".worktrees"
-    if worktrees_root.is_dir():
-        for child in sorted(worktrees_root.iterdir()):
-            candidates.append(child / "local-media-scanner")
+    for parent in Path(__file__).resolve().parents:
+        candidates.append(parent)
+        candidates.append(parent / "local-media-scanner")
+        candidates.append(parent / ".worktrees" / "local-media-scanner-v0.1" / "local-media-scanner")
+    if KNOWN_ROOT.is_dir():
+        for candidate in [
+            KNOWN_ROOT / ".worktrees" / "local-media-scanner-v0.1" / "local-media-scanner",
+            KNOWN_ROOT / "local-media-scanner",
+            KNOWN_ROOT,
+        ]:
+            candidates.append(candidate)
+        worktrees_root = KNOWN_ROOT / ".worktrees"
+        if worktrees_root.is_dir():
+            for child in sorted(worktrees_root.iterdir()):
+                candidates.append(child / "local-media-scanner")
     deduped: list[Path] = []
     seen: set[Path] = set()
     for candidate in candidates:
-        resolved = candidate.resolve()
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
         if resolved not in seen:
             seen.add(resolved)
             deduped.append(resolved)

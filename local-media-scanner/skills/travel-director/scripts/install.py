@@ -16,6 +16,8 @@ from pathlib import Path
 
 
 SKILL_NAME = "travel-director"
+IGNORED_DIRECTORY_NAMES = frozenset({"__pycache__"})
+IGNORED_FILE_SUFFIXES = frozenset({".pyc", ".pyo"})
 
 
 def _source_root() -> Path:
@@ -25,7 +27,12 @@ def _source_root() -> Path:
 def _file_manifest(root: Path) -> dict[str, str]:
     manifest: dict[str, str] = {}
     for path in sorted(root.rglob("*")):
-        if path.is_file():
+        relative = path.relative_to(root)
+        if (
+            path.is_file()
+            and not any(part in IGNORED_DIRECTORY_NAMES for part in relative.parts)
+            and path.suffix not in IGNORED_FILE_SUFFIXES
+        ):
             manifest[path.relative_to(root).as_posix()] = hashlib.sha256(
                 path.read_bytes()
             ).hexdigest()
@@ -33,7 +40,12 @@ def _file_manifest(root: Path) -> dict[str, str]:
 
 
 def _copy_tree(source: Path, destination: Path) -> None:
-    shutil.copytree(source, destination, copy_function=shutil.copy2)
+    shutil.copytree(
+        source,
+        destination,
+        copy_function=shutil.copy2,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+    )
 
 
 def _manifest_sha256(manifest: dict[str, str]) -> str:

@@ -23,6 +23,17 @@ REQUIRED_ENTRYPOINTS = (
     "travel-director run",
     "travel-director status",
 )
+IGNORED_DIRECTORY_NAMES = frozenset({"__pycache__"})
+IGNORED_FILE_SUFFIXES = frozenset({".pyc", ".pyo"})
+
+
+def _is_packaged_file(root: Path, path: Path) -> bool:
+    relative = path.relative_to(root)
+    return (
+        path.is_file()
+        and not any(part in IGNORED_DIRECTORY_NAMES for part in relative.parts)
+        and path.suffix not in IGNORED_FILE_SUFFIXES
+    )
 
 
 def _frontmatter(skill_file: Path) -> dict[str, str]:
@@ -84,7 +95,7 @@ def validate_skill(root: Path) -> dict[str, object]:
         if entrypoint not in skill_text:
             raise ValueError(f"required Skill entrypoint is missing: {entrypoint}")
     links = _validate_links(root)
-    files = sum(path.is_file() for path in root.rglob("*"))
+    files = sum(_is_packaged_file(root, path) for path in root.rglob("*"))
     return {
         "schema_version": "1.0.0",
         "status": "valid",

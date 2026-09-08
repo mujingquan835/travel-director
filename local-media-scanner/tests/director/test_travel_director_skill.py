@@ -56,6 +56,8 @@ def _manifest(root: Path) -> dict[str, str]:
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(root.rglob("*"))
         if path.is_file()
+        and "__pycache__" not in path.relative_to(root).parts
+        and path.suffix not in {".pyc", ".pyo"}
     }
 
 
@@ -156,6 +158,7 @@ def test_repository_validator_is_self_contained_and_passes():
     report = json.loads(result.stdout)
     assert report["status"] == "valid"
     assert report["validator"] == "repository-contained"
+    assert report["file_count"] == len(_manifest(SKILL_ROOT))
     assert report["validated_local_links"] >= 3
 
 
@@ -219,6 +222,27 @@ def test_installer_copies_identical_tree(tmp_path):
         ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, check=True,
         capture_output=True, text=True,
     ).stdout.strip()
+
+
+def test_installer_excludes_generated_python_cache(tmp_path):
+    cache = SKILL_ROOT / "scripts" / "__pycache__" / "generated.pyc"
+    cache.parent.mkdir(exist_ok=True)
+    cache.write_bytes(b"generated cache")
+    try:
+        codex_home = tmp_path / "codex-home"
+        subprocess.run(
+            ["uv", "run", "python", str(INSTALLER), "--codex-home", str(codex_home)],
+            cwd=REPO_ROOT,
+            check=True,
+        )
+        destination = codex_home / "skills" / "travel-director"
+        receipt = json.loads(
+            (codex_home / "skill-receipts" / "travel-director.json").read_text(encoding="utf-8")
+        )
+        assert not (destination / "scripts" / "__pycache__").exists()
+        assert all("__pycache__" not in relative for relative in receipt["skill"]["files"])
+    finally:
+        cache.unlink(missing_ok=True)
 
 
 def test_installer_refuses_different_existing_copy_without_replace(tmp_path):

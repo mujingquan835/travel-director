@@ -71,6 +71,10 @@ def run_command(
         False, "--build-timeline",
         help="Advance from waiting_for_timeline to completed by generating beat grid delivery.",
     ),
+    require_sfx: list[str] = typer.Option(
+        [], "--require-sfx",
+        help="With --build-timeline, require hook or outro; repeat for both and on retries.",
+    ),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -86,6 +90,7 @@ def run_command(
         creative_response=creative_response,
         new_music_version=new_music_version,
         build_timeline=build_timeline,
+        require_sfx=tuple(require_sfx),
     )
     typer.echo(result.model_dump_json(indent=2))
 

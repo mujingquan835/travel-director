@@ -37,8 +37,13 @@ class FastModeSlot(StrictModel):
     beat_end: int | None = None
 
 
+class AudioPackagingStatus(StrictModel):
+    status: Literal["ready", "disabled", "no_match", "unavailable", "deferred"]
+    reason: str = Field(min_length=1)
+
+
 class FastModeTimeline(StrictModel):
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
     mode: Literal["fast"] = "fast"
     target_duration_seconds: float = Field(gt=0.0)
     music_title: str | None = None
@@ -46,6 +51,8 @@ class FastModeTimeline(StrictModel):
     bpm: float | None = None
     hook_plan: HookPlan | None = None
     outro_plan: OutroPlan | None = None
+    # None means a legacy delivery never recorded packaging diagnostics.
+    audio_packaging: dict[Literal["hook", "outro"], AudioPackagingStatus] | None = None
     slots: list[FastModeSlot] = Field(min_length=1)
 
 
@@ -60,6 +67,7 @@ def build_fast_mode_timeline(
     hook_config: HookConfig | None = None,
     outro_config: OutroConfig | None = None,
     timeline_config: TimelineConfig | None = None,
+    sfx_unavailable_reason: str | None = None,
 ) -> FastModeTimeline:
     """Build a beat-aligned Fast Mode timeline with text placeholders and audio packaging."""
     role_overrides = [
@@ -79,21 +87,39 @@ def build_fast_mode_timeline(
     )
 
     hook_plan: HookPlan | None = None
-    if sfx_entries:
-        try:
-            hook_plan = build_hook_plan(sfx_entries, hook_config)
-        except Exception:
-            hook_plan = None
-
     outro_plan: OutroPlan | None = None
-    if sfx_entries:
-        try:
+    reports: dict[str, AudioPackagingStatus] = {}
+    unavailable = sfx_unavailable_reason or ("未提供音效库，无法生成音效计划" if sfx_entries is None else None)
+    if unavailable:
+        reports = {key: AudioPackagingStatus(status="unavailable", reason=unavailable)
+                   for key in ("hook", "outro")}
+    else:
+        roles = {entry.role for entry in sfx_entries}
+        missing = []
+        if not roles.intersection({"riser", "whoosh"}):
+            missing.append("riser/whoosh")
+        if not roles.intersection({"hook_hit", "hook_subdrop"}):
+            missing.append("hook_hit/hook_subdrop")
+        if missing:
+            reports["hook"] = AudioPackagingStatus(status="no_match", reason="缺少可用音效角色：" + ", ".join(missing))
+        else:
+            hook_plan = build_hook_plan(sfx_entries, hook_config)
+            reports["hook"] = AudioPackagingStatus(status="ready", reason="已生成 Riser、Hit 与 BGM ducking 计划；尚未混音")
+        outro_plan = build_outro_plan(
+            music_structure, sfx_entries, outro_config,
+            target_duration_seconds=target_duration_seconds,
+        )
+        status = ("disabled" if not outro_plan.config.enable_auto_outro else
+                  "deferred" if target_duration_seconds < music_structure.duration_seconds - 1e-6 else
+                  "ready" if outro_plan.sfx_path else "no_match")
+        reports["outro"] = AudioPackagingStatus(status=status, reason=outro_plan.reason)
+    if outro_config is not None and not outro_config.enable_auto_outro:
+        if outro_plan is None:
             outro_plan = build_outro_plan(
-                music_structure, sfx_entries, outro_config,
+                music_structure, [], outro_config,
                 target_duration_seconds=target_duration_seconds,
             )
-        except Exception:
-            outro_plan = None
+        reports["outro"] = AudioPackagingStatus(status="disabled", reason=outro_plan.reason)
 
     fast_slots: list[FastModeSlot] = []
     for slot in raw_slots:
@@ -134,7 +160,7 @@ def build_fast_mode_timeline(
         )
 
     return FastModeTimeline(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         mode="fast",
         target_duration_seconds=target_duration_seconds,
         music_title=music_title,
@@ -142,6 +168,7 @@ def build_fast_mode_timeline(
         bpm=music_structure.bpm,
         hook_plan=hook_plan,
         outro_plan=outro_plan,
+        audio_packaging=reports,
         slots=fast_slots,
     )
 

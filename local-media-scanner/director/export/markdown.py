@@ -13,7 +13,7 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
     lines: list[str] = [
         "# 🎬 旅行导演 — 快速模式时间线交付 (Fast Mode Timeline)",
         "",
-        "> **交付说明**：本方案已完成音乐节拍骨架测算、开场 Hook 与收尾音效规划。画面采用占位符形式，剪辑师可依据每个槽位的节奏、能量与镜头需求填入素材。",
+        "> **交付说明**：本方案已完成音乐节拍骨架测算；音频包装状态见下文，尚未混音。画面采用占位符形式，剪辑师可依据每个槽位的节奏、能量与镜头需求填入素材。",
         "",
         "## 一、项目与音频概览",
         "",
@@ -30,6 +30,13 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
         "",
     ]
 
+    if timeline.audio_packaging is not None:
+        for name, report in timeline.audio_packaging.items():
+            lines.append(f"- **{name} [{report.status}]**: {report.reason}")
+        lines.append("")
+    else:
+        lines.extend(["- 历史交付未记录音效状态；不推断缺失原因。", ""])
+
     if timeline.hook_plan is not None:
         hp = timeline.hook_plan
         cfg = hp.config
@@ -43,7 +50,7 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
     else:
         lines.extend([
             "### 1. 黄金开场 Hook",
-            "- *未配置或未提供音效库，使用原曲直接淡入*",
+            "- 未生成 Hook；以已记录状态为准，不推断淡入或其他混音处理。",
             "",
         ])
 

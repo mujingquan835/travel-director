@@ -62,13 +62,17 @@ class AudioCatalog(StrictModel):
     scan_timestamp: str
 
 
+class AudioCatalogUnavailable(ValueError):
+    """Expected configuration or resource failure, distinct from code errors."""
+
+
 def resolve_audio_root() -> Path:
     """Resolve the root directory of the audio library."""
     env_root = os.environ.get("TRAVEL_DIRECTOR_AUDIO_ROOT")
     if env_root:
         path = Path(env_root).resolve()
         if not path.exists() or not path.is_dir():
-            raise ValueError(f"TRAVEL_DIRECTOR_AUDIO_ROOT does not exist or is not a directory: {path}")
+            raise AudioCatalogUnavailable(f"TRAVEL_DIRECTOR_AUDIO_ROOT does not exist or is not a directory: {path}")
         return path
 
     config_path = Path.home() / ".config" / "travel-director" / "audio.toml"
@@ -79,14 +83,15 @@ def resolve_audio_root() -> Path:
             if "audio_root" in config:
                 path = Path(config["audio_root"]).resolve()
                 if not path.exists() or not path.is_dir():
-                    raise ValueError(f"audio_root from config does not exist or is not a directory: {path}")
+                    raise AudioCatalogUnavailable(f"audio_root from config does not exist or is not a directory: {path}")
                 return path
-        except Exception:
-            pass
+            raise AudioCatalogUnavailable(f"audio_root is missing from {config_path}")
+        except (OSError, ValueError, TypeError) as exc:
+            raise AudioCatalogUnavailable(f"Audio configuration unavailable: {config_path}: {exc}") from exc
 
     fallback = Path("/Users/meimaodawang/Documents/音效及音乐").resolve()
     if not fallback.exists() or not fallback.is_dir():
-        raise ValueError(f"Fallback audio root does not exist or is not a directory: {fallback}")
+        raise AudioCatalogUnavailable(f"Fallback audio root does not exist or is not a directory: {fallback}")
     return fallback
 
 
@@ -110,7 +115,7 @@ def _probe_duration(path: Path) -> float:
             check=False,
         )
     except FileNotFoundError as exc:
-        raise ValueError("ffprobe is required") from exc
+        raise AudioCatalogUnavailable("ffprobe is required") from exc
     if completed.returncode != 0:
         message = completed.stderr.strip() or "ffprobe error"
         raise ValueError(f"could not probe {path.name}: {message}")
@@ -226,6 +231,8 @@ def scan_music_catalog(music_root: Path) -> list[CatalogTrack]:
                 rel_path = f_path.relative_to(music_root).as_posix()
                 try:
                     duration = _probe_duration(f_path)
+                except AudioCatalogUnavailable:
+                    raise
                 except ValueError:
                     continue
                 version_tag = _classify_version_tag(f)
@@ -264,6 +271,8 @@ def scan_music_catalog(music_root: Path) -> list[CatalogTrack]:
             rel_path = f_path.relative_to(music_root).as_posix()
             try:
                 duration = _probe_duration(f_path)
+            except AudioCatalogUnavailable:
+                raise
             except ValueError:
                 continue
             version_tag = _classify_version_tag(f)
@@ -312,6 +321,8 @@ def scan_sfx_catalog(sfx_root: Path) -> list[SfxEntry]:
             rel_path = f_path.relative_to(sfx_root).as_posix()
             try:
                 duration = _probe_duration(f_path)
+            except AudioCatalogUnavailable:
+                raise
             except ValueError:
                 continue
                 
@@ -341,7 +352,7 @@ def build_audio_catalog(root: Path | None = None) -> AudioCatalog:
     sfx_root = root / "音效" if (root / "音效").is_dir() else root / "SFX"
     missing = [str(path) for path in (music_root, sfx_root) if not path.is_dir()]
     if missing:
-        raise ValueError("Missing audio library directories: " + ", ".join(missing))
+        raise AudioCatalogUnavailable("Missing audio library directories: " + ", ".join(missing))
 
     tracks = scan_music_catalog(music_root)
     sfx = scan_sfx_catalog(sfx_root)
@@ -382,4 +393,3 @@ def save_catalog_cache(catalog: AudioCatalog, cache_path: Path) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cache_path, "w", encoding="utf-8") as f:
         f.write(catalog.model_dump_json(indent=2))
-

@@ -49,6 +49,32 @@ jobs:
         if: github.event_name == 'push'
         run: git diff --check "${{ github.event.before }}...HEAD"
 
+      - name: Validate repository Skill package
+        working-directory: local-media-scanner
+        run: uv run python skills/travel-director/scripts/validate.py skills/travel-director
+
+      - name: Publish Skill to isolated CI home
+        working-directory: local-media-scanner
+        run: uv run python skills/travel-director/scripts/install.py --codex-home "${{ runner.temp }}/codex-home"
+
+      - name: Report optional official validator status
+        working-directory: local-media-scanner
+        run: |
+          validator="${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"
+          if test -f "$validator"; then
+            uv run python "$validator" skills/travel-director
+          else
+            echo "::notice title=Optional Codex validator skipped::Official quick validator is not installed on this runner; repository-contained validation passed in the preceding step."
+          fi
+
       - name: Run test suite
         working-directory: local-media-scanner
         run: uv run pytest -q
+
+      - name: Upload Skill publication receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: travel-director-release-${{ github.sha }}
+          path: ${{ runner.temp }}/codex-home/skill-receipts/travel-director.json
+          if-no-files-found: error
+          retention-days: 30

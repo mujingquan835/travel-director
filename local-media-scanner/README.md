@@ -21,6 +21,14 @@ uv run python skills/travel-director/scripts/install.py --codex-home "${CODEX_HO
 
 更新已有副本时，在安装命令末尾增加 `--replace`；安装器会先备份旧副本。设置 `TRAVEL_DIRECTOR_WORKSPACE` 为当前包目录的绝对路径，避免在多个 checkout 间误用版本。
 
+仓库自带不依赖开发者家目录或 PyYAML 的 Skill 规范校验：
+
+```bash
+uv run python skills/travel-director/scripts/validate.py skills/travel-director
+```
+
+安装成功后会写入 `${CODEX_HOME:-$HOME/.codex}/skill-receipts/travel-director.json`，记录 Git 提交、工作区是否有未提交修改、运行包版本、`pyproject.toml` 哈希和逐文件 Skill manifest。替换安装仍保留旧副本至 `skill-backups/`；发布或收据写入失败时恢复旧副本。官方 Codex `quick_validate.py` 是补充校验：本机存在时运行，不存在时明确记为 skipped；该跳过不影响仓库内置校验，不能写成“官方校验已通过”。
+
 在 Codex 中使用 `$travel-director`，提供素材文件夹绝对路径和自然语言创意要求。Skill 通过唯一的 `run` 入口推进：
 
 ```bash
@@ -53,6 +61,8 @@ git diff --check
 ```
 
 vision 是完整测试的依赖要求，不表示正常 Skill 流程会加载模型。正常 Scanner 流程保持 `--no-models`，外部服务调用次数为 `external_call_count=0`。官方 Codex Skill 校验器未安装时，对应测试会标记 skipped，不能称该项已通过。
+
+GitHub Actions 中存在检查步骤，只能证明对应提交实际运行后的结果。私有仓库是否启用 required checks 必须另查分支保护设置；工作流文件本身不代表检查已经强制阻止合并。CI 成功后会上传 `travel-director-release-<commit>` artifact，其中包含隔离安装生成的发布收据。
 
 ## 证据与使用边界
 

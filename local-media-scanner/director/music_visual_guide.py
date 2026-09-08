@@ -6,7 +6,7 @@ import tempfile
 from director.project import ProjectConflict, _canonical_bytes, _sha256_bytes, _sha256_file
 
 
-def build_guide(direction, music):
+def build_guide(direction, music, timeline=None):
     target = direction.target_duration_seconds
     if target > music.duration_seconds + 1e-6:
         raise ProjectConflict('music does not cover the proposed guide duration')
@@ -42,12 +42,16 @@ def build_guide(direction, music):
             music_change_proposal=section.music_change, sfx_proposals=section.sfx_plan))
     if abs(cursor-target) > 1e-6:
         raise ProjectConflict('creative sections do not cover target duration')
-    return dict(schema_version='1.0.0', mode='fast', artifact_kind='music_visual_guidance',
+    guide = dict(schema_version='1.1.0' if timeline is not None else '1.0.0', mode='fast', artifact_kind='music_visual_guidance',
         target_duration_seconds=target, bpm_estimate=music.bpm, analysis_confidence=music.confidence,
         music_edited=False, footage_edited=False, external_call_count=0,
         boundary='音乐时间均为原曲参考坐标；不裁切音乐或画面，不生成素材入出点。节拍仅供参考，不是必切点。',
         ending_note='目标截点尚未分析，不能用原曲结尾行为推断此处听感。' if target < music.duration_seconds-1e-6 else '原曲结尾分析也需试听复核。',
         sections=rows)
+    if timeline is not None:
+        from director.audio_packaging_guide import build_audio_packaging_advice
+        guide['audio_packaging_advice'] = build_audio_packaging_advice(timeline, direction, music)
+    return guide
 
 
 def render_markdown(guide):
@@ -62,6 +66,9 @@ def render_markdown(guide):
             row['pacing_suggestion']+' '+row['suggestion_reason'], evidence, '; '.join(row['material_gaps']) or '未记录；不代表素材已充分']
         lines.append('| '+' | '.join(c.replace('|','\\|').replace('\n',' ') for c in cells)+' |')
     lines += ['', '完整节拍参考见 JSON；这些标记不要求每拍切镜头。慢速模式仅可使用代表静帧占位，本交付不生成静帧展示或视频。', '']
+    if guide.get('audio_packaging_advice'):
+        from director.audio_packaging_guide import render_audio_packaging_markdown
+        lines += render_audio_packaging_markdown(guide['audio_packaging_advice'])
     return '\n'.join(lines).encode()
 
 
@@ -83,18 +90,19 @@ def record_guide(paths):
     from director.creative_direction import _context, load_creative
     from director.audio_import import load_music_evidence
     from director.timeline_delivery_store import validate_timeline_delivery
-    validate_timeline_delivery(paths)
+    timeline = validate_timeline_delivery(paths)
     hashes, _ = _context(paths)
     creative = load_creative(paths, validate_sources=False)
     evidence = load_music_evidence(paths)
     if creative is None or evidence is None:
         raise ProjectConflict('guide requires verified creative and music evidence')
-    guide = build_guide(creative[0], evidence[1])
+    guide = build_guide(creative[0], evidence[1], timeline)
     guide['inputs'] = dict(visual_hashes=hashes,
         creative_sha256=_sha256_bytes(_canonical_bytes(creative[0].model_dump(mode='json'))),
         music_structure_sha256=_sha256_file(paths.music_structure),
         timeline_receipt_sha256=_sha256_file(paths.root/'delivery/receipt.json'),
-        algorithm_sha256=_sha256_file(Path(__file__)))
+        algorithm_hashes={name: _sha256_file(Path(__file__).with_name(name))
+                          for name in ('music_visual_guide.py', 'audio_packaging_guide.py')})
     data = _canonical_bytes(guide)
     root = paths.root/'guidance'/_sha256_bytes(data)[:20]
     if root.is_symlink() or root.parent.is_symlink():

@@ -171,4 +171,16 @@ Fast mode is text guidance. Slow mode is limited to representative still-image p
 
 The old `--place-footage` and `--build-preview` flags are hidden and fail before project writes. The R06 auto-editing implementation was withdrawn; existing experimental MP4s and placements remain historical, rejected artifacts. Do not use internal prototype commands to bypass this boundary. The base `status` command describes the timeline; repeat `--build-guide` to verify the guide.
 
-R07 scope is audio-packaging recommendations: timing, rationale, duck/recovery advice and cut-point uncertainty. It must not become actual mixing or video rendering.
+## Audio Packaging Advice (R07)
+
+`--build-guide` also includes `audio_packaging_advice`. Treat the supplied 《音效设计核心理论-视频提炼》 as a design reference: useful sound groups assign distinct functions such as progression, release, transition body, low-frequency/tail support and detail accent. Do not turn its “3–5 layers” observation into a fixed quota. Every layer must name the concrete visual event it serves; when that event is absent or unconfirmed, recommend removing the layer. Zero layers and deliberate space are valid.
+
+Keep source plan status separate from recommendation readiness. A timeline `ready` status means a Riser/Hit instruction exists, not that it fits the picture or has passed listening review. The guide exposes `source_status` and `advice_status`, labels frozen files only as verified candidates, and treats unfrozen paths as provenance. It never reads or processes audio.
+
+For Hook, describe the rise, release point, optional transition body, optional tail/low-frequency support, optional detail accent, and three BGM relationship intervals. The intervals are left-closed/right-open to avoid double-counting boundaries. Duck depth and recovery are parameter proposals requiring listening; recovery must be positive, Hit volume must be bounded, and the pre-trigger must stay inside Hook duration.
+
+For each creative section, retain the original SFX prose as a proposal. Before implementation the editor must annotate a concrete picture event and timing; otherwise cancel it. Review masking of music, speech and location sound, dynamic change, and deliberate silence. A layered group is not automatically “better” when its layers have no picture function.
+
+For Outro, if the target duration is shorter than the measured source track, the source ending behavior is inapplicable. Require listening at the actual target cut, keep the recommendation deferred, and do not expose an automatic Outro candidate. Tail duration must follow the final picture hold and original-sound space. `outro_pre_end_seconds` cannot exceed the target duration.
+
+The advice contains no rendered result, gain measurement or listening verdict. Report this boundary and ask the user to review the proposed anchors and density; do not create a mix sample as proof.

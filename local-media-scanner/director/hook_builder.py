@@ -3,18 +3,24 @@ from __future__ import annotations
 import random
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from director.schema import StrictModel
 
 
 class HookConfig(StrictModel):
     hook_duration_seconds: float = Field(default=2.0, gt=0, le=5.0)
-    hit_pre_trigger_seconds: float = 0.2
+    hit_pre_trigger_seconds: float = Field(default=0.2, ge=0.0)
     riser_volume: float = Field(default=0.8, ge=0, le=1.0)
-    hit_volume: float = 0.9
+    hit_volume: float = Field(default=0.9, ge=0.0, le=1.0)
     bgm_duck_level: float = Field(default=0.3, ge=0, le=1.0)
-    bgm_recovery_seconds: float = 0.3
+    bgm_recovery_seconds: float = Field(default=0.3, gt=0.0)
+
+    @model_validator(mode="after")
+    def release_is_inside_hook(self) -> "HookConfig":
+        if self.hit_pre_trigger_seconds > self.hook_duration_seconds:
+            raise ValueError("hit pre-trigger must not exceed hook duration")
+        return self
 
 
 class HookPlan(StrictModel):

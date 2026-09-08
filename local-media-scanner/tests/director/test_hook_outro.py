@@ -41,6 +41,12 @@ def test_hook_config_validation():
     with pytest.raises(ValidationError):
         HookConfig(bgm_duck_level=1.5)
 
+    with pytest.raises(ValidationError):
+        HookConfig(bgm_recovery_seconds=0)
+
+    with pytest.raises(ValidationError):
+        HookConfig(hit_pre_trigger_seconds=3, hook_duration_seconds=2)
+
     valid_config = HookConfig(hook_duration_seconds=3.0, riser_volume=0.5)
     assert valid_config.hook_duration_seconds == 3.0
     assert valid_config.riser_volume == 0.5

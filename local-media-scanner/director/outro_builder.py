@@ -65,6 +65,8 @@ def build_outro_plan(
     duration = music_structure.duration_seconds if target_duration_seconds is None else target_duration_seconds
     if not math.isfinite(duration) or duration <= 0 or duration > music_structure.duration_seconds + 1e-6:
         raise ValueError("outro target duration must be positive and within the measured music")
+    if config.outro_pre_end_seconds > duration:
+        raise ValueError("outro pre-end must not exceed target duration")
     truncated = duration < music_structure.duration_seconds - 1e-6
     sfx_path = None
     reason = "Auto outro disabled"

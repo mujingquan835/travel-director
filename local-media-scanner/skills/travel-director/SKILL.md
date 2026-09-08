@@ -7,6 +7,8 @@ description: Use when a user needs evidence-based creative direction for local t
 
 Use `$travel-director` with two inputs: an absolute local footage directory and the user's natural-language creative brief.
 
+The supported delivery mode is a fast placeholder timeline plan. Footage-filled previews, slow visual filling, and editable project exports are not yet connected to this Runner workflow.
+
 Resolve the authoritative checkout with [scripts/resolve_workspace.py](scripts/resolve_workspace.py), work from the resolved package root, then call only:
 
 ```bash
@@ -24,7 +26,7 @@ Handle the returned state:
 - Audio delivery: one file explicitly for editing is already selected; directly call `run --music <local-audio>` without another quality confirmation. Reference, analysis, failure-review, and rejected attachments are not formal music. When multiple editing tracks arrive without a choice, ask only which file to use. Rejected examples do not imply a universal ban on their instruments or genres.
 - Music replacement: when the user requests a different track after freezing, use `run --project <old-project> --music <new-audio> --new-music-version` and retain the returned new `project_path`. The original version remains unchanged. Without this explicit replacement request, do not switch tracks.
 - `waiting_for_timeline`: report the frozen music and measured analysis paths returned by the Runner. The music is ready; generate beat grid timeline delivery using `run --input <folder> --brief <brief> --project <project_path> --build-timeline`.
-- `completed`: reports the generated beat grid timeline delivery JSON (`timeline_delivery`) and Markdown walkthrough (`timeline_markdown`).
+- `completed`: link the returned timeline JSON (`timeline_delivery`) and Markdown walkthrough (`timeline_markdown`). Explicitly state that this is a verified timeline plan, footage slots remain placeholders, and a footage-filled preview and editable project have not been generated. Describe only audio packaging actually present in the delivery; a Hook/Outro plan does not mean audio has been mixed.
 - `blocked`: report the reason and preserved `project_path`; do not guess, restart, or bypass validation.
 
 Use `uv run travel-director status --project <project_path>` only to diagnose an ambiguous resume state.

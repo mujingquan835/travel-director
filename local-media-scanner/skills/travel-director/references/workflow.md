@@ -2,6 +2,8 @@
 
 Read this reference for confirmation, music import, or resume details. The runner owns internal stages, hashes, and strict artifacts. For `needs_creative_direction`, read [creative-direction.md](creative-direction.md).
 
+The runtime requires Python 3.12, uv, and FFmpeg/ffprobe on PATH. From the resolved package root, `uv sync --locked` installs runtime dependencies. Developers running the full test suite use `uv sync --locked --extra dev --extra vision`, then `uv run pytest -q` and `git diff --check`; these test dependencies do not enable model calls in the Skill workflow.
+
 ## Run And Resume
 
 Start from the package root returned by `scripts/resolve_workspace.py`:
@@ -118,7 +120,9 @@ On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, an
 uv run travel-director run --input <absolute-folder> --brief <description> --project <project_path> --build-timeline
 ```
 
-On `completed`, report the generated `timeline_delivery` (JSON) and `timeline_markdown` (Markdown) paths. The delivery includes the beat-aligned slot grid, text placeholders, and audio packaging (Hook Riser+Hit, BGM ducking, and Outro SFX). On `blocked`, report the saved project and the exact blocker without producing prompts.
+On `completed`, link the returned `timeline_delivery` (JSON) and `timeline_markdown` (Markdown) paths. State that the fast timeline plan is verified, footage slots remain placeholders, and no footage-filled preview or editable project has been generated. Report Hook Riser+Hit, BGM ducking, and Outro only when present in the saved plan; these are mixing instructions, not rendered audio. Include a recorded omission reason when available; a null plan without a reason must not be described as an intentional creative choice. On `blocked`, report the saved project and the exact blocker without producing prompts.
+
+Fast placeholder planning is the only delivery mode connected to this workflow. Slow visual filling, footage preview, and editable project export remain future integrations. Do not route a request for these outputs to internal prototype commands or present a plan as their completed result.
 
 
 Timeline completion verifies both JSON and Markdown against a recorded delivery receipt. Missing or changed files, an interrupted receipt write, or a legacy delivery without a receipt returns `blocked`; report the reason and preserve the existing files rather than treating a saved completion key as sufficient. When the target ends before the measured music ends, Outro timing uses the target duration and automatic ending-based SFX selection is deferred because the cut point has not been analyzed. `completed` describes the placeholder timeline plan, not a rendered or mixed video.

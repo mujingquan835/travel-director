@@ -16,7 +16,11 @@ Read the selected evidence images when their visual details matter. Select only 
 
 ## Submission
 
-Write JSON to the returned `response_path`, following its exact schema. Top-level fields: `schema_version`, `kind`, unchanged `source_hashes`, confirmed duration/location/orientation, `user_preferences`, `reference_policy`, `custom_references`, `selected_references`, `sections`, `music_brief`, `vocals`, and three `music_prompts`. Each prompt includes `direction_id`, `title`, `generation_prompt`, `fit_reason`, `variation`, and known `section_ids`.
+Write JSON to the returned `response_path`, following its exact schema. Top-level fields: `schema_version`, `kind`, unchanged `source_hashes`, confirmed duration/location/orientation, `user_preferences`, optional structured `audio_intent`, `reference_policy`, `custom_references`, `selected_references`, `sections`, `music_brief`, `vocals`, and three `music_prompts`. Each section may also contain structured `audio_intent`. Each prompt includes `direction_id`, `title`, `generation_prompt`, `fit_reason`, `variation`, and known `section_ids`.
+
+Use `audio_intent` only for an attributable decision. Set `source` to `user_explicit` for a choice the user stated, or `creative_proposal` for a proposal authored in this plan, and include a concrete `reason`. Global fields can set `hook_policy`, `added_sfx_policy`, `original_sound_priority`, and `silence_priority`; section fields omit Hook. Leave the object at its default `not_recorded` state when no structured decision exists. Do not promote phrases in `sfx_plan`, `visual_plan`, the brief, or earlier prose into a mandatory policy. A required-silence policy cannot simultaneously preserve or foreground original sound in the same scope.
+
+When choices overlap, user-explicit intent outranks creative proposals; within the same source level a section choice outranks a global choice. Keep creative section times unchanged. Music analysis may later report an aligned, near, mismatched, unavailable, or unanalyzed target-cut boundary, but it must not silently snap or rewrite these narrative boundaries.
 
 Use only known non-rejected treatment material IDs. Missing footage belongs in `material_gaps`, not invented IDs. Empty SFX or packaging arrays mean no design is planned; explain intentional silence/no-title choices in the displayed table. No routine approval is needed before submitting:
 

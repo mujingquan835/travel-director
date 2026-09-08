@@ -184,3 +184,11 @@ For each creative section, retain the original SFX prose as a proposal. Before i
 For Outro, if the target duration is shorter than the measured source track, the source ending behavior is inapplicable. Require listening at the actual target cut, keep the recommendation deferred, and do not expose an automatic Outro candidate. Tail duration must follow the final picture hold and original-sound space. `outro_pre_end_seconds` cannot exceed the target duration.
 
 The advice contains no rendered result, gain measurement or listening verdict. Report this boundary and ask the user to review the proposed anchors and density; do not create a mix sample as proof.
+
+## Creative Audio Intent and Boundary Reconciliation (R08)
+
+The guide reads only structured `audio_intent` saved with the creative direction. A missing object remains `not_recorded`; text such as “保留现场底噪” stays a creative proposal and is never silently promoted into a user mandate. The precedence order is user-explicit intent, then creative proposals, then generic defaults. At the same provenance level a section decision outranks a global decision. Conflicts created across scopes retain the higher-priority choice and expose the overridden field.
+
+`hook_policy=disabled` suppresses Hook advice even when the older timeline contains a ready Riser/Hit plan; the source plan remains visible for provenance. `added_sfx_policy=disabled` suppresses effect proposals at its effective priority. `original_sound_priority=preserve|foreground` and `silence_priority=preserve|required` move added effects behind the protected sound space. Required silence disables conflicting effect advice. These rules produce text statuses only and never modify audio.
+
+Creative section boundaries keep narrative authority. Music-section boundaries with analysis and section confidence at least 0.6 are listening cues. Exact matches are `aligned`; offsets up to 0.5 seconds are `near`; larger offsets are `mismatch`. Both near and mismatch retain the creative time and show a review window. Missing reliable evidence is `music_boundary_unavailable`. When the target cut is shorter than the analyzed track, its final boundary is `target_cut_unanalyzed`. None of these states cuts music, snaps a section, assigns footage, or renders media.

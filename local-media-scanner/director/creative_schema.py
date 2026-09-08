@@ -15,10 +15,63 @@ from director.visual_schema import BriefConfirmation, DirectorTreatment, Project
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Hash = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 Vocals = Literal["instrumental_only", "instrumental_preferred", "allowed", "unspecified"]
+IntentSource = Literal["not_recorded", "creative_proposal", "user_explicit"]
 
 
 class CreativeStrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+
+class CreativeAudioIntent(CreativeStrictModel):
+    """Explicit global audio intent; missing fields must remain unknown/default."""
+
+    source: IntentSource = "not_recorded"
+    hook_policy: Literal["conditional", "disabled"] | None = None
+    added_sfx_policy: Literal["conditional", "disabled"] | None = None
+    original_sound_priority: Literal["normal", "preserve", "foreground"] | None = None
+    silence_priority: Literal["normal", "preserve", "required"] | None = None
+    reason: Text | None = None
+
+    @model_validator(mode="after")
+    def intent_has_provenance(self) -> "CreativeAudioIntent":
+        decisions = (
+            self.hook_policy,
+            self.added_sfx_policy,
+            self.original_sound_priority,
+            self.silence_priority,
+        )
+        if self.source == "not_recorded" and any(value is not None for value in decisions):
+            raise ValueError("audio intent decisions require explicit provenance")
+        if self.source != "not_recorded" and (not any(value is not None for value in decisions) or self.reason is None):
+            raise ValueError("recorded audio intent requires a decision and reason")
+        if self.silence_priority == "required" and self.original_sound_priority in {"preserve", "foreground"}:
+            raise ValueError("required silence conflicts with preserved original sound")
+        return self
+
+
+class SectionAudioIntent(CreativeStrictModel):
+    """Section-specific intent. Explicit user choices outrank creative proposals."""
+
+    source: IntentSource = "not_recorded"
+    added_sfx_policy: Literal["conditional", "disabled"] | None = None
+    original_sound_priority: Literal["normal", "preserve", "foreground"] | None = None
+    silence_priority: Literal["normal", "preserve", "required"] | None = None
+    reason: Text | None = None
+
+    @model_validator(mode="after")
+    def intent_has_provenance(self) -> "SectionAudioIntent":
+        decisions = (
+            self.added_sfx_policy,
+            self.original_sound_priority,
+            self.silence_priority,
+        )
+        if self.source == "not_recorded" and any(value is not None for value in decisions):
+            raise ValueError("section audio intent decisions require explicit provenance")
+        if self.source != "not_recorded" and (not any(value is not None for value in decisions) or self.reason is None):
+            raise ValueError("recorded section audio intent requires a decision and reason")
+        if self.silence_priority == "required" and self.original_sound_priority in {"preserve", "foreground"}:
+            raise ValueError("required silence conflicts with preserved original sound")
+        return self
 
 
 class ReferenceObservation(CreativeStrictModel):
@@ -78,6 +131,7 @@ class CreativeSection(CreativeStrictModel):
     packaging: list[Text]
     reference_ids: list[Text]
     climax: bool = False
+    audio_intent: SectionAudioIntent = Field(default_factory=SectionAudioIntent)
 
 
 class CreativeMusicPrompt(CreativeStrictModel):
@@ -97,6 +151,7 @@ class CreativeDirection(CreativeStrictModel):
     location: Text
     orientation: Literal["landscape", "portrait"]
     user_preferences: list[Text]
+    audio_intent: CreativeAudioIntent = Field(default_factory=CreativeAudioIntent)
     reference_policy: Literal["default_library", "custom", "brief_only"]
     custom_references: list[ReferenceEntry] = Field(default_factory=list)
     selected_references: list[SelectedReference]

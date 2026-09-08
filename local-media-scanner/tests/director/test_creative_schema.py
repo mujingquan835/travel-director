@@ -53,6 +53,44 @@ def test_accepts_grounded_direction_without_forcing_reference():
     assert result.location == "开封"
     assert result.sections[0].end == 60
     assert len(result.music_prompts) == 3
+    assert result.audio_intent.source == 'not_recorded'
+    assert result.sections[0].audio_intent.source == 'not_recorded'
+
+
+def test_structured_audio_intent_accepts_explicit_user_policy():
+    payload, kwargs = context()
+    payload['audio_intent'] = {
+        'source': 'user_explicit', 'hook_policy': 'disabled',
+        'original_sound_priority': 'preserve', 'reason': '用户要求不用 Hook 并保留现场声',
+    }
+    payload['sections'][0]['audio_intent'] = {
+        'source': 'user_explicit', 'silence_priority': 'preserve',
+        'reason': '这一段保留动作之间的停顿',
+    }
+    result = module().validate_creative_direction(payload, **kwargs)
+    assert result.audio_intent.hook_policy == 'disabled'
+    assert result.sections[0].audio_intent.silence_priority == 'preserve'
+
+
+@pytest.mark.parametrize('audio_intent', [
+    {'hook_policy': 'disabled'},
+    {'source': 'user_explicit', 'hook_policy': 'disabled'},
+    {'source': 'creative_proposal', 'reason': '缺少具体决策'},
+    {'source': 'user_explicit', 'silence_priority': 'required',
+     'original_sound_priority': 'foreground', 'reason': '互相冲突'},
+])
+def test_structured_audio_intent_rejects_missing_provenance_reason_or_conflict(audio_intent):
+    payload, kwargs = context()
+    payload['audio_intent'] = audio_intent
+    with pytest.raises(ValueError):
+        module().validate_creative_direction(payload, **kwargs)
+
+
+def test_section_audio_intent_rejects_unprovenanced_decision():
+    payload, kwargs = context()
+    payload['sections'][0]['audio_intent'] = {'added_sfx_policy': 'disabled'}
+    with pytest.raises(ValueError):
+        module().validate_creative_direction(payload, **kwargs)
 
 
 @pytest.mark.parametrize("mutation", [

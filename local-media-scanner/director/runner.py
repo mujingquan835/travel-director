@@ -1172,6 +1172,10 @@ def _completed_timeline_result(
     if evidence is None:
         raise ProjectConflict("music evidence is not complete")
     asset, structure = evidence
+    revision_artifacts = {}
+    if (paths.root / 'timeline_revision.json').is_file():
+        revision_artifacts = {'timeline_revision': str(paths.root / 'timeline_revision.json'),
+                              'timeline_receipt': str(paths.root / 'delivery/receipt.json')}
     return _result(
         paths,
         "completed",
@@ -1187,6 +1191,7 @@ def _completed_timeline_result(
             )
         ],
         artifacts={
+            **revision_artifacts,
             **summary.artifact_paths,
             "music_asset": str(paths.generated_music.resolve()),
             "frozen_music": str((paths.root / asset.frozen_relative_path).resolve()),
@@ -1540,6 +1545,7 @@ def run_travel_director(
     new_music_version: bool = False,
     build_timeline: bool = False,
     require_sfx: tuple[str, ...] = (),
+    new_timeline_revision: bool = False,
 ) -> DirectorRunResult:
     """Advance one local visual project to its next explicit stop state."""
 
@@ -1547,6 +1553,10 @@ def run_travel_director(
     raw_brief = RawCreativeBrief(raw_description=raw_description)
     paths: ProjectPaths | None = None
     try:
+        if new_timeline_revision:
+            if project is None or music is not None or creative_response is not None or response_file is not None or new_music_version:
+                raise ValueError('--new-timeline-revision requires an existing --project and cannot import music or responses')
+            build_timeline = True
         if any(name not in {"hook", "outro"} for name in require_sfx):
             raise ValueError("--require-sfx accepts hook or outro")
         if require_sfx and not build_timeline:
@@ -1590,6 +1600,13 @@ def run_travel_director(
             media,
             new_project=new_project,
         )
+        from director.timeline_revision import create_timeline_revision, validate_revision
+        if new_timeline_revision:
+            paths = create_timeline_revision(paths, require_sfx)
+        revision = validate_revision(paths)
+        if revision is not None:
+            require_sfx = tuple(sorted(set(require_sfx) | set(revision['configuration']['require_sfx'])))
+            build_timeline = True
         if new_music_version:
             from director.music_version import create_music_version
             from director.audio_import import freeze_and_analyze_music
@@ -1642,6 +1659,8 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
     """Read and validate current project checkpoints without writing files."""
 
     paths = open_project(project.resolve())
+    from director.timeline_revision import validate_revision
+    validate_revision(paths)
     state = load_project_state(paths)
     if not isinstance(state, VisualProjectState):
         raise ProjectConflict("status requires a V0.2 visual project")

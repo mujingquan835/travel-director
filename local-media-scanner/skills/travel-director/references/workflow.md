@@ -118,6 +118,20 @@ uv run travel-director run --input <absolute-folder> --brief <description> --pro
 
 This returns an independent new project path with reused visual evidence and new frozen music. Continue from that path; retain the parent. Retrying the same replacement against the same parent reuses the version. It is not an overwrite flag.
 
+## Same-music timeline revision
+
+For a requested update to an already completed timeline using the same music and creative plan:
+
+```bash
+uv run travel-director run --input <same-folder> --brief <same-description> --project <completed-parent> --new-timeline-revision
+```
+
+This implies timeline building; do not combine it with music import, creative/confirmation responses or `--new-music-version`. The parent must have valid delivery files and receipt. The child copies verified observations, creative evidence, frozen music and analysis without rescanning or reanalyzing. Its independent `timeline_revision.json` records parent path/state/receipt hashes, inherited file hashes, algorithm version/source fingerprints and default configuration. The new delivery receipt binds that revision record.
+
+The same parent, algorithm and requirements resolve to the same child. A completed child is reused without consulting the changed audio catalog; library changes alone do not force a revision. Retry the identical request against the parent after a recoverable failure, or resume the returned child normally. A pending child whose algorithm source changed blocks; start the new algorithm request from the completed parent. Report damaged evidence rather than overwriting it. For another deliberate revision, use the appropriate completed parent; do not invent modified Brief text to change identity.
+
+Required SFX options can accompany revision creation. They are saved in the revision configuration and retained on child retries. Copying evidence costs disk space; absolute provenance references retain their original source locations. This feature does not freeze SFX bytes or add preview rendering. Those remain separate work items.
+
 Unfrozen legacy projects reuse existing analysis and request a new creative plan; they do not rescan or overwrite historical summaries. Valid new submissions append creative revisions. Stale submissions are rejected; rerun to obtain the current request and author from its current source hashes. Corrupt records block rather than being silently regenerated. All already-frozen projects, whether legacy or using creative revisions, resume their existing contract even after reference-library updates, without replanning or reselection.
 
 On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, and `music_structure` paths. The measured structure contains the actual BPM, beats, downbeats, energy curve, section candidates, ending behavior, confidence, and source hash. To generate the beat grid timeline delivery:

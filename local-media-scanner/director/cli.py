@@ -75,6 +75,10 @@ def run_command(
         [], "--require-sfx",
         help="With --build-timeline, require hook or outro; repeat for both and on retries.",
     ),
+    new_timeline_revision: bool = typer.Option(
+        False, "--new-timeline-revision",
+        help="Build an independent timeline revision reusing frozen music and observations.",
+    ),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -91,6 +95,7 @@ def run_command(
         new_music_version=new_music_version,
         build_timeline=build_timeline,
         require_sfx=tuple(require_sfx),
+        new_timeline_revision=new_timeline_revision,
     )
     typer.echo(result.model_dump_json(indent=2))
 

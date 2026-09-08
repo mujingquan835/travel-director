@@ -1260,7 +1260,10 @@ def _build_and_record_delivery(
     _check_required_sfx(timeline, require_sfx)
 
     from director.timeline_delivery_store import record_timeline_delivery
-
+    from director.sfx_assets import freeze_sfx_assets
+    timeline = freeze_sfx_assets(
+        timeline, Path(catalog.sfx_root) if sfx_entries else None, paths.root,
+    )
     return record_timeline_delivery(paths, timeline)
 
 

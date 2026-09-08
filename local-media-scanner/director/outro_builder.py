@@ -32,6 +32,8 @@ def _get_sfx_path(e: any) -> str:
 
 def select_outro_sfx(ending_behavior: str, sfx_entries: list) -> str | None:
     """Select the outro SFX based on the ending behavior."""
+    # Preserve eligibility rules; choose the lexicographically smallest path.
+    sfx_entries = sorted(sfx_entries, key=_get_sfx_path)
     if ending_behavior == "hard_stop":
         for e in sfx_entries:
             role = getattr(e, "role", "")

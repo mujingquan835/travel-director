@@ -36,10 +36,17 @@ def validate_timeline_delivery(paths: ProjectPaths) -> FastModeTimeline:
             or not markdown_path.is_file()
             or receipt.get("markdown_sha256") != _sha256_file(markdown_path)):
         raise ProjectConflict("timeline delivery missing or drifted: timeline_markdown or receipt")
-    return FastModeTimeline.model_validate_json(timeline_path.read_text(encoding="utf-8"))
+    timeline = FastModeTimeline.model_validate_json(timeline_path.read_text(encoding="utf-8"))
+    if timeline.schema_version == '1.2.0' or timeline.sfx_assets is not None:
+        from director.sfx_assets import validate_sfx_assets
+        validate_sfx_assets(timeline, paths.root)
+    return timeline
 
 
 def record_timeline_delivery(paths: ProjectPaths, timeline: FastModeTimeline) -> tuple[Path, Path]:
+    if timeline.schema_version == '1.2.0' or timeline.sfx_assets is not None:
+        from director.sfx_assets import validate_sfx_assets
+        validate_sfx_assets(timeline, paths.root)
     timeline_path, markdown_path, receipt_path = delivery_paths(paths)
     markdown = render_fast_mode_markdown(timeline).encode("utf-8")
     receipt = {"schema_version": "1.0.0",

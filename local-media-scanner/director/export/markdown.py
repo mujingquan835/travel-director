@@ -37,6 +37,20 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
     else:
         lines.extend(["- 历史交付未记录音效状态；不推断缺失原因。", ""])
 
+    if timeline.sfx_assets is not None:
+        lines.extend(["### 已冻结的音效文件", "", "导入下列项目内副本；音效库路径仅用于来源追踪。", ""])
+        for asset in timeline.sfx_assets:
+            lines.extend([
+                f"- **{asset.role}**: `{asset.frozen_relative_path}`（相对项目根目录）",
+                f"  - SHA-256: `{asset.sha256}`；时长: {asset.duration_seconds:.3f}s；字节数: {asset.size_bytes}",
+                f"  - 来源: `{asset.source_absolute_path}`",
+            ])
+        if not timeline.sfx_assets:
+            lines.append("- 本交付没有选中的音效，未冻结音效文件。")
+        lines.append("")
+    else:
+        lines.extend(["- 历史方案未冻结音效字节；来源路径不代表可验证的音效副本。", ""])
+
     if timeline.hook_plan is not None:
         hp = timeline.hook_plan
         cfg = hp.config

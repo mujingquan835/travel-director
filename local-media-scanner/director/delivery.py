@@ -14,6 +14,7 @@ from director.export.markdown import render_fast_mode_markdown
 from director.hook_builder import HookConfig, HookPlan, build_hook_plan
 from director.outro_builder import OutroConfig, OutroPlan, build_outro_plan
 from director.schema import MusicStructure, StrictModel
+from director.sfx_assets import SfxAsset
 from director.timeline import (
     TimelineConfig,
     TimelineRoleOverride,
@@ -43,7 +44,7 @@ class AudioPackagingStatus(StrictModel):
 
 
 class FastModeTimeline(StrictModel):
-    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
     mode: Literal["fast"] = "fast"
     target_duration_seconds: float = Field(gt=0.0)
     music_title: str | None = None
@@ -53,6 +54,7 @@ class FastModeTimeline(StrictModel):
     outro_plan: OutroPlan | None = None
     # None means a legacy delivery never recorded packaging diagnostics.
     audio_packaging: dict[Literal["hook", "outro"], AudioPackagingStatus] | None = None
+    sfx_assets: list[SfxAsset] | None = None
     slots: list[FastModeSlot] = Field(min_length=1)
 
 

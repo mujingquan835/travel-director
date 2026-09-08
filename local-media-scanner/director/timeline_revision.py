@@ -66,7 +66,7 @@ def create_timeline_revision(parent, require_sfx=()):
     package = Path(__file__).resolve().parent
     code_files = ('timeline.py', 'delivery.py', 'hook_builder.py', 'outro_builder.py',
                   'audio_catalog.py', 'export/markdown.py', 'timeline_delivery_store.py',
-                  'timeline_revision.py', 'runner.py', 'schema.py')
+                  'timeline_revision.py', 'runner.py', 'schema.py', 'sfx_assets.py')
     linkage = {
         'schema_version': '1.0.0', 'algorithm_version': ALGORITHM_VERSION,
         'algorithm_files': {name: _sha256_file(package / name) for name in code_files},

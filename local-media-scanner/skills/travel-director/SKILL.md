@@ -7,7 +7,7 @@ description: Use when a user needs evidence-based creative direction for local t
 
 Use `$travel-director` with two inputs: an absolute local footage directory and the user's natural-language creative brief.
 
-The supported delivery mode is a fast placeholder timeline plan. Footage-filled previews, slow visual filling, and editable project exports are not yet connected to this Runner workflow.
+The supported delivery mode is a fast timeline plan, with optional evidence-constrained footage placement and low-resolution BGM-only preview. Slow visual filling and editable project exports are not yet connected.
 
 Resolve the authoritative checkout with [scripts/resolve_workspace.py](scripts/resolve_workspace.py), work from the resolved package root, then call only:
 
@@ -27,7 +27,8 @@ Handle the returned state:
 - Music replacement: when the user requests a different track after freezing, use `run --project <old-project> --music <new-audio> --new-music-version` and retain the returned new `project_path`. The original version remains unchanged. Without this explicit replacement request, do not switch tracks.
 - Same-music timeline revision: when requested, resume the completed parent with unchanged input/brief and `--new-timeline-revision`. This builds a separate project using its frozen observations, creative plan and music analysis. Read the workflow revision rules; keep the returned new `project_path` and report its lineage and receipt.
 - `waiting_for_timeline`: report the frozen music and measured analysis paths returned by the Runner. The music is ready; generate beat grid timeline delivery using `run --input <folder> --brief <brief> --project <project_path> --build-timeline`.
-- `completed`: link the returned timeline JSON (`timeline_delivery`) and Markdown walkthrough (`timeline_markdown`). Explicitly state that this is a verified timeline plan, footage slots remain placeholders, and a footage-filled preview and editable project have not been generated. Describe only audio packaging actually present in the delivery; a Hook/Outro plan does not mean audio has been mixed.
+- Footage placement and preview: when requested after music selection, use the same project/input/brief with `--place-footage` to generate the reviewable placement report, then `--build-preview` to render. Read the report before rendering; no extra permission gate is required. Preserve partial gaps and the original timeline. Follow the footage-preview rules in the workflow reference.
+- `completed`: link the returned timeline JSON (`timeline_delivery`) and Markdown (`timeline_markdown`). For `footage_placement` or `footage_preview`, also link `placement_json`, `placement_markdown`, and `preview` / `preview_receipt` only when returned. Without a returned preview path, do not claim a video exists. The original timeline remains a placeholder plan; the placement report is its separate footage-filled proposal. Preview audio is BGM only: Hook/Outro/original mixing and editable project export are pending. A playable preview does not establish subjective editing quality.
 - `blocked`: report the reason and preserved `project_path`; do not guess, restart, or bypass validation.
 
 Use `uv run travel-director status --project <project_path>` only to diagnose an ambiguous resume state.

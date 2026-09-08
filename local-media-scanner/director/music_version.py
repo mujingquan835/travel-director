@@ -62,7 +62,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
             build_skill_run_summary(child.root)
         return child
     excluded = {"generation", "music_structure.json", "timeline_slots.json",
-                "clip_placements.json", "sfx_plan.json", "render", "music_version.json", "delivery", "timeline_revision.json"}
+                "clip_placements.json", "sfx_plan.json", "render", "previews", "music_version.json", "delivery", "timeline_revision.json"}
     for path in parent.root.rglob('*'):
         if path.is_symlink():
             raise ProjectConflict("music version evidence must not contain symbolic links")

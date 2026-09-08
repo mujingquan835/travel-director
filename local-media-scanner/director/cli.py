@@ -79,6 +79,8 @@ def run_command(
         False, "--new-timeline-revision",
         help="Build an independent timeline revision reusing frozen music and observations.",
     ),
+    place_footage: bool = typer.Option(False, '--place-footage', help='Write an evidence-constrained footage placement report; preserve gaps.'),
+    build_preview: bool = typer.Option(False, '--build-preview', help='Place footage and render a low-resolution BGM-only preview when all slots are filled.'),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -96,6 +98,8 @@ def run_command(
         build_timeline=build_timeline,
         require_sfx=tuple(require_sfx),
         new_timeline_revision=new_timeline_revision,
+        place_footage=place_footage,
+        build_preview=build_preview,
     )
     typer.echo(result.model_dump_json(indent=2))
 

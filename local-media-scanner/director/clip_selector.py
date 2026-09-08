@@ -154,6 +154,7 @@ def place_clips(
     config: ClipSelectionConfig,
     *,
     use_recommended_ranges: bool = True,
+    allowed_files_by_slot: dict[str, set[str]] | None = None,
 ) -> PlacementResult:
     """Choose deterministic source ranges while preserving Scanner uncertainty."""
 
@@ -167,6 +168,8 @@ def place_clips(
     for slot in slots:
         eligible = []
         for item in materials:
+            if allowed_files_by_slot is not None and item.file not in allowed_files_by_slot.get(slot.slot_id, set()):
+                continue
             ranges, relaxed_range = _available_ranges(
                 item,
                 slot.duration,

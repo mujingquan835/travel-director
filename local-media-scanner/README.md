@@ -34,10 +34,10 @@ uv run travel-director run --input <absolute-folder> --brief <description>
 | 交付类型 | 当前正式 Runner 支持 | 内容 |
 | --- | --- | --- |
 | 快速时间线方案 | 支持 | 节拍对齐占位槽位、叙事/运镜提示，以及实际生成的音频包装计划；JSON、Markdown 和完整性收据 |
-| 真实素材预览 | 尚未接入 | 素材填槽、完整混音与预览 MP4；仓库中的原型组件不等于正式交付链路 |
+| 真实素材预览 | 已接入 R06 | `--place-footage` 产出填槽报告；`--build-preview` 生成低清 BGM-only MP4，完整混音留待 R07 |
 | 编辑工程 | 尚未接入 | 剪映等软件的可编辑工程 |
 
-`completed` 表示占位时间线方案已通过完整性校验。交付时必须列出返回的 JSON/Markdown 路径，说明素材槽位仍待填充，以及尚未生成真实素材预览和编辑工程。仅报告实际存在的 Hook/Outro 计划；计划不代表音效已混入音频。慢速可视化填槽尚未作为正式模式提供。
+默认 `completed` 表示占位时间线方案已通过完整性校验。使用 `--place-footage` / `--build-preview` 时，根据 `current_stage` 和实际返回路径交付填槽报告或预览；有空槽时报告内为 `partial`，Runner 为 `blocked`，停止渲染并保留完整时间轴。产物独立保存于 `previews/<内容指纹>/`，旧时间线和收据不变。预览只含 BGM，完整画面缩放加黑边；Hook/Outro/原声混音、编辑工程和慢速可视化填槽尚未交付。
 
 ## 完整测试环境
 

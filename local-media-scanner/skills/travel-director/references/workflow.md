@@ -155,6 +155,12 @@ When the user explicitly requires Hook or Outro, append `--require-sfx hook` or 
 
 Timeline completion verifies both JSON and Markdown against a recorded delivery receipt. Missing or changed files, an interrupted receipt write, or a legacy delivery without a receipt returns `blocked`; report the reason and preserve the existing files rather than treating a saved completion key as sufficient. When the target ends before the measured music ends, Outro timing uses the target duration and automatic ending-based SFX selection is deferred because the cut point has not been analyzed. Inspect `current_stage` and returned artifact paths to distinguish timeline completion from music/picture guidance completion.
 
+## Formal Timeline Delivery and Validation Exports (R09)
+
+`timeline_delivery_store.record_timeline_delivery` is the only project-completing timeline writer. It writes under `delivery/`, records JSON and receipt hashes in project state, validates JSON/Markdown/receipt together, and rejects any attempt to replace completed bytes. The Runner calls this path; a missing or interrupted receipt remains `blocked` and is never reported as completed.
+
+`delivery.export_fast_mode_validation_artifacts` is an internal, unreceipted diagnostic exporter. It cannot write a directory named `delivery`, and inside a recognized project it may write only below `validation/`. It does not update project state or produce `receipt.json`. Each file replacement is atomic, but the JSON/Markdown pair is not a formal transaction; after interruption, inspect or discard that validation directory. Never link a validation export as user delivery.
+
 ## Music And Picture Guidance (Corrected R06)
 
 This Skill does not edit. Use unchanged input/brief and the existing project:

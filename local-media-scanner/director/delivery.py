@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Literal
 
@@ -175,16 +176,56 @@ def build_fast_mode_timeline(
     )
 
 
-def save_fast_mode_delivery(
+def _atomic_write_validation_artifact(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as temporary:
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def _guard_validation_output(output_dir: Path) -> None:
+    resolved = output_dir.resolve()
+    if resolved.name == "delivery":
+        raise ValueError(
+            "validation export cannot write a formal delivery directory; "
+            "use timeline_delivery_store.record_timeline_delivery"
+        )
+    for parent in (resolved, *resolved.parents):
+        if not (parent / "project_state.json").is_file():
+            continue
+        relative = resolved.relative_to(parent)
+        if not relative.parts or relative.parts[0] != "validation":
+            raise ValueError("project-scoped validation exports must stay under validation/")
+        break
+
+
+def export_fast_mode_validation_artifacts(
     timeline: FastModeTimeline, output_dir: Path
 ) -> tuple[Path, Path]:
-    """Atomically save the JSON and Markdown representations of the Fast Mode timeline."""
+    """Write unreceipted validation artifacts without changing project state.
+
+    Each file replacement is atomic, but the pair is not a formal transaction. A
+    complete project delivery must use ``record_timeline_delivery`` instead.
+    """
+    _guard_validation_output(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "fast_mode_timeline.json"
     md_path = output_dir / "timeline_delivery.md"
 
-    json_path.write_text(timeline.model_dump_json(indent=2), encoding="utf-8")
-    md_content = render_fast_mode_markdown(timeline)
-    md_path.write_text(md_content, encoding="utf-8")
+    json_payload = timeline.model_dump_json(indent=2).encode("utf-8")
+    markdown_payload = render_fast_mode_markdown(timeline).encode("utf-8")
+    _atomic_write_validation_artifact(json_path, json_payload)
+    _atomic_write_validation_artifact(md_path, markdown_payload)
 
     return json_path, md_path

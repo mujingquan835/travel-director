@@ -439,3 +439,22 @@ def test_interrupted_receipt_write_never_reports_completed(tmp_path, monkeypatch
     assert interrupted.status == 'blocked'
     monkeypatch.setattr(store, 'record_supporting_artifact', original)
     assert run_travel_director(source, BRIEF, project=project).status == 'blocked'
+
+
+def test_formal_delivery_rejects_replacement_and_preserves_completed_bytes(tmp_path, monkeypatch, click_track):
+    from director.delivery import FastModeTimeline
+    from director.project import ProjectConflict, open_project
+    from director.timeline_delivery_store import record_timeline_delivery
+
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    run_travel_director(source, BRIEF, project=project, music=click_track)
+    completed = run_travel_director(source, BRIEF, project=project, build_timeline=True)
+    assert completed.status == 'completed'
+    before = snapshot(project)
+    timeline = FastModeTimeline.model_validate_json(
+        Path(completed.artifact_paths['timeline_delivery']).read_text(encoding='utf-8')
+    ).model_copy(update={'music_title': 'replacement attempt'})
+    with pytest.raises(ProjectConflict, match='timeline delivery differs'):
+        record_timeline_delivery(open_project(project), timeline)
+    assert snapshot(project) == before

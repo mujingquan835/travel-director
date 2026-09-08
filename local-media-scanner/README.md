@@ -40,6 +40,8 @@ uv run travel-director run --input <absolute-folder> --brief <description>
 
 本 Skill 提供编排建议，不负责剪辑。快速模式使用 `--build-guide`，输出到独立 `guidance/<内容指纹>/`，原音乐、素材和旧交付保持不变。音乐时间与节拍仅作参考，不是每拍必切；素材缺口和分析置信度保留。音频包装按推进、释放、主体、支撑、点缀等功能给出条件式建议，每层必须对应具体画面事件，没有依据时允许不加。用户明确禁用 Hook、保留现场声或留出静默时，通过结构化创意意图控制优先级；未记录时不从自由文本推断。创意分段时间保持不变，音乐分析边界只形成试听窗口。Ducking 参数和声效候选均需试听复核，不代表已混音。旧 R06 自动填槽、源入出点与 MP4 路线已撤回。
 
+正式时间线交付只能由 Runner 写入 `delivery/`，并同时校验 JSON、Markdown、`receipt.json` 和项目状态哈希。内部 `export_fast_mode_validation_artifacts` 只用于 `validation/` 下的诊断文件，不生成收据、不更新 completed 状态，也不能写入正式 `delivery/`。
+
 ## 完整测试环境
 
 完整测试会导入 Scanner 的可选视觉模块，因此需要同时安装 dev 与 vision extras，与 GitHub Actions 保持一致：

@@ -24,7 +24,7 @@
 
 优先级：P1 为正式建议交付必须处理；P2 为提升质量与可维护性；P3 为后续扩展。
 
-执行进度：R01–R08 已完成，R09–R12 未执行。每次只处理一项，报告后暂停。下文问题证据保留审查时基线。
+执行进度：R01–R09 已完成，R10–R12 未执行。每次只处理一项，报告后暂停。下文问题证据保留审查时基线。
 
 ### R01 · P1 · 统一能力说明和交付措辞
 
@@ -117,6 +117,8 @@
 **验收**：无 Hook 创意不会被自动叠加；分段交界能解释时间偏移；高潮强化不凭空制造不存在的素材或事件。
 
 ### R09 · P2 · 收敛交付保存入口
+
+**状态：已完成**。正式时间线交付唯一入口保持为 `timeline_delivery_store.record_timeline_delivery`；原无收据 `save_fast_mode_delivery` 改名为 `export_fast_mode_validation_artifacts`，明确只生成 validation artifact。验证导出拒绝正式 `delivery/`，项目内只能写入 `validation/`，不产生收据或更新项目状态；单文件原子替换，但不再声称两文件构成事务。正式写入中断继续失败关闭，替换已完成字节会在写入前阻塞并保留旧交付。详见 [R09 阶段总结](2026-09-08-r09-delivery-entry-completed.md)。
 
 **证据**：`delivery.save_fast_mode_delivery` 注释称原子保存，实际直接连续 write_text；正式 Runner 使用有收据的 `timeline_delivery_store.record_timeline_delivery`。不能把前者问题误报为 Runner 已失去收据保护。
 

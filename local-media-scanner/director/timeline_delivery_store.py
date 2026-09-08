@@ -44,6 +44,7 @@ def validate_timeline_delivery(paths: ProjectPaths) -> FastModeTimeline:
 
 
 def record_timeline_delivery(paths: ProjectPaths, timeline: FastModeTimeline) -> tuple[Path, Path]:
+    """Write the only project-completing timeline delivery, including its receipt."""
     if timeline.schema_version == '1.2.0' or timeline.sfx_assets is not None:
         from director.sfx_assets import validate_sfx_assets
         validate_sfx_assets(timeline, paths.root)

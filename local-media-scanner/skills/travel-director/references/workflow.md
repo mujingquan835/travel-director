@@ -8,6 +8,12 @@ The runtime requires Python 3.12, uv, and FFmpeg/ffprobe on PATH. From the resol
 
 Start from the package root returned by `scripts/resolve_workspace.py`:
 
+Workspace resolution uses this order: explicit `--workspace`, then `TRAVEL_DIRECTOR_WORKSPACE`, then the current Git checkout (or current directory outside Git). A configured value may name the package itself or a repository containing `local-media-scanner`. An invalid configured value fails immediately, including an empty value; it never falls back. A valid explicit argument overrides the environment.
+
+If the current checkout has no valid package, discovery checks its registered Git worktrees and the resolver script's parent directories. One unique valid package is accepted; multiple candidates produce an ambiguity error listing their paths. Select the intended checkout explicitly instead of assuming a feature branch or main is preferred. There is no machine-specific default directory. An installed Skill invoked outside a project needs a configured workspace when no package can be discovered.
+
+Before resuming across checkouts, verify the returned absolute package path and run `git -C <package-path> rev-parse HEAD` to identify its code revision (when Git-managed). Keep resolver stdout as the package path so callers can use it directly; failures are written to stderr with a nonzero exit code.
+
 ```bash
 uv run travel-director run --input <absolute-folder> --brief <description>
 ```

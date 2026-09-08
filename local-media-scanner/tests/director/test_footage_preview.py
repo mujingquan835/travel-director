@@ -116,6 +116,7 @@ def test_guide_runner_no_media_calls_preserves_history_and_reuses(tmp_path,monke
 
 def test_cli_new_and_retired_flags(tmp_path,monkeypatch):
     from typer.testing import CliRunner
+    from typer.main import get_command
     from director.cli import app
     seen = {}
     def run(*a,**kw):
@@ -125,5 +126,10 @@ def test_cli_new_and_retired_flags(tmp_path,monkeypatch):
     cli=CliRunner()
     assert cli.invoke(app,['run','--input',str(tmp_path),'--brief',BRIEF,'--build-guide']).exit_code==0
     assert seen['build_guide']
-    help_text=cli.invoke(app,['run','--help']).output
-    assert '--build-guide' in help_text and '--build-preview' not in help_text
+    parameters = {
+        option: parameter
+        for parameter in get_command(app).commands['run'].params
+        for option in parameter.opts
+    }
+    assert parameters['--build-guide'].hidden is False
+    assert parameters['--build-preview'].hidden is True

@@ -20,7 +20,7 @@ from director.outro_builder import OutroConfig
 
 ALGORITHM_VERSION = 'timeline-revision-1'
 EXCLUDED = {'delivery', 'timeline_slots.json', 'clip_placements.json', 'sfx_plan.json',
-            'render', 'previews', 'validation', 'timeline_revision.json'}
+            'render', 'previews', 'guidance', 'validation', 'timeline_revision.json'}
 
 
 def _manifest(root):

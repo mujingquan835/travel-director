@@ -1551,6 +1551,7 @@ def run_travel_director(
     new_timeline_revision: bool = False,
     place_footage: bool = False,
     build_preview: bool = False,
+    build_guide: bool = False,
 ) -> DirectorRunResult:
     """Advance one local visual project to its next explicit stop state."""
 
@@ -1559,8 +1560,10 @@ def run_travel_director(
     paths: ProjectPaths | None = None
     try:
         if place_footage or build_preview:
+            raise ValueError('R06 corrected: automatic footage placement/rendering is retired. Use --build-guide for planning only; slow mode uses still placeholders only.')
+        if build_guide:
             if project is None or new_music_version or music or response_file or creative_response:
-                raise ValueError('footage placement requires an existing --project without music/response imports')
+                raise ValueError('--build-guide requires an existing --project without music/response imports')
             build_timeline = True
         if new_timeline_revision:
             if project is None or music is not None or creative_response is not None or response_file is not None or new_music_version:
@@ -1629,17 +1632,14 @@ def run_travel_director(
                 return _completed_timeline_result(paths, summary, json_path, md_path, require_sfx)
             return _waiting_for_timeline_result(paths, summary)
         result = _advance_run(paths, resolved_input, response_file, music, creative_response, build_timeline=build_timeline, require_sfx=require_sfx)
-        if (place_footage or build_preview) and result.status == 'completed':
-            from director.footage_preview import build_footage_preview
-            preview = build_footage_preview(paths, resolved_input, render=build_preview)
-            artifacts = {key: preview[key] for key in ('placement_json', 'placement_markdown', 'preview', 'preview_receipt') if key in preview}
+        if build_guide and result.status == 'completed':
+            from director.music_visual_guide import record_guide
+            artifacts = record_guide(paths)
             return result.model_copy(update={
-                'status': 'completed' if preview['status'] == 'completed' else 'blocked',
-                'current_stage': 'footage_preview' if build_preview else 'footage_placement',
-                'message': f"Footage placement/preview status: {preview['status']}. " + preview.get('error', '') +
-                    ' In/out points are editing proposals. Preview audio is BGM only; Hook/Outro/original mixing awaits R07. Gaps remain explicit in the placement report.',
+                'current_stage': 'music_visual_guidance',
+                'message': '音乐分段与画面建议已生成。节拍是参考而非必切点；快切与停留需试听复核。未剪辑音乐或画面，未指定素材入出点，未生成视频。',
                 'artifact_paths': {**result.artifact_paths, **artifacts},
-                'actions': [RunAction(kind='read_summary', message='Review placements and any generated preview.', result_path=preview['placement_markdown'])],
+                'actions': [RunAction(kind='read_summary', message='阅读音乐分段与画面建议。', result_path=artifacts['music_visual_guide_markdown'])],
             })
         return result
     except (OSError, ProjectConflict, ValueError) as exc:

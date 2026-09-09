@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Sequence
@@ -57,6 +59,77 @@ def decode_probe_frames(
     output_dir: Path,
     config: SamplingConfig,
     ffmpeg_bin: str = "ffmpeg",
+) -> list[ProbeFrame]:
+    automatic_hardware = config.hardware_acceleration == "auto"
+    hardware = config.hardware_acceleration
+    if automatic_hardware:
+        hardware = "videotoolbox" if sys.platform == "darwin" else "none"
+    resolved = config.model_copy(update={"hardware_acceleration": hardware})
+    sequential = config.decode_strategy == "sequential" or (
+        config.decode_strategy == "auto" and metadata.duration <= 30
+        and hardware == "videotoolbox"
+    )
+    try:
+        return (_decode_sequential if sequential else _decode_seek)(
+            path, metadata, output_dir, resolved, ffmpeg_bin
+        )
+    except SamplingError as exc:
+        if not automatic_hardware or hardware == "none" or exc.code == "ffmpeg_missing":
+            raise
+        # Unsupported hardware/codec and incomplete batch output retain the
+        # original accurate software seek path. Never reuse partial batch files.
+        logging.getLogger(__name__).warning(
+            "Hardware probe failed for %s (%s); falling back to software seek",
+            path.name, exc.code,
+        )
+        for partial in output_dir.glob("probe-*.jpg"):
+            partial.unlink()
+        return _decode_seek(
+            path, metadata, output_dir,
+            config.model_copy(update={"hardware_acceleration": "none"}), ffmpeg_bin,
+        )
+
+
+def _decode_sequential(
+    path: Path, metadata: TechnicalMetadata, output_dir: Path,
+    config: SamplingConfig, ffmpeg_bin: str,
+) -> list[ProbeFrame]:
+    """Decode short clips once; keep the existing target times and selection budget."""
+    times = target_probe_times(metadata.duration, config)
+    if not times:
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    # selected_n counts emitted frames. Each threshold selects the first source
+    # frame at or after that target, without scaling every decoded source frame.
+    thresholds = "+".join(f"gte(t,{t:.6f})" for t in times)
+    command = [ffmpeg_bin, "-v", "error", "-threads", "2"]
+    if config.hardware_acceleration != "none":
+        command.extend(["-hwaccel", config.hardware_acceleration])
+    command.extend([
+        "-i", str(path), "-an", "-sn", "-dn", "-filter_threads", "1",
+        "-vf", f"setpts=PTS-STARTPTS,select='gt({thresholds},selected_n)',{_scale_filter(config.probe_max_edge)}",
+        "-vsync", "0", "-frames:v", str(len(times)), "-q:v", "3",
+        "-start_number", "0", "-y", str(output_dir / "probe-%04d.jpg"),
+    ])
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    except FileNotFoundError as exc:
+        raise SamplingError("ffmpeg_missing", f"ffmpeg not found: {ffmpeg_bin}") from exc
+    if completed.returncode != 0:
+        raise SamplingError("decode_failed", completed.stderr.strip() or "sequential decode failed")
+    frames = []
+    for index, timestamp in enumerate(times):
+        image = cv2.imread(str(output_dir / f"probe-{index:04d}.jpg"))
+        if image is not None:
+            frames.append(ProbeFrame(timestamp=timestamp, image=image))
+    if len(frames) != len(times):
+        raise SamplingError("incomplete_frames", f"Expected {len(times)} probe frames, decoded {len(frames)}")
+    return frames
+
+
+def _decode_seek(
+    path: Path, metadata: TechnicalMetadata, output_dir: Path,
+    config: SamplingConfig, ffmpeg_bin: str,
 ) -> list[ProbeFrame]:
     times = target_probe_times(metadata.duration, config)
     if not times:

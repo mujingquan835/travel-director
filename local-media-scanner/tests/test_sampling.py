@@ -131,10 +131,98 @@ def test_probe_decode_uses_input_side_seek_for_each_sparse_target(
         sample_video,
         metadata,
         tmp_path / "probe",
-        SamplingConfig(hardware_acceleration="videotoolbox"),
+        SamplingConfig(hardware_acceleration="videotoolbox", decode_strategy="seek"),
     )
 
     assert len(commands) == len(frames)
     assert all(command.index("-ss") < command.index("-i") for command in commands)
     assert all(command[command.index("-hwaccel") + 1] == "videotoolbox" for command in commands)
     assert all(command.index("-hwaccel") < command.index("-ss") for command in commands)
+
+
+def test_sequential_matches_seek_on_moving_frames(tmp_path):
+    import subprocess
+    video=tmp_path/'moving.mp4'
+    subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','testsrc2=size=160x120:rate=30:duration=3','-c:v','libx264','-pix_fmt','yuv420p',str(video)],check=True)
+    metadata=probe_video(video)
+    old=decode_probe_frames(video,metadata,tmp_path/'old',SamplingConfig(decode_strategy='seek'))
+    new=decode_probe_frames(video,metadata,tmp_path/'new',SamplingConfig(decode_strategy='sequential'))
+    assert [f.timestamp for f in old]==[f.timestamp for f in new]
+    assert all(a.image.shape==b.image.shape for a,b in zip(old,new))
+    assert max(np.abs(a.image.astype(float)-b.image.astype(float)).mean() for a,b in zip(old,new)) < 3
+
+
+def test_sequential_short_clip_uses_one_ffmpeg_process(sample_video,tmp_path,monkeypatch):
+    import scanner.sampling as sampling
+    original=sampling.subprocess.run
+    commands=[]
+    metadata=probe_video(sample_video)
+    def tracked(command,**kwargs):
+        commands.append(command)
+        return original(command,**kwargs)
+    monkeypatch.setattr(sampling.subprocess,'run',tracked)
+    frames=decode_probe_frames(sample_video,metadata,tmp_path/'new',SamplingConfig(decode_strategy='sequential',hardware_acceleration='none'))
+    assert len(commands)==1
+    assert len(frames)==len(target_probe_times(metadata.duration,SamplingConfig()))
+
+
+def test_auto_hardware_failure_falls_back_without_partial_frames(sample_video, tmp_path, monkeypatch):
+    import scanner.sampling as sampling
+    metadata = probe_video(sample_video)
+    monkeypatch.setattr(sampling.sys, "platform", "darwin")
+    def fail(path, metadata, output, config, binary):
+        output.mkdir()
+        (output / "probe-0000.jpg").write_bytes(b"partial")
+        raise sampling.SamplingError("decode_failed", "unsupported hardware codec")
+    original = sampling._decode_seek
+    def check_fallback(path, metadata, output, config, binary):
+        assert not list(output.glob("probe-*.jpg"))
+        assert config.hardware_acceleration == "none"
+        return original(path, metadata, output, config, binary)
+    monkeypatch.setattr(sampling, "_decode_sequential", fail)
+    monkeypatch.setattr(sampling, "_decode_seek", check_fallback)
+    frames = decode_probe_frames(sample_video, metadata, tmp_path / "fallback", SamplingConfig())
+    assert len(frames) == len(target_probe_times(metadata.duration, SamplingConfig()))
+
+
+def test_auto_non_mac_preserves_software_seek(sample_video, tmp_path, monkeypatch):
+    import scanner.sampling as sampling
+    metadata = probe_video(sample_video)
+    monkeypatch.setattr(sampling.sys, "platform", "linux")
+    original = sampling._decode_seek
+    def checked(path, metadata, output, config, binary):
+        assert config.hardware_acceleration == "none"
+        return original(path, metadata, output, config, binary)
+    monkeypatch.setattr(sampling, "_decode_seek", checked)
+    monkeypatch.setattr(sampling, "_decode_sequential", lambda *a: pytest.fail("software sequential regression"))
+    assert decode_probe_frames(sample_video, metadata, tmp_path / "linux", SamplingConfig())
+
+
+@pytest.mark.parametrize("duration, expected", [(12, "sequential"), (45, "seek")])
+def test_auto_mac_routes_by_duration(sample_video, tmp_path, monkeypatch, duration, expected):
+    import scanner.sampling as sampling
+    metadata = probe_video(sample_video).model_copy(update={"duration": duration})
+    monkeypatch.setattr(sampling.sys, "platform", "darwin")
+    routes = []
+    def decoder(name):
+        def run(path, metadata, output, config, binary):
+            assert config.hardware_acceleration == "videotoolbox"
+            routes.append(name)
+            return []
+        return run
+    monkeypatch.setattr(sampling, "_decode_seek", decoder("seek"))
+    monkeypatch.setattr(sampling, "_decode_sequential", decoder("sequential"))
+    decode_probe_frames(sample_video, metadata, tmp_path, SamplingConfig())
+    assert routes == [expected]
+
+
+def test_explicit_hardware_failure_is_not_silently_overridden(sample_video, tmp_path, monkeypatch):
+    import scanner.sampling as sampling
+    metadata = probe_video(sample_video)
+    def fail(*args):
+        raise sampling.SamplingError("decode_failed", "unsupported")
+    monkeypatch.setattr(sampling, "_decode_sequential", fail)
+    monkeypatch.setattr(sampling, "_decode_seek", lambda *args: pytest.fail("unexpected fallback"))
+    with pytest.raises(sampling.SamplingError, match="unsupported"):
+        decode_probe_frames(sample_video, metadata, tmp_path,
+                            SamplingConfig(hardware_acceleration="videotoolbox"))

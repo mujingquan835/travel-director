@@ -52,3 +52,18 @@ Use the existing `--new-music-version` flow first. It copies validated visual ob
 ## Template and reference loading
 
 Use metadata, filenames and `rg` matches to shortlist relevant templates or reference entries. Open only the selected entry and evidence needed for the current decision. Never recursively read template, asset, example or reference directories into context. If no entry matches, proceed from the Brief and cached material evidence and record that no template was used.
+
+## Match and place local SFX
+
+When sound effects are requested for an editable handoff, turn selected picture events into `sfx_cues` in the concise decision, then run the same exporter with `--sfx-root <actual-sound-effects-directory>`. Do not stop at a prose SFX plan or manually browse the entire music library. Reuse existing shot decisions and cached observations; matching does not need footage extraction or another visual pass.
+
+Each cue supplies `cue_id`, `role`, `anchor_video_index` (zero-based among video clips in decision order), `event`, `offset_seconds` (relative to that video clip's timeline start), `duration`, and linear `gain`. Optional `keywords` must all match the filename; use them for concrete environmental sounds. Roles: `whoosh`, `riser`, `hook_hit`, `hook_subdrop`, `outro_hit`, `outro_piano`, `env_drone`, `env_ambient`. An ambient cue requires a keyword such as `火焰`; do not infer fire/crowd sounds from generic scenery. A shot boundary itself can anchor a transition sound. Preserve user silence/original-audio preferences when deciding which cues to submit; no universal minimum effect count.
+
+```json
+"sfx_cues": [{"cue_id":"cut-2","role":"whoosh","anchor_video_index":1,
+  "event":"second picture enters","offset_seconds":0,"duration":0.6,"gain":0.5}]
+```
+
+The program selects by exact role and all supplied filename keywords, then shortest sufficient duration and stable path order. This is metadata matching, not listening or semantic recognition. It validates the event anchor and media range, writes each cue to a separate audio lane, copies SFX bytes into the package, and saves `resolved_decision.json` plus `receipt.sfx_matches` and `receipt.sfx_segments`. Explicit cues without a match fail before package creation; report the missing cue instead of claiming success or substituting an arbitrary sound.
+
+Check that the receipt contains every requested cue and its resulting track, time range, gain and packaged material. `fcpxml_generated` means those segments exist in the validated FCPXML; it does not mean this package was imported into Jianying or sounds good. Follow the client acceptance section separately. Existing guide-only workflows remain planning output until an edit decision is exported.

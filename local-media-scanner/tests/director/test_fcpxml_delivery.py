@@ -109,11 +109,11 @@ def test_export_fcpxml_materializes_concise_decision(tmp_path: Path) -> None:
         "duration": "3s", "audioRole": "dialogue", "volume": "-96dB",
     }
     assert clips["music.wav"].attrib | {"volume": clips["music.wav"].find("adjust-volume").attrib["amount"]} == {
-        "ref": "asset-2", "name": "music.wav", "lane": "-1", "offset": "0s",
+        "ref": "asset-2", "name": "music.wav", "lane": "-1", "offset": "1/2s",
         "start": "0s", "duration": "4s", "audioRole": "music", "volume": "-6.021dB",
     }
     assert clips["whoosh.wav"].attrib | {"volume": clips["whoosh.wav"].find("adjust-volume").attrib["amount"]} == {
-        "ref": "asset-3", "name": "whoosh.wav", "lane": "-2", "offset": "3/2s",
+        "ref": "asset-3", "name": "whoosh.wav", "lane": "-2", "offset": "2s",
         "start": "0s", "duration": "1/2s", "audioRole": "effects", "volume": "-1.938dB",
     }
     assets = root.findall(".//asset")
@@ -121,7 +121,11 @@ def test_export_fcpxml_materializes_concise_decision(tmp_path: Path) -> None:
     for asset in assets:
         linked = Path(unquote(urlparse(asset.attrib["src"]).path))
         assert linked.is_file()
-        assert linked.stat().st_ino == Path(tmp_path / asset.attrib["name"]).stat().st_ino
+        if asset.attrib["name"] == "whoosh.wav":
+            assert linked.read_bytes() == (tmp_path / "whoosh.wav").read_bytes()
+            assert linked.stat().st_ino != (tmp_path / "whoosh.wav").stat().st_ino
+        else:
+            assert linked.stat().st_ino == Path(tmp_path / asset.attrib["name"]).stat().st_ino
     receipt = json.loads(result.receipt_path.read_text(encoding="utf-8"))
     assert receipt["decision_sha256"]
     assert receipt["fcpxml_sha256"]
@@ -129,6 +133,7 @@ def test_export_fcpxml_materializes_concise_decision(tmp_path: Path) -> None:
     assert receipt["client_playback"] == "not_tested"
     assert receipt["client_edit_save"] == "not_tested"
     assert receipt["validation"] == {
+        "serialized_timing_tracks_gains_match": True,
         "xml_well_formed": True,
         "source_ranges_within_media": True,
         "timeline_ranges_within_project": True,
@@ -225,3 +230,59 @@ def test_record_fcpxml_acceptance_rejects_unpersisted_edit(tmp_path: Path) -> No
             reopen_value=-1.9,
             accepted_at="2026-09-09T11:25:54+08:00",
         )
+
+
+def _cue_decision(tmp_path):
+    import shutil
+    video, music, sfx = _media_fixture(tmp_path)
+    path = tmp_path / 'cue-decision.json'
+    _decision(path, video, music, sfx)
+    payload = json.loads(path.read_text())
+    payload['clips'] = [c for c in payload['clips'] if c['kind'] != 'sfx']
+    payload['sfx_cues'] = [dict(cue_id=f'cut-{i}', role='whoosh', anchor_video_index=0,
+                              event='cut to next shot', offset_seconds=1+i*.1,
+                              duration=.4, gain=.5) for i in range(2)]
+    path.write_text(json.dumps(payload))
+    library = tmp_path / 'library'
+    (library / '风声').mkdir(parents=True)
+    shutil.copyfile(sfx, library / '风声' / 'Whoosh.wav')
+    return path, library
+
+
+def test_cues_match_and_materialize_as_independent_audio_tracks(tmp_path):
+    path, library = _cue_decision(tmp_path)
+    result = export_fcpxml_decision(path, tmp_path / 'out', library)
+    receipt = json.loads(result.receipt_path.read_text())
+    assert receipt['sfx_segments'] == 2
+    assert len(receipt['sfx_matches']) == 2
+    assert receipt['client_import'] == 'not_tested'
+    root = ET.parse(result.fcpxml_path).getroot()
+    nodes = root.findall('.//asset-clip[@audioRole="effects"]')
+    assert len(nodes) == 2
+    assert len({node.attrib['lane'] for node in nodes}) == 2
+    # Parent starts at source 0.5s; timeline 1s must serialize to parent time 1.5s.
+    assert {node.attrib['offset'] for node in nodes} == {'3/2s', '8/5s'}
+    assert all(node.find('adjust-volume').attrib['amount'] == '-6.021dB' for node in nodes)
+    packaged = [Path(m['packaged_path']) for m in receipt['materials'] if 'Whoosh' in m['source_path']]
+    assert all(p.is_file() for p in packaged)
+    original = packaged[0].read_bytes()
+    (library / '风声' / 'Whoosh.wav').write_bytes(b'changed source')
+    assert all(p.read_bytes() == original for p in packaged)
+
+
+@pytest.mark.parametrize('change', ['missing', 'anchor', 'out_of_range', 'duplicate'])
+def test_invalid_cues_never_silently_export_without_effects(tmp_path, change):
+    path, library = _cue_decision(tmp_path)
+    payload = json.loads(path.read_text())
+    if change == 'missing':
+        payload['sfx_cues'][0]['keywords'] = ['不存在的音效']
+    elif change == 'anchor':
+        payload['sfx_cues'][0]['anchor_video_index'] = 9
+    elif change == 'duplicate':
+        payload['sfx_cues'][1]['cue_id'] = payload['sfx_cues'][0]['cue_id']
+    else:
+        payload['sfx_cues'][0]['duration'] = 30
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError):
+        export_fcpxml_decision(path, tmp_path / 'out', library)
+    assert not (tmp_path / 'out').exists()

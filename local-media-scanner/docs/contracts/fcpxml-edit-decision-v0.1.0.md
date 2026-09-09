@@ -44,3 +44,9 @@ uv run travel-director export-fcpxml --decision /absolute/path/decision.json --o
 ```
 
 The output directory must not already exist. A successful run writes `project.fcpxml`, an `asset/` directory of hard links, and `receipt.json`. `fcpxml_generated` means program validation passed; it does not mean Jianying import or edit/save persistence was tested.
+
+## Optional sound cue resolution
+
+`export-fcpxml --sfx-root <sound-effects-folder>` accepts optional `sfx_cues` alongside `clips`. See the Skill's `references/fcpxml-delivery.md` for fields and supported roles. Cue events are anchored to a video clip index; the exporter resolves exact role/filename keyword matches, rejects missing candidates and invalid time ranges, and expands them into independent SFX clips. `resolved_decision.json` contains the expanded decision; receipt fields `sfx_matches`, `sfx_segments` and `resolved_decision_sha256` preserve the resolution evidence. Input decisions without cues remain supported. SFX are copied, while large video/music assets retain existing hard-link packaging.
+
+Nested audio offsets use the parent's local time origin: `audio offset = timeline position + parent start - parent offset`. The serialized validator reconstructs timeline positions and checks ranges, lanes and gain against the resolved decision. This follows Apple's definition of offset and start in [FCPXML DTD](https://developer.apple.com/library/archive/documentation/Miscellaneous/Conceptual/LegacyDTDsFinalCutPro/FCPXMLDTDv1.7/FCPXMLDTDv1.7.html).

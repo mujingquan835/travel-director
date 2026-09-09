@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import shutil
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
@@ -17,6 +18,7 @@ from urllib.parse import unquote, urlparse
 from pydantic import Field, model_validator
 
 from director.schema import StrictModel
+from director.sfx_matching import SfxCue
 
 
 class FcpxmlCanvasDecision(StrictModel):
@@ -41,6 +43,7 @@ class FcpxmlEditDecision(StrictModel):
     project_name: str = Field(min_length=1, max_length=120)
     canvas: FcpxmlCanvasDecision
     clips: list[FcpxmlClipDecision] = Field(min_length=1)
+    sfx_cues: list[SfxCue] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_timeline(self) -> "FcpxmlEditDecision":
@@ -292,7 +295,8 @@ def _build_xml(decision: FcpxmlEditDecision, inspected: list[dict], linked: dict
             ref=item["id"],
             name=item["source"].name,
             lane=str(lanes[clip.track]),
-            offset=_seconds(clip.timeline_in),
+            offset=_seconds(clip.timeline_in + float(Fraction(anchor.attrib["start"].removesuffix("s")))
+                            - float(Fraction(anchor.attrib["offset"].removesuffix("s")))),
             start=_seconds(clip.source_in),
             duration=_seconds(clip.duration),
             audioRole="music" if clip.kind == "music" else "effects",
@@ -314,6 +318,26 @@ def _validate_serialized(
         raise ValueError("serialized material or segment count differs from decision")
     if {clip.attrib["ref"] for clip in clips} != set(assets):
         raise ValueError("serialized segment references are incomplete")
+    parents = {child: parent for parent in root.iter() for child in parent}
+    serialized = {node.attrib["ref"]: node for node in clips}
+    lanes = {track: -(index + 1) for index, track in enumerate(sorted(
+        {clip.track for clip in decision.clips if clip.kind != "video"}))}
+    def seconds(value):
+        return float(Fraction(value.removesuffix("s")))
+    for item in inspected:
+        clip = item["clip"]
+        node = serialized[item["id"]]
+        offset = seconds(node.attrib["offset"])
+        if clip.kind != "video":
+            parent = parents[node]
+            offset += seconds(parent.attrib["offset"]) - seconds(parent.attrib["start"])
+            if node.attrib.get("lane") != str(lanes[clip.track]):
+                raise ValueError("serialized audio lane differs from decision")
+        if (not math.isclose(offset, clip.timeline_in, abs_tol=1e-6)
+                or not math.isclose(seconds(node.attrib["start"]), clip.source_in, abs_tol=1e-6)
+                or not math.isclose(seconds(node.attrib["duration"]), clip.duration, abs_tol=1e-6)
+                or node.find("adjust-volume").attrib["amount"] != _volume_db(clip.gain)):
+            raise ValueError("serialized timing or gain differs from decision")
     for asset in assets.values():
         target = Path(unquote(urlparse(asset.attrib["src"]).path))
         if not target.is_file():
@@ -321,6 +345,7 @@ def _validate_serialized(
     if root.find(".//sequence").attrib["duration"] != _seconds(decision.canvas.duration_seconds):
         raise ValueError("serialized duration differs from decision")
     return {
+        "serialized_timing_tracks_gains_match": True,
         "xml_well_formed": True,
         "source_ranges_within_media": True,
         "timeline_ranges_within_project": True,
@@ -329,7 +354,7 @@ def _validate_serialized(
     }
 
 
-def export_fcpxml_decision(decision_path: Path, output_dir: Path) -> FcpxmlExportResult:
+def export_fcpxml_decision(decision_path: Path, output_dir: Path, sfx_root: Path | None = None) -> FcpxmlExportResult:
     """Validate a concise JSON edit decision and write an importable FCPXML package."""
 
     decision_path = decision_path.expanduser().resolve()
@@ -339,6 +364,12 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path) -> FcpxmlExpor
     if output_dir.exists():
         raise FileExistsError(f"refusing to overwrite output: {output_dir}")
     decision = FcpxmlEditDecision.model_validate_json(decision_path.read_text(encoding="utf-8"))
+    matches = []
+    if decision.sfx_cues:
+        from director.sfx_matching import resolve_sfx_cues
+        if sfx_root is None:
+            raise ValueError("sfx_cues requires --sfx-root pointing to the sound effects folder")
+        decision, matches = resolve_sfx_cues(decision, sfx_root)
     inspected = _inspect_sources(decision)
 
     assets_dir = output_dir / "asset"
@@ -347,7 +378,13 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path) -> FcpxmlExpor
     for item in inspected:
         target = assets_dir / f"{item['id']}-{item['source'].name}"
         try:
-            os.link(item["source"], target)
+            if item["clip"].kind == "sfx":
+                digest = _sha256(item["source"])
+                shutil.copyfile(item["source"], target)
+                if _sha256(target) != digest or _sha256(item["source"]) != digest:
+                    raise ValueError("SFX source changed while packaging")
+            else:
+                os.link(item["source"], target)
         except OSError as exc:
             raise ValueError(f"cannot hard-link material into package: {item['source']}") from exc
         linked[item["id"]] = target
@@ -355,6 +392,8 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path) -> FcpxmlExpor
     fcpxml_path = output_dir / "project.fcpxml"
     fcpxml_path.write_bytes(_build_xml(decision, inspected, linked))
     validation = _validate_serialized(fcpxml_path, decision, inspected)
+    resolved_path = output_dir / "resolved_decision.json"
+    resolved_path.write_text(decision.model_dump_json(indent=2), encoding="utf-8")
     receipt_path = output_dir / "receipt.json"
     receipt = {
         "schema_version": "0.1.0",
@@ -366,6 +405,10 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path) -> FcpxmlExpor
         "decision_sha256": _sha256(decision_path),
         "fcpxml_path": str(fcpxml_path),
         "fcpxml_sha256": _sha256(fcpxml_path),
+        "sfx_matches": matches,
+        "sfx_segments": sum(clip.kind == "sfx" for clip in decision.clips),
+        "resolved_decision_path": str(resolved_path),
+        "resolved_decision_sha256": _sha256(resolved_path),
         "external_call_count": 0,
         "video_segments": sum(clip.kind == "video" for clip in decision.clips),
         "audio_segments": sum(clip.kind != "video" for clip in decision.clips),

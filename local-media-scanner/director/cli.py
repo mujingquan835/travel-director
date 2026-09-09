@@ -1111,12 +1111,13 @@ def render_project_command(
 def export_fcpxml_command(
     decision: Path = typer.Option(..., "--decision", exists=True, dir_okay=False),
     output: Path = typer.Option(..., "--output", file_okay=False),
+    sfx_root: Path | None = typer.Option(None, "--sfx-root", exists=True, file_okay=False),
 ) -> None:
     """Materialize one concise edit decision as a validated FCPXML package."""
 
     from director.fcpxml_delivery import export_fcpxml_decision
 
-    typer.echo(export_fcpxml_decision(decision, output).model_dump_json(indent=2))
+    typer.echo(export_fcpxml_decision(decision, output, sfx_root).model_dump_json(indent=2))
 
 
 @app.command("record-fcpxml-acceptance")

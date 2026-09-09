@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPO_ROOT / "skills" / "travel-director"
 SKILL_FILE = SKILL_ROOT / "SKILL.md"
 WORKFLOW_REF = SKILL_ROOT / "references" / "workflow.md"
+FCPXML_REF = SKILL_ROOT / "references" / "fcpxml-delivery.md"
 OBSERVATION_REF = SKILL_ROOT / "references" / "visual-observation-contract.md"
 RESOLVER = SKILL_ROOT / "scripts" / "resolve_workspace.py"
 INSTALLER = SKILL_ROOT / "scripts" / "install.py"
@@ -77,6 +79,8 @@ def test_skill_metadata_and_product_boundary():
     assert "$travel-director" in skill_text
     assert "travel-director run" in skill_text
     assert "travel-director status" in skill_text
+    assert "fcpxml_generated" in skill_text
+    assert "fcpxml_client_accepted" in skill_text
     assert "needs_visual_observation" in skill_text
     assert "needs_user_confirmation" in skill_text
     assert "waiting_for_music" in skill_text
@@ -107,6 +111,7 @@ def test_skill_references_are_discoverable_and_keep_lab_commands_out():
     observation_text = _observation_text()
 
     assert WORKFLOW_REF.is_file()
+    assert FCPXML_REF.is_file()
     assert OBSERVATION_REF.is_file()
     assert RESOLVER.is_file()
     assert INSTALLER.is_file()
@@ -114,6 +119,7 @@ def test_skill_references_are_discoverable_and_keep_lab_commands_out():
 
     for relative in (
         "references/workflow.md",
+        "references/fcpxml-delivery.md",
         "references/visual-observation-contract.md",
         "scripts/resolve_workspace.py",
     ):
@@ -458,3 +464,30 @@ def test_resolver_prefers_git_root_and_never_selects_main_when_invalid(tmp_path)
 
     assert result.stdout.strip() == str(valid_root.resolve())
     assert result.stdout.strip() != str(invalid_root.resolve())
+
+
+def test_installed_resolver_binds_runtime_and_rejects_drift(tmp_path):
+    import shutil
+    runtime = tmp_path / 'runtime'
+    shutil.copytree(SKILL_ROOT, runtime / 'skills' / 'travel-director')
+    shutil.copy2(REPO_ROOT / 'pyproject.toml', runtime / 'pyproject.toml')
+    (runtime / 'director').mkdir()
+    (runtime / 'director' / 'cli.py').write_text('# runtime one\n')
+    installer = runtime / 'skills/travel-director/scripts/install.py'
+    home = tmp_path / 'installed'
+    subprocess.run([sys.executable, str(installer), '--codex-home', str(home)], check=True)
+    resolver = home / 'skills/travel-director/scripts/resolve_workspace.py'
+    env = os.environ.copy()
+    env.pop('TRAVEL_DIRECTOR_WORKSPACE', None)
+    result = subprocess.run([sys.executable, str(resolver)], cwd=REPO_ROOT,
+                            env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == str(runtime)
+    explicit = subprocess.run([sys.executable, str(resolver), '--workspace', str(REPO_ROOT)],
+                              env=env, capture_output=True, text=True)
+    assert explicit.returncode != 0
+    assert 'no fallback' in explicit.stderr
+    (runtime / 'director/cli.py').write_text('# runtime changed\n')
+    drifted = subprocess.run([sys.executable, str(resolver)], env=env, capture_output=True, text=True)
+    assert drifted.returncode != 0
+    assert 'no fallback' in drifted.stderr

@@ -14,6 +14,7 @@ NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 REQUIRED_PATHS = (
     "references/workflow.md",
+    "references/fcpxml-delivery.md",
     "references/visual-observation-contract.md",
     "scripts/install.py",
     "scripts/resolve_workspace.py",
@@ -22,6 +23,8 @@ REQUIRED_ENTRYPOINTS = (
     "$travel-director",
     "travel-director run",
     "travel-director status",
+    "travel-director export-fcpxml",
+    "travel-director record-fcpxml-acceptance",
 )
 IGNORED_DIRECTORY_NAMES = frozenset({"__pycache__"})
 IGNORED_FILE_SUFFIXES = frozenset({".pyc", ".pyo"})

@@ -1,6 +1,6 @@
 # Session-authored creative direction
 
-On `needs_creative_direction`, read the action's `result_path` completely. It contains the confirmed Brief, `source_hashes`, `reference_library`, upstream `artifact_paths`, exact `response_schema`, and `response_path`. Read the treatment, coverage, review and material observations at those paths. The local program validates, saves and restores; the current Codex conversation authors the plan. No additional model/music service or listening UI is part of this flow.
+On `needs_creative_direction`, read the action's `result_path`. It contains the confirmed Brief, `source_hashes`, reference metadata, upstream `artifact_paths`, exact `response_schema`, and `response_path`. Read the treatment, coverage, review and material observations at those paths. Inspect reference metadata first, shortlist by applicability, and open only the selected evidence; do not recursively read the reference/template corpus. The local program validates, saves and restores; the current Codex conversation authors the plan. No additional model/music service or listening UI is part of this flow.
 
 ## Reference selection and evidence
 

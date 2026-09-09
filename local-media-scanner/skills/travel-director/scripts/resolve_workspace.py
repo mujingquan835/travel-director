@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -79,6 +81,37 @@ def _registered_worktrees(git_root: Path | None) -> list[Path]:
 
 
 def resolve_workspace(explicit: str | None) -> Path:
+    # An installed Skill is bound to the runtime published by its installer.
+    # Never substitute the current checkout just because it has CLI entrypoints.
+    script = Path(__file__).resolve()
+    home = script.parents[3]
+    receipt_path = home / "skill-receipts" / "travel-director.json"
+    if script.parents[2].name == "skills" and not (home / "pyproject.toml").is_file() and not receipt_path.is_file():
+        raise ValueError("installed Skill receipt missing; reinstall intended release; no fallback performed")
+    if script.parents[2].name == "skills" and receipt_path.is_file():
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        if Path(receipt["skill"]["installed_root"]).resolve() == script.parents[1]:
+            for name, digest in receipt["skill"]["files"].items():
+                file = script.parents[1] / name
+                if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != digest:
+                    raise ValueError("installed Skill differs from receipt; reinstall intended release")
+            binding = receipt["source"]
+            configured = explicit if explicit is not None else os.environ.get("TRAVEL_DIRECTOR_WORKSPACE")
+            package = _configured_package(
+                configured if configured is not None else binding["runtime_package_root"],
+                "installed runtime binding",
+            )
+            expected = binding.get("runtime_files")
+            if not expected:
+                raise ValueError("installed receipt lacks runtime hashes; reinstall Skill from the intended runtime")
+            actual = {
+                p.relative_to(package).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                for folder in ("director", "scanner")
+                for p in sorted((package / folder).rglob("*.py"))
+            }
+            if actual != expected:
+                raise ValueError("runtime differs from installed Skill binding; reinstall after validation; no fallback performed")
+            return package
     if explicit is not None:
         return _configured_package(explicit, "--workspace")
     env_value = os.environ.get("TRAVEL_DIRECTOR_WORKSPACE")
@@ -115,7 +148,7 @@ def main() -> int:
 
     try:
         resolved = resolve_workspace(args.workspace)
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, ValueError, KeyError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print(str(resolved))

@@ -89,6 +89,11 @@ def _source_version(source: Path) -> dict[str, object]:
     dirty_output = _git_value(package_root, "status", "--porcelain")
     return {
         "repository_root": repository_root,
+        "runtime_files": {
+            path.relative_to(package_root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for folder in ("director", "scanner")
+            for path in sorted((package_root / folder).rglob("*.py"))
+        },
         "git_commit": commit,
         "git_dirty": None if dirty_output is None else bool(dirty_output),
         "runtime_package_root": str(package_root.resolve()),

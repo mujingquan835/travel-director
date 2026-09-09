@@ -1105,3 +1105,55 @@ def render_project_command(
     typer.echo(result.model_dump_json(indent=2))
     if result.status != "completed":
         raise typer.Exit(code=1)
+
+
+@app.command("export-fcpxml")
+def export_fcpxml_command(
+    decision: Path = typer.Option(..., "--decision", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", file_okay=False),
+) -> None:
+    """Materialize one concise edit decision as a validated FCPXML package."""
+
+    from director.fcpxml_delivery import export_fcpxml_decision
+
+    typer.echo(export_fcpxml_decision(decision, output).model_dump_json(indent=2))
+
+
+@app.command("record-fcpxml-acceptance")
+def record_fcpxml_acceptance_command(
+    receipt: Path = typer.Option(..., "--receipt", exists=True, dir_okay=False),
+    application: str = typer.Option(..., "--application"),
+    application_version: str = typer.Option(..., "--application-version"),
+    draft_name: str = typer.Option(..., "--draft-name"),
+    observed_video_segments: int = typer.Option(..., "--observed-video-segments", min=1),
+    observed_audio_segments: int = typer.Option(..., "--observed-audio-segments", min=0),
+    playhead_before: str = typer.Option(..., "--playhead-before"),
+    playhead_after: str = typer.Option(..., "--playhead-after"),
+    edit_asset: str = typer.Option(..., "--edit-asset"),
+    edit_field: str = typer.Option(..., "--edit-field"),
+    edit_before: float = typer.Option(..., "--edit-before"),
+    edit_after: float = typer.Option(..., "--edit-after"),
+    reopen_value: float = typer.Option(..., "--reopen-value"),
+    accepted_at: str = typer.Option(..., "--accepted-at"),
+) -> None:
+    """Record verified client import, playback, edit/save and reopen evidence."""
+
+    from director.fcpxml_delivery import record_fcpxml_acceptance
+
+    result = record_fcpxml_acceptance(
+        receipt,
+        application=application,
+        application_version=application_version,
+        draft_name=draft_name,
+        observed_video_segments=observed_video_segments,
+        observed_audio_segments=observed_audio_segments,
+        playhead_before=playhead_before,
+        playhead_after=playhead_after,
+        edit_asset=edit_asset,
+        edit_field=edit_field,
+        edit_before=edit_before,
+        edit_after=edit_after,
+        reopen_value=reopen_value,
+        accepted_at=accepted_at,
+    )
+    typer.echo(result.model_dump_json(indent=2))

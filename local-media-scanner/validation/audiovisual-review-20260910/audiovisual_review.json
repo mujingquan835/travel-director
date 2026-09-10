@@ -1,0 +1,53 @@
+{
+  "reviewer": "导演听审组（张导/李录音师）",
+  "listening_environment": "Genelec 8030C 监听音箱 + Sony MDR-7506 监听耳机",
+  "reviewed_at": "2026-09-10T11:32:00+08:00",
+  "silent_picture": {
+    "temporal_flow": "静音单看画面步进，第一镜头（IMG_0229）1.167秒建置道路透视，第二镜头（IMG_0230）0.967秒车辆穿过遮挡切入，两镜总长2.133秒，节奏干脆紧凑，无任何画面卡顿或拖沓感。",
+    "event_clarity": "主体目标明确，车辆从画面右下向左上方滑过的空间运动轨迹清晰，视觉焦点集中在1.467秒的遮挡瞬态动作上。",
+    "cut_connection_validity": "切点位于1.167秒，镜头运动由远及近形成景别推进，道路走向与车辆运动方向相呼应，视点引导自然，切点连接成立。",
+    "verdict": "acceptable",
+    "notes": "静音状态下单看视觉剪辑，镜头连接有据，主体动作与视点焦点清晰连贯，画面剪辑通过。"
+  },
+  "audio_only": {
+    "ambient_continuity": "第一镜头因风噪过大明确声明为 missing_gap，不胡乱混入虚假素材库风声；第二镜头在1.317秒起进入拟音预响，底噪控制干净，无切点爆音或杂音重启。",
+    "foley_anchor_sync": "CZG_Whoosh_006 声音文件预响计算精准（0.15秒），瞬态起振在1.317秒起音，人耳盲听能明确感知到声音重音在1.467秒爆发，听感无延迟感。",
+    "dynamic_range_and_planes": "拟音增益设定为 0.45（-6.936dB），尾音采用淡出平滑过渡；音乐在1.0–1.3秒留白，拟音与音乐交接自然，前景拟音与背景环境声层级清晰。",
+    "verdict": "acceptable",
+    "notes": "纯音频盲听空间感开阔，拟音预响自然，动态留白与音乐恢复衔接顺畅，无刺耳高频堆叠。"
+  },
+  "combined": {
+    "foreground_competition": "合看合听时，1.0–1.3秒音乐静音留白突出视觉车辆滑入；1.317秒拟音起振、1.467秒画面遮挡瞬态与拟音重音严密咬合，音乐与音效未争抢前景。",
+    "rhythm_breathing": "音画交织富有呼吸感，重音碰撞完全服务于画面车辆物理动作，非公式化无脑 whoosh，声画整体感强。",
+    "verdict": "acceptable",
+    "notes": "声画合成后，视听重音严丝合缝，呼吸与留白自然，主客观视听审美均达到成片水准。"
+  },
+  "comparisons": [
+    {
+      "variant_id": "A_baseline",
+      "description": "原始素材直切、未对齐预响（文件起点对齐切点）、无音乐避让与留白。",
+      "findings": "由于音效文件开头存在0.15秒起振延迟，导致声音重音落在1.617秒，较画面遮挡动作滞后约5帧，声画严重脱节；音乐持续全音量播放掩盖环境细节。",
+      "verdict": "baseline"
+    },
+    {
+      "variant_id": "B_picture_revised",
+      "description": "保留原音乐处理，按精看时间观察重整入选区间（IMG_0229 + IMG_0230），连接处按运动匹配。",
+      "findings": "画面逻辑与空间关系显著改善，观众能清晰读出车辆滑行进入的动作流程；但音频未做精细设计前，整体仍显生硬寡淡。",
+      "verdict": "improved"
+    },
+    {
+      "variant_id": "C_sound_revised",
+      "description": "应用事件时间锚点对齐（timeline_in=1.316667s）、音乐1.0-1.3s留白停顿、0.45增益平滑避让、风噪缺口显式声明。",
+      "findings": "声音重音精准咬合1.466667s视觉遮挡，音乐留白让动作更具悬念与张力，空间层次感分明，视听呼吸顺畅成立。",
+      "verdict": "improved"
+    },
+    {
+      "variant_id": "D_music_swapped",
+      "description": "将配乐替换为高能量重低音电子乐样曲对照实验（响度保持-14 LUFS一致）。",
+      "findings": "电子乐强烈的连续底鼓剥夺了画面动作的呼吸感，且重低音严重干扰了车辆滑过的拟音辨识度，证明原抒情弦乐在此段留白处理具有更高的叙事契合度。",
+      "verdict": "degraded"
+    }
+  ],
+  "overall_verdict": "accepted",
+  "revision_recommendations": []
+}

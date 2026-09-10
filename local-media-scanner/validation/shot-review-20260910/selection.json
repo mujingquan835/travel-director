@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "material_id": "sha256:7745bc9c876b209a72cd3528e4adec9dd9b686d44f57b68ccead909b069e24ab",
+      "source_in": 2.8,
+      "source_out": 3.9,
+      "purpose": "connection_uncertain",
+      "reason": "验证前景白色车辆遮挡过程是否支持后续遮挡连接；依据已有粗看3.224秒画面，非最终选片"
+    }
+  ]
+}

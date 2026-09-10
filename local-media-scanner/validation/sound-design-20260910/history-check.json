@@ -1,0 +1,30 @@
+{
+  "shot_group_json": {
+    "path": "validation/shot-group-20260910/group/group.json",
+    "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
+  },
+  "shot_group_decision": {
+    "path": "validation/shot-group-20260910/group/edit_decision.json",
+    "sha256": "7cff14bc2669740c3f5482f9b9d736c55f6f48017f546129d74153b4cbb05385"
+  },
+  "music_adaptation_v1": {
+    "path": "validation/music-adaptation-20260910/v1/adaptation.json",
+    "sha256": "ec49682bbaca12d4d1825636a89bac21956dd49c5b5be8cf9b100f2dc79369a6"
+  },
+  "music_adaptation_v2": {
+    "path": "validation/music-adaptation-20260910/v2/adaptation.json",
+    "sha256": "a066be585b104c728ec59e440c3001273afeda992827fe2daf5a63b8d6337395"
+  },
+  "music_adaptation_decision_v2": {
+    "path": "validation/music-adaptation-20260910/v2/edit_decision.json",
+    "sha256": "b3f431b0d9f0dca33ba4b971cd8a95016bcb193ee4dc543512644288d9e67947"
+  },
+  "sound_design_v1": {
+    "path": "validation/sound-design-20260910/v1/sound_design.json",
+    "sha256": "86efcc54a78a51279b8b02b67de153712a59ef5394c6f5cc9204a73ebc991a12"
+  },
+  "sound_design_v2": {
+    "path": "validation/sound-design-20260910/v2/sound_design.json",
+    "sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416"
+  }
+}

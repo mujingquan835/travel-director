@@ -1,0 +1,70 @@
+{
+  "schema_version": "0.1.0",
+  "project_name": "TD-local-context-detail-20260910",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration_seconds": 2.133333
+  },
+  "clips": [
+    {
+      "kind": "video",
+      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "track": "main",
+      "timeline_in": 0.0,
+      "source_in": 4.8,
+      "duration": 1.2,
+      "gain": 1.0
+    },
+    {
+      "kind": "video",
+      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "track": "main",
+      "timeline_in": 1.2,
+      "source_in": 2.935,
+      "duration": 0.933333,
+      "gain": 1.0
+    },
+    {
+      "kind": "music",
+      "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+      "track": "music-adaptation",
+      "timeline_in": 0.0,
+      "source_in": 0.0,
+      "duration": 1.0,
+      "gain": 0.35
+    },
+    {
+      "kind": "music",
+      "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+      "track": "music-adaptation",
+      "timeline_in": 1.3,
+      "source_in": 20.0,
+      "duration": 0.833333,
+      "gain": 0.35
+    },
+    {
+      "kind": "sfx",
+      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "track": "sfx-action_foley-car-pass-foley-01",
+      "timeline_in": 1.316667,
+      "source_in": 0.05,
+      "duration": 0.6,
+      "gain": 0.45
+    }
+  ],
+  "sfx_cues": [],
+  "shot_group": {
+    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+    "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
+  },
+  "music_adaptation": {
+    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json",
+    "sha256": "a066be585b104c728ec59e440c3001273afeda992827fe2daf5a63b8d6337395"
+  },
+  "sound_design": {
+    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
+    "sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416"
+  }
+}

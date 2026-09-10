@@ -1,0 +1,19 @@
+{
+  "video_segments": 2,
+  "audio_segments": 2,
+  "music_clips": [
+    {
+      "source_in": 0.0,
+      "project_in": 0.0,
+      "duration": 1.0
+    },
+    {
+      "source_in": 20.0,
+      "project_in": 1.3,
+      "duration": 0.833333
+    }
+  ],
+  "music_gap_seconds": 0.3,
+  "listening_status": "not_listened",
+  "source_project_map_verified": true
+}

@@ -1,0 +1,64 @@
+{
+  "items": [
+    {
+      "candidate_id": "shot-000",
+      "source_in": 4.8,
+      "source_out": 6.133333,
+      "range_confidence": 0.8,
+      "range_evidence_frames": [
+        0,
+        10
+      ],
+      "range_reason": "夜间道路、车流与路面标线持续可辨，可供局部环境交代；边界为编辑候选。",
+      "shot_scale": {
+        "value": "wide",
+        "confidence": 0.88,
+        "evidence_frames": [
+          0,
+          5,
+          10
+        ],
+        "reason": "主要对象是道路与车流组成的整体环境，大景别。"
+      },
+      "subject_position": {
+        "value": "center",
+        "confidence": 0.8,
+        "evidence_frames": [
+          0,
+          5,
+          10
+        ],
+        "reason": "观察主体为道路消失点及前方车流，主要位于画面中部。"
+      },
+      "camera_motion": {
+        "value": "push_in",
+        "confidence": 0.72,
+        "evidence_frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "reason": "路面标线向下扩展、前方场景逐渐接近，样本支持向前推进的候选判断；不推断绝对速度。"
+      },
+      "subject_motion": {
+        "value": null,
+        "confidence": null,
+        "evidence_frames": [],
+        "reason": "多辆车与拍摄端同时存在相对运动，未可靠分离主要车辆自身运动方向。"
+      },
+      "action_description": null,
+      "action_start": null,
+      "action_accent": null,
+      "action_end": null,
+      "action_unknown_reason": "这是持续推进的环境镜头，窗口内未观察到明确独立动作的起止和重音。"
+    }
+  ]
+}

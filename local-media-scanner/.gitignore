@@ -13,3 +13,4 @@ benchmark/*.local.json
 benchmark/director_visual_review.html
 benchmark/director_visual_confirmed.json
 benchmark/director_review.html
+validation/**/asset/

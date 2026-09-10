@@ -19,6 +19,7 @@ from pydantic import Field, model_validator
 
 from director.schema import StrictModel
 from director.sfx_matching import SfxCue
+from director.shot_group_schema import ShotGroupBinding
 
 
 class FcpxmlCanvasDecision(StrictModel):
@@ -44,6 +45,9 @@ class FcpxmlEditDecision(StrictModel):
     canvas: FcpxmlCanvasDecision
     clips: list[FcpxmlClipDecision] = Field(min_length=1)
     sfx_cues: list[SfxCue] = Field(default_factory=list)
+    shot_group: ShotGroupBinding | None = None
+    music_adaptation: ShotGroupBinding | None = None
+    sound_design: ShotGroupBinding | None = None
 
     @model_validator(mode="after")
     def validate_timeline(self) -> "FcpxmlEditDecision":
@@ -364,6 +368,12 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path, sfx_root: Path
     if output_dir.exists():
         raise FileExistsError(f"refusing to overwrite output: {output_dir}")
     decision = FcpxmlEditDecision.model_validate_json(decision_path.read_text(encoding="utf-8"))
+    from director.shot_group import validate_group_export
+    group = validate_group_export(decision)
+    from director.music_adaptation import validate_music_adaptation_export
+    adaptation = validate_music_adaptation_export(decision)
+    from director.sound_design import validate_sound_design_export
+    sound_design = validate_sound_design_export(decision)
     matches = []
     if decision.sfx_cues:
         from director.sfx_matching import resolve_sfx_cues
@@ -392,7 +402,25 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path, sfx_root: Path
     fcpxml_path = output_dir / "project.fcpxml"
     fcpxml_path.write_bytes(_build_xml(decision, inspected, linked))
     validation = _validate_serialized(fcpxml_path, decision, inspected)
+    if group is not None:
+        if validate_group_export(decision) != group:
+            raise ValueError('shot group changed while packaging')
+        group_snapshot = output_dir / 'shot_group.json'
+        _atomic_write_json(group_snapshot, group)
+        validation['shot_group_evidence_validated'] = True
     resolved_path = output_dir / "resolved_decision.json"
+    if adaptation is not None:
+        if validate_music_adaptation_export(decision) != adaptation:
+            raise ValueError('music adaptation changed while packaging')
+        adaptation_snapshot = output_dir / 'music_adaptation.json'
+        _atomic_write_json(adaptation_snapshot, adaptation)
+        validation['music_adaptation_evidence_validated'] = True
+    if sound_design is not None:
+        if validate_sound_design_export(decision) != sound_design:
+            raise ValueError('sound design changed while packaging')
+        sound_design_snapshot = output_dir / 'sound_design.json'
+        _atomic_write_json(sound_design_snapshot, sound_design)
+        validation['sound_design_evidence_validated'] = True
     resolved_path.write_text(decision.model_dump_json(indent=2), encoding="utf-8")
     receipt_path = output_dir / "receipt.json"
     receipt = {
@@ -428,6 +456,25 @@ def export_fcpxml_decision(decision_path: Path, output_dir: Path, sfx_root: Path
             for item in inspected
         ],
     }
+    if group is not None:
+        receipt['shot_group'] = dict(status=group['status'],
+                                    binding=decision.shot_group.model_dump(mode='json'),
+                                    snapshot_path=str(group_snapshot),snapshot_sha256=_sha256(group_snapshot),
+                                    connections=group['connections'],reviews=group['reviews'])
+    if adaptation is not None:
+        receipt['music_adaptation'] = dict(status=adaptation['status'],
+            listening_status=adaptation['listening_status'],mix_listening_status=adaptation['mix_listening_status'],
+            binding=decision.music_adaptation.model_dump(mode='json'),
+            snapshot_path=str(adaptation_snapshot),snapshot_sha256=_sha256(adaptation_snapshot),
+            mapping=adaptation['plan']['mapping'],events=adaptation['plan']['events'],
+            ending=adaptation['plan']['ending'],parent=adaptation['parent'],changes=adaptation['changes'])
+    if sound_design is not None:
+        receipt['sound_design'] = dict(status=sound_design['status'],
+            listening_status=sound_design['listening_status'],mix_listening_status=sound_design['mix_listening_status'],
+            binding=decision.sound_design.model_dump(mode='json'),
+            snapshot_path=str(sound_design_snapshot),snapshot_sha256=_sha256(sound_design_snapshot),
+            cues=sound_design['cues'],roles=sound_design['roles'],auditory_planes=sound_design['auditory_planes'],
+            parent=sound_design['parent'],changes=sound_design['changes'])
     receipt_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8")
     return FcpxmlExportResult(
         fcpxml_path=fcpxml_path,

@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<fcpxml version="1.9">
+  <resources>
+    <format id="project-format" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+    <format id="format-asset-1" frameDuration="1/30s" width="3840" height="2160" colorSpace="1-1-1 (Rec. 709)" />
+    <asset id="asset-1" name="2026_02_06_18_26_40_IMG_0229.MOV" src="file:///Users/meimaodawang/Documents/%E6%97%85%E8%A1%8C%E5%AF%BC%E6%BC%94/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-1-2026_02_06_18_26_40_IMG_0229.MOV" start="0s" duration="12631667/1000000s" hasVideo="1" format="format-asset-1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" />
+    <format id="format-asset-2" frameDuration="1/60s" width="3840" height="2160" colorSpace="1-1-1 (Rec. 709)" />
+    <asset id="asset-2" name="2026_02_06_18_30_11_IMG_0230.MOV" src="file:///Users/meimaodawang/Documents/%E6%97%85%E8%A1%8C%E5%AF%BC%E6%BC%94/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-2-2026_02_06_18_30_11_IMG_0230.MOV" start="0s" duration="59517/10000s" hasVideo="1" format="format-asset-2" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" />
+    <asset id="asset-3" name="music-bd40015805a4621c.wav" src="file:///Users/meimaodawang/Documents/%E6%97%85%E8%A1%8C%E5%AF%BC%E6%BC%94/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-3-music-bd40015805a4621c.wav" start="0s" duration="106s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100" />
+    <asset id="asset-4" name="music-bd40015805a4621c.wav" src="file:///Users/meimaodawang/Documents/%E6%97%85%E8%A1%8C%E5%AF%BC%E6%BC%94/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-4-music-bd40015805a4621c.wav" start="0s" duration="106s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100" />
+    <asset id="asset-5" name="CZG_Whoosh_006.wav" src="file:///Users/meimaodawang/Documents/%E6%97%85%E8%A1%8C%E5%AF%BC%E6%BC%94/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-5-CZG_Whoosh_006.wav" start="0s" duration="91013/125000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" />
+  </resources>
+  <library>
+    <event name="Travel Director">
+      <project name="TD-local-context-detail-20260910">
+        <sequence format="project-format" duration="2133333/1000000s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <asset-clip ref="asset-1" name="2026_02_06_18_26_40_IMG_0229.MOV" offset="0s" start="24/5s" duration="6/5s" audioRole="dialogue">
+              <adjust-volume amount="0dB" />
+              <asset-clip ref="asset-5" name="CZG_Whoosh_006.wav" lane="-2" offset="6116667/1000000s" start="1/20s" duration="3/5s" audioRole="effects">
+                <adjust-volume amount="-6.936dB" />
+              </asset-clip>
+              <asset-clip ref="asset-3" name="music-bd40015805a4621c.wav" lane="-1" offset="24/5s" start="0s" duration="1s" audioRole="music">
+                <adjust-volume amount="-9.119dB" />
+              </asset-clip>
+              <asset-clip ref="asset-4" name="music-bd40015805a4621c.wav" lane="-1" offset="61/10s" start="20s" duration="833333/1000000s" audioRole="music">
+                <adjust-volume amount="-9.119dB" />
+              </asset-clip>
+            </asset-clip>
+            <asset-clip ref="asset-2" name="2026_02_06_18_30_11_IMG_0230.MOV" offset="6/5s" start="587/200s" duration="933333/1000000s" audioRole="dialogue">
+              <adjust-volume amount="0dB" />
+            </asset-clip>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

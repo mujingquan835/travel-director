@@ -1,0 +1,55 @@
+{
+  "project_name": "TD-local-context-detail-20260910",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "shots": [
+    {
+      "shot_id": "road",
+      "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+      "candidate_id": "shot-000",
+      "source_in": 4.8,
+      "source_out": 6.0,
+      "function": "context",
+      "reason": "先交代夜间道路与车流",
+      "gain": 1
+    },
+    {
+      "shot_id": "vehicle",
+      "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+      "candidate_id": "shot-000",
+      "source_in": 2.935,
+      "source_out": 3.868333,
+      "function": "detail",
+      "reason": "再切到侧向观察的前景车辆遮挡，作为视角与景别变化的局部试验",
+      "gain": 1
+    }
+  ],
+  "connections": [
+    {
+      "left_shot_id": "road",
+      "right_shot_id": "vehicle",
+      "status": "intentional_cut",
+      "relationship": "hard_cut",
+      "reason": "由正面道路环境切到侧向车辆细节；两侧运动不具备已确认匹配，采用明确视角变化，不宣称无缝连续或真实时间因果。",
+      "left": {
+        "field": "frames",
+        "evidence_frames": [
+          8,
+          9,
+          10
+        ]
+      },
+      "right": {
+        "field": "frames",
+        "evidence_frames": [
+          0,
+          1,
+          2
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "status": "fcpxml_generated",
+  "fcpxml_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/project.fcpxml",
+  "receipt_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/receipt.json",
+  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
+  "video_segments": 2,
+  "audio_segments": 0,
+  "external_call_count": 0
+}

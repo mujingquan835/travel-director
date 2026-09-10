@@ -2,7 +2,13 @@
 
 Read this reference only when the user requests an editable Jianying handoff or asks to materialize an already chosen edit. The model writes a short decision JSON; local code owns probing, ranges, tracks, gain conversion, media references, packaging, FCPXML serialization and receipt validation.
 
+For new precise source ranges and motion/action-based decisions, first use [shot-review.md](shot-review.md) for the selected intervals. For a local 2–4-shot combination, use [shot-group.md](shot-group.md) to derive a bound EDL. The exporter consumes its `shot_group` binding, revalidates paired fine-review evidence and rejects video EDL drift; uncertainty and review hashes are preserved in the package's group snapshot and receipt. Do not remove the binding. Existing legacy decisions without a binding remain compatible but do not gain a group-validation claim. No full rescan is required.
+
 ## Generate
+
+For phrase-based music fitting, use [music-adaptation.md](music-adaptation.md). The returned EDL's `music_adaptation` binding is validated by this exporter and its mapping/listening/revision provenance is saved in the package. Keep that binding when adding SFX. A saved fade proposal with `needs_audio_processing` has no exportable EDL until audio processing is implemented; do not substitute a hard cut and call it a fade.
+
+For evidence-backed sound event design, use [sound-design.md](sound-design.md). The returned decision carries a `sound_design` binding. Export verifies the sound design snapshot, audio lane allocations, event anchor timing and listening records, saving `sound_design.json` into the package and summary evidence into the receipt. Keep existing `shot_group` and `music_adaptation` bindings intact. Legacy `sfx_cues` remain supported for backward compatibility.
 
 Follow `docs/contracts/fcpxml-edit-decision-v0.1.0.md` in the resolved package root. Include only the chosen video, music and SFX segments. Run:
 
@@ -44,6 +50,10 @@ uv run travel-director record-fcpxml-acceptance \
 ```
 
 The command verifies the FCPXML hash, expected segment counts, playhead movement, a real value change and reopen persistence. Only its `fcpxml_client_accepted` result permits reporting Jianying acceptance.
+
+## Subjective Audiovisual Acceptance
+
+Even after `fcpxml_client_accepted`, aesthetic and rhythmic quality requires human listening and viewing. Read [audiovisual-review.md](audiovisual-review.md). Follow the three-step review protocol (silent picture, blind audio, combined) and record the structured result using `travel-director record-audiovisual-review`. Only this records `audiovisual_status: "reviewed"` and closes the loop on `mix_listening_status`.
 
 ## Music replacement and cached understanding
 

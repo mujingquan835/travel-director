@@ -22,6 +22,8 @@ Use `audio_intent` only for an attributable decision. Set `source` to `user_expl
 
 When choices overlap, user-explicit intent outranks creative proposals; within the same source level a section choice outranks a global choice. Keep creative section times unchanged. Music analysis may later report an aligned, near, mismatched, unavailable, or unanalyzed target-cut boundary, but it must not silently snap or rewrite these narrative boundaries.
 
+When actual music calls for an editorial adaptation, use [music-adaptation.md](music-adaptation.md) to record source/project phrase mapping, listening provenance and explicit version differences. This creates a separate adaptation over a chosen picture EDL; it never overwrites the original creative section plan. A revised picture group must be created separately and cited as the new base. Automatic energy/position tags are candidate listening windows, not confirmed phrases or mandatory cuts.
+
 Use only known non-rejected treatment material IDs. Missing footage belongs in `material_gaps`, not invented IDs. Empty SFX or packaging arrays mean no design is planned; explain intentional silence/no-title choices in the displayed table. No routine approval is needed before submitting:
 
 ```bash

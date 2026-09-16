@@ -28,20 +28,34 @@ def validate_timeline_delivery(paths: ProjectPaths) -> FastModeTimeline:
         if not path.is_file() or _sha256_file(path) != expected:
             raise ProjectConflict(f"timeline delivery missing or drifted: {key}")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    revision_hash = state.completed_artifact_hashes.get('timeline_revision')
+    if receipt.get('timeline_revision_sha256') != revision_hash:
+        raise ProjectConflict('timeline receipt revision linkage differs')
     if (receipt.get("schema_version") != "1.0.0"
             or receipt.get("timeline_sha256") != _sha256_file(timeline_path)
             or not markdown_path.is_file()
             or receipt.get("markdown_sha256") != _sha256_file(markdown_path)):
         raise ProjectConflict("timeline delivery missing or drifted: timeline_markdown or receipt")
-    return FastModeTimeline.model_validate_json(timeline_path.read_text(encoding="utf-8"))
+    timeline = FastModeTimeline.model_validate_json(timeline_path.read_text(encoding="utf-8"))
+    if timeline.schema_version == '1.2.0' or timeline.sfx_assets is not None:
+        from director.sfx_assets import validate_sfx_assets
+        validate_sfx_assets(timeline, paths.root)
+    return timeline
 
 
 def record_timeline_delivery(paths: ProjectPaths, timeline: FastModeTimeline) -> tuple[Path, Path]:
+    """Write the only project-completing timeline delivery, including its receipt."""
+    if timeline.schema_version == '1.2.0' or timeline.sfx_assets is not None:
+        from director.sfx_assets import validate_sfx_assets
+        validate_sfx_assets(timeline, paths.root)
     timeline_path, markdown_path, receipt_path = delivery_paths(paths)
     markdown = render_fast_mode_markdown(timeline).encode("utf-8")
     receipt = {"schema_version": "1.0.0",
                "timeline_sha256": _sha256_bytes(_canonical_bytes(timeline.model_dump(mode="json"))),
                "markdown_sha256": _sha256_bytes(markdown)}
+    revision_hash = load_project_state(paths).completed_artifact_hashes.get('timeline_revision')
+    if revision_hash is not None:
+        receipt['timeline_revision_sha256'] = revision_hash
     # Never overwrite an earlier or partially written delivery with different content.
     for path, expected in ((timeline_path, receipt["timeline_sha256"]),
                            (markdown_path, receipt["markdown_sha256"]),

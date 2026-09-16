@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0.0",
+  "base_decision": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
+  "revision_reason": "初版声音设计：针对万岁山2.13秒镜头组与音乐适配，建立现场声缺口声明与车辆遮挡动作拟音锚点对齐",
+  "listening": [
+    {
+      "listening_id": "listen-whoosh-006",
+      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_in": 0.0,
+      "source_out": 0.65,
+      "reviewer": "Session Director",
+      "method": "direct_listening",
+      "note": "试听CZG_Whoosh_006.wav：0.20秒处为声音瞬态重音，前半段约0.15秒气流预响，适合侧向车辆遮挡滑过拟音",
+      "reviewed_at": "2026-09-10T11:06:00+08:00"
+    }
+  ],
+  "cues": [
+    {
+      "cue_id": "location-gap-01",
+      "role": "location_ambient",
+      "auditory_plane": "background",
+      "music_relation": "parallel",
+      "visual_anchor": {
+        "event_time": 0.0,
+        "anchor_type": "environment_presence",
+        "description": "镜头1街道环境声因现场风噪过大不可用，明确记录声音缺口，不使用素材库音效伪造现场声"
+      },
+      "source": {
+        "sound_type": "missing_gap",
+        "duration": 0.0
+      },
+      "selection_reason": "真实素材IMG_0229现场收音风噪严重，依据第四项规则明确记录为missing_gap，不生硬填塞假环境声",
+      "listening_status": "not_listened"
+    },
+    {
+      "cue_id": "car-pass-foley-01",
+      "role": "action_foley",
+      "auditory_plane": "foreground",
+      "music_relation": "parallel",
+      "visual_anchor": {
+        "event_time": 1.466667,
+        "anchor_type": "shot_action",
+        "shot_id": "vehicle",
+        "action_field": "action_accent",
+        "description": "第二镜头内部白色车辆向右侧滑过产生视觉遮挡重音（约1.467秒）",
+        "uncertainty_seconds": 0.133335
+      },
+      "source": {
+        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+        "sound_type": "library_sfx",
+        "source_anchor_time": 0.20,
+        "pre_roll": 0.15,
+        "source_in": 0.05,
+        "duration": 0.50,
+        "tail_policy": "ring_out"
+      },
+      "envelope": {
+        "base_gain": 0.6,
+        "fade_in_seconds": 0.05,
+        "fade_out_seconds": 0.1
+      },
+      "selection_reason": "利用CZG_Whoosh_006的0.15秒预响与0.20秒重音，使声音冲击点精确对齐镜头内部1.467秒车辆遮挡动作",
+      "listening_status": "source_listened",
+      "listening_id": "listen-whoosh-006"
+    }
+  ]
+}

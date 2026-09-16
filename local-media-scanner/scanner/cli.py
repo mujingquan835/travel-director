@@ -83,7 +83,7 @@ def inspect(
 def sample(
     manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False),
     profile: Literal["temporal3", "adaptive5"] = typer.Option("adaptive5", "--profile"),
-    hwaccel: Literal["none", "videotoolbox"] = typer.Option("none", "--hwaccel"),
+    hwaccel: Literal["auto", "none", "videotoolbox"] = typer.Option("auto", "--hwaccel"),
     output: Path = typer.Option(..., "--output", file_okay=False),
 ) -> None:
     """Extract bounded probe frames and sparse representative thumbnails."""
@@ -519,7 +519,7 @@ def scan_command(
         "adaptive5", "--sampling-profile"
     ),
     device: Literal["auto", "cpu", "mps", "cuda"] = typer.Option("auto", "--device"),
-    hwaccel: Literal["none", "videotoolbox"] = typer.Option("none", "--hwaccel"),
+    hwaccel: Literal["auto", "none", "videotoolbox"] = typer.Option("auto", "--hwaccel"),
     models: bool = typer.Option(True, "--models/--no-models"),
     resume: bool = typer.Option(False, "--resume"),
 ) -> None:

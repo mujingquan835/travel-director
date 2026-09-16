@@ -1,0 +1,10 @@
+{
+  "status": "music_adaptation_validated",
+  "listening_status": "not_listened",
+  "mix_listening_status": "not_reviewed",
+  "adaptation_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
+  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/edit_decision.json",
+  "parent": null,
+  "change_count": 0,
+  "external_call_count": 0
+}

@@ -1,0 +1,91 @@
+{
+  "items": [
+    {
+      "candidate_id": "shot-000",
+      "source_in": 2.801667,
+      "source_out": 3.868333,
+      "range_confidence": 0.78,
+      "range_evidence_frames": [
+        0,
+        8
+      ],
+      "range_reason": "所见区间包含白色前景车辆进入、遮挡背景小车再逐渐离开的过程，可作为遮挡连接候选；不是最终EDL。",
+      "shot_scale": {
+        "value": "changing",
+        "confidence": 0.8,
+        "evidence_frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "reason": "以白色前景车辆为主要观察对象，车身由局部进入、近距离占据画面再逐渐离开；不据此声称光学变焦。"
+      },
+      "subject_position": {
+        "value": "changing",
+        "confidence": 0.85,
+        "evidence_frames": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "reason": "白色前景车身从画面左侧逐渐占据中央，后向右侧退出，主体位置随样本改变。"
+      },
+      "camera_motion": {
+        "value": null,
+        "confidence": null,
+        "evidence_frames": [],
+        "reason": "拍摄端、前景车辆及背景均存在相对位移，无法仅凭此短区间可靠区分平移、摇摄和车辆运动。"
+      },
+      "subject_motion": {
+        "value": "left_to_right",
+        "confidence": 0.85,
+        "evidence_frames": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "reason": "白色前景车辆的尾部、车窗与车头结构依次向画面右侧移动；仅描述显示坐标内运动，不判断道路行驶方向。"
+      },
+      "action_description": "白色前景车辆横穿视野，对背景小车形成遮挡。",
+      "action_start": {
+        "time_seconds": 2.868334,
+        "uncertainty_seconds": 0.066668,
+        "confidence": 0.72,
+        "evidence_frames": [
+          0,
+          1
+        ],
+        "reason": "#0尚未见白车明显遮挡，#1左侧白色车身已进入；真实进入时刻只定位在两帧之间。"
+      },
+      "action_accent": {
+        "time_seconds": 3.201667,
+        "uncertainty_seconds": 0.133335,
+        "confidence": 0.72,
+        "evidence_frames": [
+          2,
+          3,
+          4
+        ],
+        "reason": "#3车身覆盖背景主体较充分，可作为视觉遮挡重音候选；密集样本不能证明最大遮挡发生于该精确帧。"
+      },
+      "action_end": null,
+      "action_unknown_reason": "所选末尾样本仍受植物遮挡且观察窗口有限，未确认完整退出/显露背景的事件结束时刻。"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.14.2
+collected 645 items
+
+tests/director/test_agent_batches.py ..............                      [  2%]
+tests/director/test_agent_observations.py ............................   [  6%]
+tests/director/test_audio_catalog.py .........                           [  7%]
+tests/director/test_audio_catalog_cache.py ..                            [  8%]
+tests/director/test_audio_import.py ..                                   [  8%]
+tests/director/test_audio_packaging_guide.py ....................        [ 11%]
+tests/director/test_audio_packaging_status.py ..............             [ 13%]
+tests/director/test_audiovisual_review.py .......                        [ 14%]
+tests/director/test_brief_interpreter.py ........                        [ 16%]
+tests/director/test_catalog_provider.py ...                              [ 16%]
+tests/director/test_clip_selector.py ........                            [ 17%]
+tests/director/test_creative_runner.py ................................. [ 22%]
+.....                                                                    [ 23%]
+tests/director/test_creative_schema.py ................................. [ 28%]
+.........                                                                [ 30%]
+tests/director/test_delivery.py ..........                               [ 31%]
+tests/director/test_director_treatment.py .......                        [ 32%]
+tests/director/test_fcpxml_delivery.py ..........                        [ 34%]
+tests/director/test_footage_preview.py ..........                        [ 35%]
+tests/director/test_generation_gate.py ....                              [ 36%]
+tests/director/test_hook_outro.py .......                                [ 37%]
+tests/director/test_intent_matcher.py ............                       [ 39%]
+tests/director/test_local_vlm_contract.py .........                      [ 40%]
+tests/director/test_material_enrichment.py .....                         [ 41%]
+tests/director/test_music_adaptation.py .....................            [ 44%]
+tests/director/test_music_analysis.py ...                                [ 45%]
+tests/director/test_music_blueprint.py ...                               [ 45%]
+tests/director/test_music_prompt_recommender.py .........                [ 47%]
+tests/director/test_music_recommender.py ........                        [ 48%]
+tests/director/test_project.py ..........                                [ 50%]
+tests/director/test_quduoduo.py .....                                    [ 50%]
+tests/director/test_render.py ...                                        [ 51%]
+tests/director/test_runner.py ..............................             [ 55%]
+tests/director/test_scanner_bridge.py ....                               [ 56%]
+tests/director/test_scanner_evidence_understanding.py ....               [ 57%]
+tests/director/test_schema.py .........                                  [ 58%]
+tests/director/test_search_planner.py ....                               [ 59%]
+tests/director/test_sfx.py ......                                        [ 60%]
+tests/director/test_sfx_assets.py ........                               [ 61%]
+tests/director/test_shot_group.py .......................                [ 64%]
+tests/director/test_shot_review.py ........................              [ 68%]
+tests/director/test_skill_summary.py ...............                     [ 71%]
+tests/director/test_skill_workflow.py ..........                         [ 72%]
+tests/director/test_sound_design.py ..............                       [ 74%]
+tests/director/test_timeline.py .......                                  [ 75%]
+tests/director/test_timeline_revision.py ........                        [ 77%]
+tests/director/test_travel_director_skill.py ................            [ 79%]
+tests/director/test_visual_evaluation.py ..........                      [ 81%]
+tests/director/test_visual_project_e2e.py .....                          [ 81%]
+tests/director/test_visual_review.py ...................                 [ 84%]
+tests/director/test_visual_schema.py ......                              [ 85%]
+tests/director/test_workspace_resolution.py ............                 [ 87%]
+tests/test_cache.py ..                                                   [ 87%]
+tests/test_cv_metrics.py .......                                         [ 88%]
+tests/test_detector.py .....                                             [ 89%]
+tests/test_evaluation.py .........                                       [ 91%]
+tests/test_fusion.py ....                                                [ 91%]
+tests/test_ground_truth.py .....                                         [ 92%]
+tests/test_metadata.py ......                                            [ 93%]
+tests/test_pipeline.py ...                                               [ 93%]
+tests/test_report.py ...                                                 [ 94%]
+tests/test_roles.py ...                                                  [ 94%]
+tests/test_sampling.py ..............                                    [ 97%]
+tests/test_schema.py ....                                                [ 97%]
+tests/test_selection.py .....                                            [ 98%]
+tests/test_telemetry.py ..                                               [ 98%]
+tests/test_vision.py ........                                            [100%]
+
+=============================== warnings summary ===============================
+tests/director/test_audio_packaging_status.py::test_runner_packaging_results[missing]
+  /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:16: DeprecationWarning: 'aifc' is deprecated and slated for removal in Python 3.13
+    import aifc
+
+tests/director/test_audio_packaging_status.py::test_runner_packaging_results[missing]
+  /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:17: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
+    import audioop
+
+tests/director/test_audio_packaging_status.py::test_runner_packaging_results[missing]
+  /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:19: DeprecationWarning: 'sunau' is deprecated and slated for removal in Python 3.13
+    import sunau
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 645 passed, 3 warnings in 46.42s =======================

@@ -8,7 +8,11 @@ from director import scanner_bridge
 from scanner.schema import ErrorRecord, ScannerResult
 
 
-FIXTURE = Path("benchmark/runs/exp09-pipeline-e2e-3-v1/scanner_result.json")
+FIXTURE = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "scanner_result_exp09.json"
+)
 SOURCE_HASHES = {
     "2026_02_06_18_26_40_IMG_0229.MOV": "49c62b132b8544179ce149ec978d429c8c2143864f27e79aa1bc57548264d230",
     "2026_02_06_18_39_36_IMG_0233.MOV": "220853e618d4d9a4fd96604353c550f357a4e8bf84261ee5deb34299712a2954",

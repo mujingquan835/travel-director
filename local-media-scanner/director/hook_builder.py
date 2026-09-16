@@ -3,18 +3,24 @@ from __future__ import annotations
 import random
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from director.schema import StrictModel
 
 
 class HookConfig(StrictModel):
     hook_duration_seconds: float = Field(default=2.0, gt=0, le=5.0)
-    hit_pre_trigger_seconds: float = 0.2
+    hit_pre_trigger_seconds: float = Field(default=0.2, ge=0.0)
     riser_volume: float = Field(default=0.8, ge=0, le=1.0)
-    hit_volume: float = 0.9
+    hit_volume: float = Field(default=0.9, ge=0.0, le=1.0)
     bgm_duck_level: float = Field(default=0.3, ge=0, le=1.0)
-    bgm_recovery_seconds: float = 0.3
+    bgm_recovery_seconds: float = Field(default=0.3, gt=0.0)
+
+    @model_validator(mode="after")
+    def release_is_inside_hook(self) -> "HookConfig":
+        if self.hit_pre_trigger_seconds > self.hook_duration_seconds:
+            raise ValueError("hit pre-trigger must not exceed hook duration")
+        return self
 
 
 class HookPlan(StrictModel):
@@ -35,17 +41,34 @@ def _get_sfx_path(e: any) -> str:
 
 def select_hook_sfx(sfx_entries: list, rng: random.Random | None = None) -> tuple[str, str]:
     """Select a riser and a hit for the hook from the audio catalog."""
-    if rng is None:
-        rng = random.Random()
-
-    risers = [e for e in sfx_entries if getattr(e, "role", "") in ("riser", "whoosh")]
-    hits = [e for e in sfx_entries if getattr(e, "role", "") in ("hook_hit", "hook_subdrop")]
+    risers = sorted(
+        (
+            entry
+            for entry in sfx_entries
+            if getattr(entry, "role", "") in ("riser", "whoosh")
+        ),
+        key=lambda entry: (
+            abs(getattr(entry, "duration_seconds", 1.8) - 1.8),
+            _get_sfx_path(entry),
+        ),
+    )
+    hits = sorted(
+        (
+            entry
+            for entry in sfx_entries
+            if getattr(entry, "role", "") in ("hook_hit", "hook_subdrop")
+        ),
+        key=lambda entry: (
+            abs(getattr(entry, "duration_seconds", 1.5) - 1.5),
+            _get_sfx_path(entry),
+        ),
+    )
 
     if not risers or not hits:
         raise ValueError("Missing risers or hits in the provided sfx entries")
 
-    riser = min(risers, key=lambda e: abs(getattr(e, "duration_seconds", 1.8) - 1.8))
-    hit = rng.choice(hits)
+    riser = risers[0]
+    hit = hits[0] if rng is None else rng.choice(hits)
 
     return _get_sfx_path(riser), _get_sfx_path(hit)
 

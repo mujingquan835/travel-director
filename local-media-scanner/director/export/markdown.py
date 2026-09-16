@@ -13,7 +13,7 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
     lines: list[str] = [
         "# 🎬 旅行导演 — 快速模式时间线交付 (Fast Mode Timeline)",
         "",
-        "> **交付说明**：本方案已完成音乐节拍骨架测算、开场 Hook 与收尾音效规划。画面采用占位符形式，剪辑师可依据每个槽位的节奏、能量与镜头需求填入素材。",
+        "> **交付说明**：本方案已完成音乐节拍骨架测算；音频包装状态见下文，尚未混音。画面采用文字占位；时间和节拍仅作参考，不是必切点。本 Skill 不剪辑音乐或画面。完整分段与快切/停留建议见 --build-guide。",
         "",
         "## 一、项目与音频概览",
         "",
@@ -22,13 +22,34 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
         f"- **音乐标题**: {timeline.music_title or '已选定背景音乐'}",
         f"- **音乐资产路径**: `{timeline.music_asset_path}`",
         f"- **实测 BPM**: {timeline.bpm:.1f}" if timeline.bpm is not None else "- **实测 BPM**: 未检测",
-        f"- **剪辑槽位数**: {len(timeline.slots)} 个镜头槽位",
+        f"- **剪辑槽位数**: {len(timeline.slots)} 个建议参考区间",
         "",
         "---",
         "",
         "## 二、音频包装规划 (Audio Packaging)",
         "",
     ]
+
+    if timeline.audio_packaging is not None:
+        for name, report in timeline.audio_packaging.items():
+            lines.append(f"- **{name} [{report.status}]**: {report.reason}")
+        lines.append("")
+    else:
+        lines.extend(["- 历史交付未记录音效状态；不推断缺失原因。", ""])
+
+    if timeline.sfx_assets is not None:
+        lines.extend(["### 已冻结的音效文件", "", "导入下列项目内副本；音效库路径仅用于来源追踪。", ""])
+        for asset in timeline.sfx_assets:
+            lines.extend([
+                f"- **{asset.role}**: `{asset.frozen_relative_path}`（相对项目根目录）",
+                f"  - SHA-256: `{asset.sha256}`；时长: {asset.duration_seconds:.3f}s；字节数: {asset.size_bytes}",
+                f"  - 来源: `{asset.source_absolute_path}`",
+            ])
+        if not timeline.sfx_assets:
+            lines.append("- 本交付没有选中的音效，未冻结音效文件。")
+        lines.append("")
+    else:
+        lines.extend(["- 历史方案未冻结音效字节；来源路径不代表可验证的音效副本。", ""])
 
     if timeline.hook_plan is not None:
         hp = timeline.hook_plan
@@ -43,7 +64,7 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
     else:
         lines.extend([
             "### 1. 黄金开场 Hook",
-            "- *未配置或未提供音效库，使用原曲直接淡入*",
+            "- 未生成 Hook；以已记录状态为准，不推断淡入或其他混音处理。",
             "",
         ])
 
@@ -67,7 +88,7 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
     lines.extend([
         "---",
         "",
-        "## 三、节拍对齐剪辑槽位网格 (Timeline Slots Grid)",
+        "## 三、节拍参考网格（不是剪辑决定表） (Timeline Slots Grid)",
         "",
         "| 槽位 ID | 起止时间 | 时长 (s) | 音乐段落 | 能量 | 推荐运镜 | 镜头需求 / 叙事任务 | 填空引导建议 |",
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
@@ -89,9 +110,9 @@ def render_fast_mode_markdown(timeline: FastModeTimeline) -> str:
         "",
         "1. **新建工程**：创建与素材相符分辨率与帧率的剪辑工程（如 1080×1920 竖屏 或 4K 横屏）。",
         "2. **导入音频**：将选定的背景音乐放置于 Track 1，如启用了 Hook 音效，在 0 秒处对齐叠加 Riser 与 Hit。",
-        "3. **节拍标记**：按照上方表格中的【起止时间】在主时间线上打上 Mark 关键标记。",
-        "4. **素材填空**：依照【推荐运镜】与【镜头需求】，从你的素材库中挑选对应片段放入槽位，调整入点（In）出点（Out）以精确对齐槽位时长。",
-        "5. **微调转场**：快剪段落（climax/rise）使用硬切，段落过渡处可配合风声 Whoosh 转场音效。",
+        "3. **节拍标记**：可选用上方时间作为试听参考；先核对乐句、动作与叙事，不要求每拍或每个边界切换。",
+        "4. **素材填空**：由用户依照画面建议自行判断素材与停留时长；本方案不分配素材、不生成源入出点。",
+        "5. **微调转场**：仅在音乐、动作与叙事共同支持时考虑局部快切或转场；climax/rise 标签不代表必须快剪。",
         "",
     ])
 

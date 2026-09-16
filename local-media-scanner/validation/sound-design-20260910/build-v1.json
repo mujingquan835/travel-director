@@ -1,0 +1,21 @@
+{
+  "status": "sound_design_validated",
+  "sound_design_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
+  "sound_design_sha256": "86efcc54a78a51279b8b02b67de153712a59ef5394c6f5cc9204a73ebc991a12",
+  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/edit_decision.json",
+  "listening_status": "source_ranges_reviewed",
+  "mix_listening_status": "not_reviewed",
+  "roles": {
+    "location_ambient": 1,
+    "action_foley": 1,
+    "transition_accent": 0
+  },
+  "auditory_planes": {
+    "foreground": 1,
+    "midground": 0,
+    "background": 1
+  },
+  "playable_segments": 1,
+  "missing_gaps": 1,
+  "changes": []
+}

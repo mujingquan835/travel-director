@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Literal
 
@@ -14,7 +15,12 @@ from director.export.markdown import render_fast_mode_markdown
 from director.hook_builder import HookConfig, HookPlan, build_hook_plan
 from director.outro_builder import OutroConfig, OutroPlan, build_outro_plan
 from director.schema import MusicStructure, StrictModel
-from director.timeline import TimelineConfig, build_timeline_slots
+from director.sfx_assets import SfxAsset
+from director.timeline import (
+    TimelineConfig,
+    TimelineRoleOverride,
+    build_timeline_slots,
+)
 
 
 class FastModeSlot(StrictModel):
@@ -33,8 +39,13 @@ class FastModeSlot(StrictModel):
     beat_end: int | None = None
 
 
+class AudioPackagingStatus(StrictModel):
+    status: Literal["ready", "disabled", "no_match", "unavailable", "deferred"]
+    reason: str = Field(min_length=1)
+
+
 class FastModeTimeline(StrictModel):
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
     mode: Literal["fast"] = "fast"
     target_duration_seconds: float = Field(gt=0.0)
     music_title: str | None = None
@@ -42,6 +53,9 @@ class FastModeTimeline(StrictModel):
     bpm: float | None = None
     hook_plan: HookPlan | None = None
     outro_plan: OutroPlan | None = None
+    # None means a legacy delivery never recorded packaging diagnostics.
+    audio_packaging: dict[Literal["hook", "outro"], AudioPackagingStatus] | None = None
+    sfx_assets: list[SfxAsset] | None = None
     slots: list[FastModeSlot] = Field(min_length=1)
 
 
@@ -56,28 +70,59 @@ def build_fast_mode_timeline(
     hook_config: HookConfig | None = None,
     outro_config: OutroConfig | None = None,
     timeline_config: TimelineConfig | None = None,
+    sfx_unavailable_reason: str | None = None,
 ) -> FastModeTimeline:
     """Build a beat-aligned Fast Mode timeline with text placeholders and audio packaging."""
+    role_overrides = [
+        TimelineRoleOverride(
+            start=section.start,
+            end=section.end,
+            role="climax",
+        )
+        for section in creative_sections or []
+        if section.climax
+    ]
     raw_slots = build_timeline_slots(
-        music_structure, target_duration_seconds, timeline_config
+        music_structure,
+        target_duration_seconds,
+        timeline_config,
+        role_overrides=role_overrides,
     )
 
     hook_plan: HookPlan | None = None
-    if sfx_entries:
-        try:
-            hook_plan = build_hook_plan(sfx_entries, hook_config)
-        except Exception:
-            hook_plan = None
-
     outro_plan: OutroPlan | None = None
-    if sfx_entries:
-        try:
+    reports: dict[str, AudioPackagingStatus] = {}
+    unavailable = sfx_unavailable_reason or ("未提供音效库，无法生成音效计划" if sfx_entries is None else None)
+    if unavailable:
+        reports = {key: AudioPackagingStatus(status="unavailable", reason=unavailable)
+                   for key in ("hook", "outro")}
+    else:
+        roles = {entry.role for entry in sfx_entries}
+        missing = []
+        if not roles.intersection({"riser", "whoosh"}):
+            missing.append("riser/whoosh")
+        if not roles.intersection({"hook_hit", "hook_subdrop"}):
+            missing.append("hook_hit/hook_subdrop")
+        if missing:
+            reports["hook"] = AudioPackagingStatus(status="no_match", reason="缺少可用音效角色：" + ", ".join(missing))
+        else:
+            hook_plan = build_hook_plan(sfx_entries, hook_config)
+            reports["hook"] = AudioPackagingStatus(status="ready", reason="已生成 Riser、Hit 与 BGM ducking 计划；尚未混音")
+        outro_plan = build_outro_plan(
+            music_structure, sfx_entries, outro_config,
+            target_duration_seconds=target_duration_seconds,
+        )
+        status = ("disabled" if not outro_plan.config.enable_auto_outro else
+                  "deferred" if target_duration_seconds < music_structure.duration_seconds - 1e-6 else
+                  "ready" if outro_plan.sfx_path else "no_match")
+        reports["outro"] = AudioPackagingStatus(status=status, reason=outro_plan.reason)
+    if outro_config is not None and not outro_config.enable_auto_outro:
+        if outro_plan is None:
             outro_plan = build_outro_plan(
-                music_structure, sfx_entries, outro_config,
+                music_structure, [], outro_config,
                 target_duration_seconds=target_duration_seconds,
             )
-        except Exception:
-            outro_plan = None
+        reports["outro"] = AudioPackagingStatus(status="disabled", reason=outro_plan.reason)
 
     fast_slots: list[FastModeSlot] = []
     for slot in raw_slots:
@@ -118,7 +163,7 @@ def build_fast_mode_timeline(
         )
 
     return FastModeTimeline(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         mode="fast",
         target_duration_seconds=target_duration_seconds,
         music_title=music_title,
@@ -126,20 +171,61 @@ def build_fast_mode_timeline(
         bpm=music_structure.bpm,
         hook_plan=hook_plan,
         outro_plan=outro_plan,
+        audio_packaging=reports,
         slots=fast_slots,
     )
 
 
-def save_fast_mode_delivery(
+def _atomic_write_validation_artifact(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as temporary:
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def _guard_validation_output(output_dir: Path) -> None:
+    resolved = output_dir.resolve()
+    if resolved.name == "delivery":
+        raise ValueError(
+            "validation export cannot write a formal delivery directory; "
+            "use timeline_delivery_store.record_timeline_delivery"
+        )
+    for parent in (resolved, *resolved.parents):
+        if not (parent / "project_state.json").is_file():
+            continue
+        relative = resolved.relative_to(parent)
+        if not relative.parts or relative.parts[0] != "validation":
+            raise ValueError("project-scoped validation exports must stay under validation/")
+        break
+
+
+def export_fast_mode_validation_artifacts(
     timeline: FastModeTimeline, output_dir: Path
 ) -> tuple[Path, Path]:
-    """Atomically save the JSON and Markdown representations of the Fast Mode timeline."""
+    """Write unreceipted validation artifacts without changing project state.
+
+    Each file replacement is atomic, but the pair is not a formal transaction. A
+    complete project delivery must use ``record_timeline_delivery`` instead.
+    """
+    _guard_validation_output(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "fast_mode_timeline.json"
     md_path = output_dir / "timeline_delivery.md"
 
-    json_path.write_text(timeline.model_dump_json(indent=2), encoding="utf-8")
-    md_content = render_fast_mode_markdown(timeline)
-    md_path.write_text(md_content, encoding="utf-8")
+    json_payload = timeline.model_dump_json(indent=2).encode("utf-8")
+    markdown_payload = render_fast_mode_markdown(timeline).encode("utf-8")
+    _atomic_write_validation_artifact(json_path, json_payload)
+    _atomic_write_validation_artifact(md_path, markdown_payload)
 
     return json_path, md_path

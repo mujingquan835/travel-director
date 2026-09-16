@@ -71,6 +71,17 @@ def run_command(
         False, "--build-timeline",
         help="Advance from waiting_for_timeline to completed by generating beat grid delivery.",
     ),
+    require_sfx: list[str] = typer.Option(
+        [], "--require-sfx",
+        help="With --build-timeline, require hook or outro; repeat for both and on retries.",
+    ),
+    new_timeline_revision: bool = typer.Option(
+        False, "--new-timeline-revision",
+        help="Build an independent timeline revision reusing frozen music and observations.",
+    ),
+    place_footage: bool = typer.Option(False, '--place-footage', hidden=True),
+    build_preview: bool = typer.Option(False, '--build-preview', hidden=True),
+    build_guide: bool = typer.Option(False, '--build-guide', help='Write music-section and picture/pacing suggestions only; never edit music or footage.'),
 ) -> None:
     """Advance the local visual workflow to its next explicit stop state."""
 
@@ -86,6 +97,11 @@ def run_command(
         creative_response=creative_response,
         new_music_version=new_music_version,
         build_timeline=build_timeline,
+        require_sfx=tuple(require_sfx),
+        new_timeline_revision=new_timeline_revision,
+        place_footage=place_footage,
+        build_preview=build_preview,
+        build_guide=build_guide,
     )
     typer.echo(result.model_dump_json(indent=2))
 
@@ -99,6 +115,121 @@ def status_command(
     from director.runner import inspect_travel_director
 
     typer.echo(inspect_travel_director(project).model_dump_json(indent=2))
+
+
+@app.command('prepare-shot-review')
+def prepare_shot_review_command(
+    project: Path = typer.Option(..., '--project', exists=True, file_okay=False),
+    selection: Path = typer.Option(..., '--selection', exists=True, dir_okay=False),
+) -> None:
+    """Prepare dense local evidence only for explicitly selected short source intervals."""
+    from director.shot_review import prepare_shot_review
+    try:
+        typer.echo(json.dumps(prepare_shot_review(project, selection), ensure_ascii=False, indent=2))
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('build-shot-group')
+def build_shot_group_command(
+    plan: Path = typer.Option(..., '--plan', exists=True, dir_okay=False),
+    output: Path = typer.Option(..., '--output', file_okay=False),
+) -> None:
+    """Bind a 2–4-shot local combination to paired fine-review evidence and derive its EDL."""
+    from director.shot_group import build_shot_group
+    try:
+        typer.echo(json.dumps(build_shot_group(plan, output), ensure_ascii=False, indent=2))
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('build-music-adaptation')
+def build_music_adaptation_command(
+    plan: Path = typer.Option(..., '--plan', exists=True, dir_okay=False),
+    output: Path = typer.Option(..., '--output', file_okay=False),
+    parent: Path | None = typer.Option(None, '--parent', exists=True, dir_okay=False),
+) -> None:
+    """Save a phrase-aware music edit map, listening provenance and immutable revision diff."""
+    from director.music_adaptation import build_music_adaptation
+    try:
+        typer.echo(json.dumps(build_music_adaptation(plan,output,parent),ensure_ascii=False,indent=2))
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('inspect-music-adaptation')
+def inspect_music_adaptation_command(
+    adaptation: Path = typer.Option(..., '--adaptation', exists=True, dir_okay=False),
+) -> None:
+    """Revalidate frozen music, edit map, source listening records and revision lineage."""
+    from director.music_adaptation import inspect_music_adaptation
+    try:
+        typer.echo(json.dumps(inspect_music_adaptation(adaptation),ensure_ascii=False,indent=2))
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('build-sound-design')
+def build_sound_design_command(
+    plan: Path = typer.Option(..., '--plan', exists=True, dir_okay=False),
+    output: Path = typer.Option(..., '--output', file_okay=False),
+    parent: Path | None = typer.Option(None, '--parent', exists=True, dir_okay=False),
+) -> None:
+    """Build evidence-backed sound design with event anchors, auditory planes and immutable revisions."""
+    from director.sound_design import build_sound_design
+    try:
+        typer.echo(json.dumps(build_sound_design(plan, output, parent), ensure_ascii=False, indent=2))
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('inspect-sound-design')
+def inspect_sound_design_command(
+    sound_design: Path = typer.Option(..., '--sound-design', exists=True, dir_okay=False),
+) -> None:
+    """Revalidate sound event anchors, media ranges, listening records and revision diffs."""
+    from director.sound_design import inspect_sound_design
+    try:
+        typer.echo(json.dumps(inspect_sound_design(sound_design), ensure_ascii=False, indent=2))
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('inspect-shot-group')
+def inspect_shot_group_command(
+    group: Path = typer.Option(..., '--group', exists=True, dir_okay=False),
+) -> None:
+    """Recheck saved local-group order, paired timing evidence and upstream review hashes."""
+    from director.shot_group import inspect_shot_group
+    try:
+        typer.echo(json.dumps(inspect_shot_group(group), ensure_ascii=False, indent=2))
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('submit-shot-review')
+def submit_shot_review_command(
+    request: Path = typer.Option(..., '--request', exists=True, dir_okay=False),
+    observations: Path = typer.Option(..., '--observations', exists=True, dir_okay=False),
+) -> None:
+    """Expand compact temporal judgments into an immutable source/evidence-bound result."""
+    from director.shot_review import submit_shot_review
+    try:
+        typer.echo(json.dumps(submit_shot_review(request, observations), ensure_ascii=False, indent=2))
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command('inspect-shot-review')
+def inspect_shot_review_command(
+    request: Path = typer.Option(..., '--request', exists=True, dir_okay=False),
+) -> None:
+    """Verify cached temporal evidence and saved observations without decoding again."""
+    from director.shot_review import inspect_shot_review
+    try:
+        typer.echo(json.dumps(inspect_shot_review(request), ensure_ascii=False, indent=2))
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 @app.command("build-scanner-observations")
@@ -1089,3 +1220,85 @@ def render_project_command(
     typer.echo(result.model_dump_json(indent=2))
     if result.status != "completed":
         raise typer.Exit(code=1)
+
+
+@app.command("export-fcpxml")
+def export_fcpxml_command(
+    decision: Path = typer.Option(..., "--decision", exists=True, dir_okay=False),
+    output: Path = typer.Option(..., "--output", file_okay=False),
+    sfx_root: Path | None = typer.Option(None, "--sfx-root", exists=True, file_okay=False),
+) -> None:
+    """Materialize one concise edit decision as a validated FCPXML package."""
+
+    from director.fcpxml_delivery import export_fcpxml_decision
+
+    typer.echo(export_fcpxml_decision(decision, output, sfx_root).model_dump_json(indent=2))
+
+
+@app.command("record-fcpxml-acceptance")
+def record_fcpxml_acceptance_command(
+    receipt: Path = typer.Option(..., "--receipt", exists=True, dir_okay=False),
+    application: str = typer.Option(..., "--application"),
+    application_version: str = typer.Option(..., "--application-version"),
+    draft_name: str = typer.Option(..., "--draft-name"),
+    observed_video_segments: int = typer.Option(..., "--observed-video-segments", min=1),
+    observed_audio_segments: int = typer.Option(..., "--observed-audio-segments", min=0),
+    playhead_before: str = typer.Option(..., "--playhead-before"),
+    playhead_after: str = typer.Option(..., "--playhead-after"),
+    edit_asset: str = typer.Option(..., "--edit-asset"),
+    edit_field: str = typer.Option(..., "--edit-field"),
+    edit_before: float = typer.Option(..., "--edit-before"),
+    edit_after: float = typer.Option(..., "--edit-after"),
+    reopen_value: float = typer.Option(..., "--reopen-value"),
+    accepted_at: str = typer.Option(..., "--accepted-at"),
+) -> None:
+    """Record verified client import, playback, edit/save and reopen evidence."""
+
+    from director.fcpxml_delivery import record_fcpxml_acceptance
+
+    result = record_fcpxml_acceptance(
+        receipt,
+        application=application,
+        application_version=application_version,
+        draft_name=draft_name,
+        observed_video_segments=observed_video_segments,
+        observed_audio_segments=observed_audio_segments,
+        playhead_before=playhead_before,
+        playhead_after=playhead_after,
+        edit_asset=edit_asset,
+        edit_field=edit_field,
+        edit_before=edit_before,
+        edit_after=edit_after,
+        reopen_value=reopen_value,
+        accepted_at=accepted_at,
+    )
+    typer.echo(result.model_dump_json(indent=2))
+
+
+@app.command("record-audiovisual-review")
+def record_audiovisual_review_command(
+    receipt: Path = typer.Option(..., "--receipt", exists=True, dir_okay=False),
+    review: Path = typer.Option(..., "--review", exists=True, dir_okay=False),
+) -> None:
+    """Record subjective audiovisual listening and viewing review and close the loop on delivery receipt."""
+    from director.audiovisual_review import record_audiovisual_review
+
+    try:
+        result = record_audiovisual_review(receipt, review)
+        typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("inspect-audiovisual-review")
+def inspect_audiovisual_review_command(
+    receipt: Path = typer.Option(..., "--receipt", exists=True, dir_okay=False),
+) -> None:
+    """Inspect and verify recorded subjective audiovisual listening and viewing review in a receipt."""
+    from director.audiovisual_review import inspect_audiovisual_review
+
+    try:
+        result = inspect_audiovisual_review(receipt)
+        typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc

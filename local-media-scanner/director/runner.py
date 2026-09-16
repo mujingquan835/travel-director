@@ -1160,21 +1160,29 @@ def _completed_timeline_result(
     summary: "SkillRunSummary",
     timeline_path: Path,
     markdown_path: Path,
+    require_sfx: tuple[str, ...] = (),
 ) -> DirectorRunResult:
     from director.audio_import import load_music_evidence
 
     from director.timeline_delivery_store import validate_timeline_delivery
 
     timeline = validate_timeline_delivery(paths)
+    _check_required_sfx(timeline, require_sfx)
     evidence = load_music_evidence(paths)
     if evidence is None:
         raise ProjectConflict("music evidence is not complete")
     asset, structure = evidence
+    revision_artifacts = {}
+    if (paths.root / 'timeline_revision.json').is_file():
+        revision_artifacts = {'timeline_revision': str(paths.root / 'timeline_revision.json'),
+                              'timeline_receipt': str(paths.root / 'delivery/receipt.json')}
     return _result(
         paths,
         "completed",
         "timeline_delivery",
-        "The timeline plan and Markdown delivery are verified; footage slots remain placeholders.",
+        "The timeline plan and Markdown delivery are verified; footage slots remain placeholders. "
+        + ("; ".join(f"{name} [{report.status}]: {report.reason}" for name, report in timeline.audio_packaging.items())
+           if timeline.audio_packaging is not None else "Legacy delivery: audio packaging status was not recorded."),
         actions=[
             RunAction(
                 kind="read_summary",
@@ -1183,6 +1191,7 @@ def _completed_timeline_result(
             )
         ],
         artifacts={
+            **revision_artifacts,
             **summary.artifact_paths,
             "music_asset": str(paths.generated_music.resolve()),
             "frozen_music": str((paths.root / asset.frozen_relative_path).resolve()),
@@ -1194,14 +1203,23 @@ def _completed_timeline_result(
     )
 
 
+def _check_required_sfx(timeline, require_sfx: tuple[str, ...]) -> None:
+    for name in require_sfx:
+        report = (timeline.audio_packaging or {}).get(name)
+        if report is None or report.status != "ready":
+            reason = report.reason if report else "历史交付未记录可验证的包装状态"
+            raise ProjectConflict(f"Required SFX {name} unavailable: {reason}. 修复音效资源后重试；已完成交付不能覆盖。")
+
+
 def _build_and_record_delivery(
     paths: ProjectPaths,
     summary: "SkillRunSummary",
+    require_sfx: tuple[str, ...] = (),
 ) -> tuple[Path, Path]:
     from director.audio_import import load_music_evidence
     from director.creative_direction import load_creative
     from director.delivery import build_fast_mode_timeline
-    from director.audio_catalog import build_audio_catalog, resolve_audio_root
+    from director.audio_catalog import AudioCatalogUnavailable, build_audio_catalog, resolve_audio_root
 
     evidence = load_music_evidence(paths)
     if evidence is None:
@@ -1217,24 +1235,35 @@ def _build_and_record_delivery(
         target_duration = creative_direction.target_duration_seconds
 
     sfx_entries = None
+    sfx_unavailable_reason = None
     try:
         audio_root = resolve_audio_root()
         catalog = build_audio_catalog(audio_root)
         sfx_entries = catalog.sfx
-    except Exception:
-        pass
+    except (AudioCatalogUnavailable, OSError) as exc:
+        sfx_unavailable_reason = f"音效库不可用：{exc}；检查音频库路径、权限和目录布局后重试"
+    except Exception as exc:
+        raise ProjectConflict(f"Audio packaging failed during catalog loading ({type(exc).__name__}): {exc}") from exc
 
     frozen_music_path = str((paths.root / asset.frozen_relative_path).resolve())
-    timeline = build_fast_mode_timeline(
-        music_structure=structure,
-        target_duration_seconds=target_duration,
-        music_asset_path=frozen_music_path,
-        creative_sections=creative_sections,
-        sfx_entries=sfx_entries,
-    )
+    try:
+        timeline = build_fast_mode_timeline(
+            music_structure=structure,
+            target_duration_seconds=target_duration,
+            music_asset_path=frozen_music_path,
+            creative_sections=creative_sections,
+            sfx_entries=sfx_entries,
+            sfx_unavailable_reason=sfx_unavailable_reason,
+        )
+    except Exception as exc:
+        raise ProjectConflict(f"Timeline/audio packaging generation failed ({type(exc).__name__}): {exc}") from exc
+    _check_required_sfx(timeline, require_sfx)
 
     from director.timeline_delivery_store import record_timeline_delivery
-
+    from director.sfx_assets import freeze_sfx_assets
+    timeline = freeze_sfx_assets(
+        timeline, Path(catalog.sfx_root) if sfx_entries else None, paths.root,
+    )
     return record_timeline_delivery(paths, timeline)
 
 
@@ -1243,6 +1272,7 @@ def _advance_creative(
     creative_response: Path | None,
     music: Path | None,
     build_timeline: bool = False,
+    require_sfx: tuple[str, ...] = (),
 ) -> DirectorRunResult:
     from director.audio_import import freeze_and_analyze_music, load_music_evidence
     from director.creative_direction import creative_request, import_creative, load_creative, load_current_creative, _context
@@ -1272,11 +1302,11 @@ def _advance_creative(
         if "timeline_delivery" in state.completed_artifact_hashes:
             json_path = paths.root / "delivery" / "fast_mode_timeline.json"
             md_path = paths.root / "delivery" / "timeline_delivery.md"
-            return _completed_timeline_result(paths, summary, json_path, md_path)
+            return _completed_timeline_result(paths, summary, json_path, md_path, require_sfx)
 
         if build_timeline:
-            json_path, md_path = _build_and_record_delivery(paths, summary)
-            return _completed_timeline_result(paths, summary, json_path, md_path)
+            json_path, md_path = _build_and_record_delivery(paths, summary, require_sfx)
+            return _completed_timeline_result(paths, summary, json_path, md_path, require_sfx)
 
         return _waiting_for_timeline_result(paths, summary)
 
@@ -1286,8 +1316,8 @@ def _advance_creative(
         if music is not None:
             freeze_and_analyze_music(paths, music)
             if build_timeline:
-                json_path, md_path = _build_and_record_delivery(paths, summary)
-                return _completed_timeline_result(paths, summary, json_path, md_path)
+                json_path, md_path = _build_and_record_delivery(paths, summary, require_sfx)
+                return _completed_timeline_result(paths, summary, json_path, md_path, require_sfx)
             return _waiting_for_timeline_result(paths, summary)
         return _waiting_for_music_result(paths, summary, summary_path)
     if music is not None:
@@ -1317,6 +1347,7 @@ def _advance_run(
     music: Path | None = None,
     creative_response: Path | None = None,
     build_timeline: bool = False,
+    require_sfx: tuple[str, ...] = (),
 ) -> DirectorRunResult:
     # Validate every recorded visual source even when resuming beyond it.
     state = load_project_state(paths)
@@ -1329,7 +1360,7 @@ def _advance_run(
     if existing_review is not None:
         if response_file is not None:
             raise ValueError("project is not waiting for a confirmation file")
-        return _advance_creative(paths, creative_response, music, build_timeline=build_timeline)
+        return _advance_creative(paths, creative_response, music, build_timeline=build_timeline, require_sfx=require_sfx)
     if creative_response is not None:
         raise ValueError("project is not waiting for creative direction")
     if music is not None:
@@ -1502,7 +1533,7 @@ def _advance_run(
 
     if response_file is not None:
         raise ValueError("project is not waiting for a confirmation file")
-    return _advance_creative(paths, None, None, build_timeline=build_timeline)
+    return _advance_creative(paths, None, None, build_timeline=build_timeline, require_sfx=require_sfx)
 
 
 def run_travel_director(
@@ -1516,6 +1547,11 @@ def run_travel_director(
     creative_response: Path | None = None,
     new_music_version: bool = False,
     build_timeline: bool = False,
+    require_sfx: tuple[str, ...] = (),
+    new_timeline_revision: bool = False,
+    place_footage: bool = False,
+    build_preview: bool = False,
+    build_guide: bool = False,
 ) -> DirectorRunResult:
     """Advance one local visual project to its next explicit stop state."""
 
@@ -1523,6 +1559,20 @@ def run_travel_director(
     raw_brief = RawCreativeBrief(raw_description=raw_description)
     paths: ProjectPaths | None = None
     try:
+        if place_footage or build_preview:
+            raise ValueError('R06 corrected: automatic footage placement/rendering is retired. Use --build-guide for planning only; slow mode uses still placeholders only.')
+        if build_guide:
+            if project is None or new_music_version or music or response_file or creative_response:
+                raise ValueError('--build-guide requires an existing --project without music/response imports')
+            build_timeline = True
+        if new_timeline_revision:
+            if project is None or music is not None or creative_response is not None or response_file is not None or new_music_version:
+                raise ValueError('--new-timeline-revision requires an existing --project and cannot import music or responses')
+            build_timeline = True
+        if any(name not in {"hook", "outro"} for name in require_sfx):
+            raise ValueError("--require-sfx accepts hook or outro")
+        if require_sfx and not build_timeline:
+            raise ValueError("--require-sfx requires --build-timeline; repeat requirements on retries")
         if new_music_version and (project is None or music is None or creative_response is not None or response_file is not None):
             raise ValueError("--new-music-version requires --project and --music only")
         if not resolved_input.is_dir():
@@ -1562,6 +1612,13 @@ def run_travel_director(
             media,
             new_project=new_project,
         )
+        from director.timeline_revision import create_timeline_revision, validate_revision
+        if new_timeline_revision:
+            paths = create_timeline_revision(paths, require_sfx)
+        revision = validate_revision(paths)
+        if revision is not None:
+            require_sfx = tuple(sorted(set(require_sfx) | set(revision['configuration']['require_sfx'])))
+            build_timeline = True
         if new_music_version:
             from director.music_version import create_music_version
             from director.audio_import import freeze_and_analyze_music
@@ -1571,10 +1628,20 @@ def run_travel_director(
             summary = creative[1] if creative is not None else build_skill_run_summary(paths.root)
             freeze_and_analyze_music(paths, music)
             if build_timeline:
-                json_path, md_path = _build_and_record_delivery(paths, summary)
-                return _completed_timeline_result(paths, summary, json_path, md_path)
+                json_path, md_path = _build_and_record_delivery(paths, summary, require_sfx)
+                return _completed_timeline_result(paths, summary, json_path, md_path, require_sfx)
             return _waiting_for_timeline_result(paths, summary)
-        return _advance_run(paths, resolved_input, response_file, music, creative_response, build_timeline=build_timeline)
+        result = _advance_run(paths, resolved_input, response_file, music, creative_response, build_timeline=build_timeline, require_sfx=require_sfx)
+        if build_guide and result.status == 'completed':
+            from director.music_visual_guide import record_guide
+            artifacts = record_guide(paths)
+            return result.model_copy(update={
+                'current_stage': 'music_visual_guidance',
+                'message': '音乐分段与画面建议已生成。节拍是参考而非必切点；快切与停留需试听复核。未剪辑音乐或画面，未指定素材入出点，未生成视频。',
+                'artifact_paths': {**result.artifact_paths, **artifacts},
+                'actions': [RunAction(kind='read_summary', message='阅读音乐分段与画面建议。', result_path=artifacts['music_visual_guide_markdown'])],
+            })
+        return result
     except (OSError, ProjectConflict, ValueError) as exc:
         if paths is None:
             intended = (
@@ -1614,6 +1681,8 @@ def inspect_travel_director(project: Path) -> DirectorStatusResult:
     """Read and validate current project checkpoints without writing files."""
 
     paths = open_project(project.resolve())
+    from director.timeline_revision import validate_revision
+    validate_revision(paths)
     state = load_project_state(paths)
     if not isinstance(state, VisualProjectState):
         raise ProjectConflict("status requires a V0.2 visual project")

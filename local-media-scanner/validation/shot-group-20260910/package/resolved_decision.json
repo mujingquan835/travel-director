@@ -1,0 +1,35 @@
+{
+  "schema_version": "0.1.0",
+  "project_name": "TD-local-context-detail-20260910",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration_seconds": 2.133333
+  },
+  "clips": [
+    {
+      "kind": "video",
+      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "track": "main",
+      "timeline_in": 0.0,
+      "source_in": 4.8,
+      "duration": 1.2,
+      "gain": 1.0
+    },
+    {
+      "kind": "video",
+      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "track": "main",
+      "timeline_in": 1.2,
+      "source_in": 2.935,
+      "duration": 0.933333,
+      "gain": 1.0
+    }
+  ],
+  "sfx_cues": [],
+  "shot_group": {
+    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+    "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
+  }
+}

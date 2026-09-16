@@ -32,6 +32,8 @@ def _get_sfx_path(e: any) -> str:
 
 def select_outro_sfx(ending_behavior: str, sfx_entries: list) -> str | None:
     """Select the outro SFX based on the ending behavior."""
+    # Preserve eligibility rules; choose the lexicographically smallest path.
+    sfx_entries = sorted(sfx_entries, key=_get_sfx_path)
     if ending_behavior == "hard_stop":
         for e in sfx_entries:
             role = getattr(e, "role", "")
@@ -63,6 +65,8 @@ def build_outro_plan(
     duration = music_structure.duration_seconds if target_duration_seconds is None else target_duration_seconds
     if not math.isfinite(duration) or duration <= 0 or duration > music_structure.duration_seconds + 1e-6:
         raise ValueError("outro target duration must be positive and within the measured music")
+    if config.outro_pre_end_seconds > duration:
+        raise ValueError("outro pre-end must not exceed target duration")
     truncated = duration < music_structure.duration_seconds - 1e-6
     sfx_path = None
     reason = "Auto outro disabled"

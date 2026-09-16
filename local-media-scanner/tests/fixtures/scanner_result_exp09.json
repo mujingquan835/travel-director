@@ -1,0 +1,326 @@
+{
+  "schema_version": "0.1.0",
+  "run_id": "exp09-pipeline-e2e-3-v1",
+  "items": [
+    {
+      "schema_version": "0.1.0",
+      "file": "2026_02_06_18_26_40_IMG_0229.MOV",
+      "source": {
+        "relative_path": "2026_02_06_18_26_40_IMG_0229.MOV",
+        "size_bytes": 78654582,
+        "mtime_ns": 1770373600000000000
+      },
+      "analysis_status": "complete",
+      "technical": {
+        "duration": 12.631667,
+        "width": 3840,
+        "height": 2160,
+        "fps": 30.0,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-06T10:26:40.000000Z",
+        "rotation": null
+      },
+      "quality": {
+        "laplacian_variance_raw": 397.1327798989378,
+        "blur_score": null,
+        "brightness_score": 0.2218383476138115,
+        "dark_pixel_ratio": 0.07405381944444445,
+        "bright_pixel_ratio": 0.0003559027777777778,
+        "exposure_status": "normal",
+        "quality_score": null
+      },
+      "motion": {
+        "motion_intensity_raw": 0.010470103472471237,
+        "motion_intensity": null,
+        "motion_level": "unknown",
+        "static_or_dynamic": "unknown",
+        "directional_motion_ratio": 0.4546845555305481,
+        "luma_change_p90": 0.4313725531101227
+      },
+      "content": {
+        "people_present": false,
+        "people_count_estimate": 0,
+        "people_type": [],
+        "scene_type": null,
+        "scene_type_candidates": [],
+        "main_objects": [
+          "car"
+        ],
+        "simple_action": null
+      },
+      "shot_scale": null,
+      "material_role_candidates": [],
+      "material_role_evidence": {},
+      "representative_frames": [
+        {
+          "timestamp": 0.7894791875,
+          "reasons": [
+            "scene_change"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_26_40_IMG_0229.MOV/00.jpg"
+        },
+        {
+          "timestamp": 2.3684375625,
+          "reasons": [
+            "temporal"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_26_40_IMG_0229.MOV/01.jpg"
+        },
+        {
+          "timestamp": 6.052673770833334,
+          "reasons": [
+            "temporal"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_26_40_IMG_0229.MOV/02.jpg"
+        },
+        {
+          "timestamp": 10.2632294375,
+          "reasons": [
+            "temporal",
+            "motion"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_26_40_IMG_0229.MOV/03.jpg"
+        }
+      ],
+      "confidence": {},
+      "field_status": {
+        "content.people_present": "candidate",
+        "content.people_count_estimate": "candidate",
+        "content.main_objects": "abstained",
+        "content.scene_type": "abstained",
+        "content.simple_action": "abstained",
+        "content.people_type": "abstained",
+        "shot_scale": "abstained"
+      },
+      "timings_ms": {
+        "metadata": null,
+        "frame_scan": 7817.059624998365,
+        "cv": 156.97141698910855,
+        "detector": 608.4971249947557,
+        "vision_model": 1377.5414999981876,
+        "fusion": 0.15041600272525102,
+        "report": null,
+        "total": 9960.57541600021
+      },
+      "errors": []
+    },
+    {
+      "schema_version": "0.1.0",
+      "file": "2026_02_06_18_39_36_IMG_0233.MOV",
+      "source": {
+        "relative_path": "2026_02_06_18_39_36_IMG_0233.MOV",
+        "size_bytes": 83629736,
+        "mtime_ns": 1770374376000000000
+      },
+      "analysis_status": "complete",
+      "technical": {
+        "duration": 6.535,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.96940336562978,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-06T10:39:36.000000Z",
+        "rotation": null
+      },
+      "quality": {
+        "laplacian_variance_raw": 1393.8061789693952,
+        "blur_score": null,
+        "brightness_score": 0.4305853694677353,
+        "dark_pixel_ratio": 0.0017100694444444444,
+        "bright_pixel_ratio": 0.0014583333333333334,
+        "exposure_status": "normal",
+        "quality_score": null
+      },
+      "motion": {
+        "motion_intensity_raw": 0.020377142354846,
+        "motion_intensity": null,
+        "motion_level": "unknown",
+        "static_or_dynamic": "unknown",
+        "directional_motion_ratio": 0.3669600188732147,
+        "luma_change_p90": 0.4431372582912445
+      },
+      "content": {
+        "people_present": true,
+        "people_count_estimate": 2,
+        "people_type": [],
+        "scene_type": null,
+        "scene_type_candidates": [],
+        "main_objects": [
+          "car",
+          "person",
+          "airplane"
+        ],
+        "simple_action": null
+      },
+      "shot_scale": "medium",
+      "material_role_candidates": [
+        "human_story"
+      ],
+      "material_role_evidence": {
+        "human_story": {
+          "score": 0.825548,
+          "rules": [
+            "visible people provide human-story evidence"
+          ],
+          "inputs": [
+            "content.people_present"
+          ]
+        }
+      },
+      "representative_frames": [
+        {
+          "timestamp": 1.1669642857142857,
+          "reasons": [
+            "temporal"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_39_36_IMG_0233.MOV/00.jpg"
+        },
+        {
+          "timestamp": 3.0341071428571427,
+          "reasons": [
+            "temporal",
+            "scene_change"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_39_36_IMG_0233.MOV/01.jpg"
+        },
+        {
+          "timestamp": 5.368035714285715,
+          "reasons": [
+            "temporal",
+            "motion"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_18_39_36_IMG_0233.MOV/02.jpg"
+        }
+      ],
+      "confidence": {
+        "content.people_present": {
+          "score": 0.9712331891059875,
+          "source": "detector",
+          "margin": null
+        },
+        "shot_scale": {
+          "score": 0.020615,
+          "source": "geometry_fusion",
+          "margin": 0.0016491711139678955
+        }
+      },
+      "field_status": {
+        "content.people_present": "candidate",
+        "content.people_count_estimate": "candidate",
+        "content.main_objects": "abstained",
+        "content.scene_type": "abstained",
+        "content.simple_action": "abstained",
+        "content.people_type": "abstained",
+        "shot_scale": "predicted"
+      },
+      "timings_ms": {
+        "metadata": null,
+        "frame_scan": 5138.838541999576,
+        "cv": 90.13879198755603,
+        "detector": 446.7629169957945,
+        "vision_model": 119.08433301141486,
+        "fusion": 0.060000005760230124,
+        "report": null,
+        "total": 5795.20154200145
+      },
+      "errors": []
+    },
+    {
+      "schema_version": "0.1.0",
+      "file": "2026_02_06_19_12_26_IMG_0244.MOV",
+      "source": {
+        "relative_path": "2026_02_06_19_12_26_IMG_0244.MOV",
+        "size_bytes": 90054465,
+        "mtime_ns": 1770376346000000000
+      },
+      "analysis_status": "complete",
+      "technical": {
+        "duration": 8.018333,
+        "width": 3840,
+        "height": 2160,
+        "fps": 59.97506234413965,
+        "orientation": "landscape",
+        "codec": "hevc",
+        "creation_time": "2026-02-06T11:12:26.000000Z",
+        "rotation": null
+      },
+      "quality": {
+        "laplacian_variance_raw": 2262.0192193284024,
+        "blur_score": null,
+        "brightness_score": 0.43747609853744507,
+        "dark_pixel_ratio": 0.0,
+        "bright_pixel_ratio": 0.003246527777777778,
+        "exposure_status": "normal",
+        "quality_score": null
+      },
+      "motion": {
+        "motion_intensity_raw": 0.047923242673277855,
+        "motion_intensity": null,
+        "motion_level": "unknown",
+        "static_or_dynamic": "unknown",
+        "directional_motion_ratio": 0.6318225264549255,
+        "luma_change_p90": 0.48627451062202454
+      },
+      "content": {
+        "people_present": false,
+        "people_count_estimate": 0,
+        "people_type": [],
+        "scene_type": null,
+        "scene_type_candidates": [],
+        "main_objects": [],
+        "simple_action": null
+      },
+      "shot_scale": null,
+      "material_role_candidates": [],
+      "material_role_evidence": {},
+      "representative_frames": [
+        {
+          "timestamp": 1.6508332647058825,
+          "reasons": [
+            "temporal"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_19_12_26_IMG_0244.MOV/00.jpg"
+        },
+        {
+          "timestamp": 4.0091665,
+          "reasons": [
+            "temporal",
+            "motion"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_19_12_26_IMG_0244.MOV/01.jpg"
+        },
+        {
+          "timestamp": 6.367499735294118,
+          "reasons": [
+            "temporal",
+            "scene_change"
+          ],
+          "thumbnail_relpath": "frames/2026_02_06_19_12_26_IMG_0244.MOV/02.jpg"
+        }
+      ],
+      "confidence": {},
+      "field_status": {
+        "content.people_present": "candidate",
+        "content.people_count_estimate": "candidate",
+        "content.main_objects": "abstained",
+        "content.scene_type": "abstained",
+        "content.simple_action": "abstained",
+        "content.people_type": "abstained",
+        "shot_scale": "abstained"
+      },
+      "timings_ms": {
+        "metadata": null,
+        "frame_scan": 6279.077292012516,
+        "cv": 110.0606669933768,
+        "detector": 456.84754200919997,
+        "vision_model": 97.85183299391065,
+        "fusion": 0.04516699118539691,
+        "report": null,
+        "total": 6944.213416994899
+      },
+      "errors": []
+    }
+  ]
+}

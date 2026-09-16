@@ -255,6 +255,36 @@ def test_frozen_projects_ignore_reference_upgrade_without_mutation(tmp_path, mon
 
 def test_advance_to_completed_with_build_timeline(tmp_path, monkeypatch, click_track):
     source, project, request = reach_creative(tmp_path, monkeypatch)
+    import tests.director.test_creative_schema as creative_test_helpers
+
+    original_build_creative_payload = creative_test_helpers.build_creative_payload
+
+    def build_climax_payload(**kwargs):
+        payload = original_build_creative_payload(**kwargs)
+        original_section = payload["sections"][0]
+        payload["sections"] = [
+            {
+                **original_section,
+                "section_id": "intro",
+                "end": 30.0,
+            },
+            {
+                **original_section,
+                "section_id": "climax",
+                "start": 30.0,
+                "climax": True,
+                "narrative_task": "以高能画面完成高潮",
+            },
+        ]
+        for prompt in payload["music_prompts"]:
+            prompt["section_ids"] = ["intro", "climax"]
+        return payload
+
+    monkeypatch.setattr(
+        creative_test_helpers,
+        "build_creative_payload",
+        build_climax_payload,
+    )
     _submit_creative(source, project, BRIEF, request)
     frozen = run_travel_director(source, BRIEF, project=project, music=click_track)
     assert frozen.status == 'waiting_for_timeline'
@@ -267,6 +297,20 @@ def test_advance_to_completed_with_build_timeline(tmp_path, monkeypatch, click_t
     assert 'timeline_markdown' in completed.artifact_paths
     assert Path(completed.artifact_paths['timeline_delivery']).is_file()
     assert Path(completed.artifact_paths['timeline_markdown']).is_file()
+    payload = json.loads(
+        Path(completed.artifact_paths['timeline_delivery']).read_text(
+            encoding='utf-8'
+        )
+    )
+    climax_slots = [
+        slot for slot in payload['slots'] if slot['section_role'] == 'climax'
+    ]
+    assert climax_slots
+    assert {slot['desired_motion'] for slot in climax_slots} == {'high'}
+    assert all(
+        slot['content_need'] == 'high_visual_impact'
+        for slot in climax_slots
+    )
 
     # Status check confirms completed
     assert inspect_travel_director(project).run_state == 'completed'
@@ -395,3 +439,22 @@ def test_interrupted_receipt_write_never_reports_completed(tmp_path, monkeypatch
     assert interrupted.status == 'blocked'
     monkeypatch.setattr(store, 'record_supporting_artifact', original)
     assert run_travel_director(source, BRIEF, project=project).status == 'blocked'
+
+
+def test_formal_delivery_rejects_replacement_and_preserves_completed_bytes(tmp_path, monkeypatch, click_track):
+    from director.delivery import FastModeTimeline
+    from director.project import ProjectConflict, open_project
+    from director.timeline_delivery_store import record_timeline_delivery
+
+    source, project, request = reach_creative(tmp_path, monkeypatch)
+    _submit_creative(source, project, BRIEF, request)
+    run_travel_director(source, BRIEF, project=project, music=click_track)
+    completed = run_travel_director(source, BRIEF, project=project, build_timeline=True)
+    assert completed.status == 'completed'
+    before = snapshot(project)
+    timeline = FastModeTimeline.model_validate_json(
+        Path(completed.artifact_paths['timeline_delivery']).read_text(encoding='utf-8')
+    ).model_copy(update={'music_title': 'replacement attempt'})
+    with pytest.raises(ProjectConflict, match='timeline delivery differs'):
+        record_timeline_delivery(open_project(project), timeline)
+    assert snapshot(project) == before

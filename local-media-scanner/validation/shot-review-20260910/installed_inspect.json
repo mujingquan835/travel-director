@@ -1,0 +1,19 @@
+{
+  "status": "shot_review_validated",
+  "request_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+  "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
+  "response_template": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/response.template.json",
+  "response_schema": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/response.schema.json",
+  "candidates": [
+    {
+      "candidate_id": "shot-000",
+      "source_in": 2.8,
+      "source_out": 3.9,
+      "frame_count": 9,
+      "sheets": [
+        "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/shot-000-sheet-00.jpg"
+      ]
+    }
+  ],
+  "external_call_count": 0
+}

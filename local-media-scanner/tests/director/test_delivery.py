@@ -8,7 +8,7 @@ from director.creative_schema import CreativeSection
 from director.delivery import (
     FastModeTimeline,
     build_fast_mode_timeline,
-    save_fast_mode_delivery,
+    export_fast_mode_validation_artifacts,
 )
 from director.export.markdown import render_fast_mode_markdown
 from director.schema import (
@@ -135,6 +135,44 @@ def test_build_fast_mode_timeline_with_creative_sections() -> None:
 
     last_slot = tl.slots[-1]
     assert last_slot.narrative_task == "高潮展现古城全貌与市集"
+    climax_slots = [slot for slot in tl.slots if slot.start >= 30.0]
+    assert climax_slots
+    assert all(slot.section_role == "climax" for slot in climax_slots)
+    assert all(slot.desired_motion == "high" for slot in climax_slots)
+    assert all(slot.content_need == "high_visual_impact" for slot in climax_slots)
+    assert all("运镜: high" in slot.placeholder_text for slot in climax_slots)
+
+
+def test_non_climax_creative_section_preserves_music_breath_role() -> None:
+    sections = [
+        CreativeSection(
+            section_id="sec-breath",
+            start=30.0,
+            end=40.0,
+            narrative_task="停下来观察环境",
+            material_ids=[],
+            material_gaps=[],
+            visual_plan="保持长镜头",
+            music_change="降低密度",
+            sfx_plan=[],
+            packaging=[],
+            reference_ids=[],
+        )
+    ]
+
+    timeline = build_fast_mode_timeline(
+        music_structure=sample_structure(),
+        target_duration_seconds=60.0,
+        music_asset_path="/path/to/music.wav",
+        creative_sections=sections,
+    )
+
+    breath_slots = [
+        slot for slot in timeline.slots if 30.0 <= slot.start and slot.end <= 40.0
+    ]
+    assert breath_slots
+    assert all(slot.section_role == "breath" for slot in breath_slots)
+    assert all(slot.desired_motion == "low" for slot in breath_slots)
 
 
 def test_build_fast_mode_timeline_with_sfx() -> None:
@@ -174,18 +212,56 @@ def test_render_fast_mode_markdown() -> None:
     assert "slot-001" in md
 
 
-def test_save_fast_mode_delivery(tmp_path: Path) -> None:
+def test_validation_export_is_unreceipted_and_does_not_update_project_state(tmp_path: Path) -> None:
     st = sample_structure()
     tl = build_fast_mode_timeline(
         music_structure=st,
         target_duration_seconds=60.0,
         music_asset_path="/path/to/music.wav",
     )
-    json_path, md_path = save_fast_mode_delivery(tl, tmp_path)
+    project = tmp_path / "project"
+    project.mkdir()
+    state = project / "project_state.json"
+    state.write_bytes(b'{"status":"completed"}\n')
+    before = state.read_bytes()
+    json_path, md_path = export_fast_mode_validation_artifacts(
+        tl, project / "validation" / "manual-check",
+    )
     assert json_path.is_file()
     assert md_path.is_file()
     assert "slot-001" in json_path.read_text(encoding="utf-8")
     assert "# 🎬 旅行导演" in md_path.read_text(encoding="utf-8")
+    assert state.read_bytes() == before
+    assert not (json_path.parent / "receipt.json").exists()
+
+
+def test_validation_export_refuses_formal_delivery_directory(tmp_path: Path) -> None:
+    timeline = build_fast_mode_timeline(sample_structure(), 60.0, "/path/to/music.wav")
+    with pytest.raises(ValueError, match="formal delivery"):
+        export_fast_mode_validation_artifacts(timeline, tmp_path / "delivery")
+    assert not (tmp_path / "delivery").exists()
+
+
+def test_validation_export_failed_replace_preserves_existing_file(tmp_path: Path, monkeypatch) -> None:
+    import director.delivery as delivery
+
+    timeline = build_fast_mode_timeline(sample_structure(), 60.0, "/path/to/music.wav")
+    output = tmp_path / "validation"
+    output.mkdir()
+    markdown = output / "timeline_delivery.md"
+    markdown.write_text("previous validation", encoding="utf-8")
+    original_replace = delivery.os.replace
+
+    def interrupt(source, destination):
+        if Path(destination).name == "timeline_delivery.md":
+            raise OSError("simulated validation interruption")
+        return original_replace(source, destination)
+
+    monkeypatch.setattr(delivery.os, "replace", interrupt)
+    with pytest.raises(OSError, match="interruption"):
+        export_fast_mode_validation_artifacts(timeline, output)
+    assert markdown.read_text(encoding="utf-8") == "previous validation"
+    assert not list(output.glob(".*.tmp"))
 
 
 def test_truncated_music_uses_timeline_end_and_preserves_uncertainty():

@@ -1,0 +1,98 @@
+{
+  "source_session": "/Users/meimaodawang/.workbuddy/projects/Users-meimaodawang-Desktop-万岁山素材/43e50291-4c94-4c86-a0c6-a1be77cec8c4.jsonl",
+  "accounting": "Sum 231 distinct provider messageId usage records; repeated cached inputs included; not a bill or image-only token measurement.",
+  "records": 231,
+  "tokens": {
+    "input_tokens": 35213208,
+    "output_tokens": 108615,
+    "cache_read_input_tokens": 33406357,
+    "total_tokens": 35321823
+  },
+  "models": {
+    "glm-5.3": 96,
+    "kimi-k3-1": 135
+  },
+  "stages": {
+    "setup_scan": {
+      "interval_Asia_Shanghai": [
+        "00:00:00",
+        "16:45:57"
+      ],
+      "records": 42,
+      "input_tokens": 2099700,
+      "output_tokens": 8399,
+      "cache_read_input_tokens": 2044736
+    },
+    "visual": {
+      "interval_Asia_Shanghai": [
+        "16:45:57",
+        "17:29:40"
+      ],
+      "records": 93,
+      "input_tokens": 11255498,
+      "output_tokens": 48856,
+      "cache_read_input_tokens": 10943509
+    },
+    "confirmation": {
+      "interval_Asia_Shanghai": [
+        "17:29:40",
+        "18:05:18"
+      ],
+      "records": 9,
+      "input_tokens": 1704299,
+      "output_tokens": 4237,
+      "cache_read_input_tokens": 1512704
+    },
+    "creative": {
+      "interval_Asia_Shanghai": [
+        "18:05:18",
+        "18:40:01"
+      ],
+      "records": 21,
+      "input_tokens": 4716684,
+      "output_tokens": 21889,
+      "cache_read_input_tokens": 4656896
+    },
+    "revision_retry": {
+      "interval_Asia_Shanghai": [
+        "18:40:01",
+        "21:11:11"
+      ],
+      "records": 36,
+      "input_tokens": 7940642,
+      "output_tokens": 11353,
+      "cache_read_input_tokens": 7712832
+    },
+    "audio_delivery_docs": {
+      "interval_Asia_Shanghai": [
+        "21:11:11",
+        "23:59:59"
+      ],
+      "records": 30,
+      "input_tokens": 7496385,
+      "output_tokens": 13881,
+      "cache_read_input_tokens": 6535680
+    }
+  },
+  "scanner": {
+    "source": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/visual/scanner/runs/scanner-v1/scanner_result.json",
+    "items": 270,
+    "seconds": {
+      "cv": 23.948,
+      "detector": 0.0,
+      "frame_scan": 2730.018,
+      "fusion": 0.021,
+      "metadata": 0.0,
+      "report": 0.0,
+      "total": 2759.78,
+      "vision_model": 0.0
+    },
+    "frame_count_distribution": {
+      "4": 124,
+      "5": 62,
+      "3": 70,
+      "2": 8,
+      "1": 6
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "status": "sound_design_validated",
+  "sound_design_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
+  "sound_design_sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416",
+  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/edit_decision.json",
+  "listening_status": "all_context_reviewed",
+  "mix_listening_status": "not_reviewed",
+  "roles": {
+    "location_ambient": 1,
+    "action_foley": 1,
+    "transition_accent": 0
+  },
+  "auditory_planes": {
+    "foreground": 1,
+    "midground": 0,
+    "background": 1
+  },
+  "playable_segments": 1,
+  "missing_gaps": 1,
+  "changes": [
+    {
+      "path": "/cues/1/envelope/base_gain",
+      "before": 0.6,
+      "after": 0.45
+    },
+    {
+      "path": "/cues/1/envelope/fade_out_seconds",
+      "before": 0.1,
+      "after": 0.15
+    },
+    {
+      "path": "/cues/1/listening_id",
+      "before": "listen-whoosh-006",
+      "after": "listen-mix-001"
+    },
+    {
+      "path": "/cues/1/listening_status",
+      "before": "source_listened",
+      "after": "context_reviewed"
+    },
+    {
+      "path": "/cues/1/selection_reason",
+      "before": "利用CZG_Whoosh_006的0.15秒预响与0.20秒重音，使声音冲击点精确对齐镜头内部1.467秒车辆遮挡动作",
+      "after": "第二版微调增益至0.45并延长尾音至0.60秒，避免重音过硬并自然融入音乐恢复段"
+    },
+    {
+      "path": "/cues/1/source/duration",
+      "before": 0.5,
+      "after": 0.6
+    },
+    {
+      "path": "/cues/1/source/tail_policy",
+      "before": "ring_out",
+      "after": "fade_out"
+    },
+    {
+      "path": "/listening",
+      "before": [
+        {
+          "listening_id": "listen-whoosh-006",
+          "method": "direct_listening",
+          "note": "试听CZG_Whoosh_006.wav：0.20秒处为声音瞬态重音，前半段约0.15秒气流预响，适合侧向车辆遮挡滑过拟音",
+          "reviewed_at": "2026-09-10T11:06:00+08:00",
+          "reviewer": "Session Director",
+          "source_in": 0.0,
+          "source_out": 0.65,
+          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+        }
+      ],
+      "after": [
+        {
+          "listening_id": "listen-whoosh-006",
+          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+          "source_in": 0.0,
+          "source_out": 0.7,
+          "reviewer": "Session Director",
+          "method": "direct_listening",
+          "note": "试听CZG_Whoosh_006.wav：0.20秒处为声音瞬态重音，前半段约0.15秒气流预响，适合侧向车辆遮挡滑过拟音",
+          "reviewed_at": "2026-09-10T11:06:00+08:00"
+        },
+        {
+          "listening_id": "listen-mix-001",
+          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+          "source_in": 0.05,
+          "source_out": 0.65,
+          "reviewer": "Session Director",
+          "method": "context_mix_listening",
+          "note": "结合局部时间线1.3秒音乐恢复段试听：增益降至0.45后风声滑过与音乐交错自然，无前景竞争",
+          "reviewed_at": "2026-09-10T11:06:30+08:00"
+        }
+      ]
+    },
+    {
+      "path": "/revision_reason",
+      "before": "初版声音设计：针对万岁山2.13秒镜头组与音乐适配，建立现场声缺口声明与车辆遮挡动作拟音锚点对齐",
+      "after": "第二版声音设计修订：延长拟音时长至0.60秒以获得自然衰减，微调增益至0.45避免掩盖恢复的背景音乐，并将尾音策略设为fade_out"
+    }
+  ]
+}

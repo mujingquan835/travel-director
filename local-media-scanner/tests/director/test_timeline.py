@@ -7,6 +7,7 @@ from director.schema import (
     MusicStructureSection,
     UserCreativeBrief,
 )
+from director import timeline as timeline_module
 from director.timeline import TimelineConfig, build_timeline_slots
 
 
@@ -118,3 +119,51 @@ def test_slots_accept_numeric_duration_and_default_config() -> None:
 
     slots_obj = build_timeline_slots(structure(), DummyDirection())
     assert len(slots_obj) == len(slots_num)
+
+
+def test_creative_climax_override_changes_role_motion_density_and_energy() -> None:
+    override_cls = getattr(timeline_module, "TimelineRoleOverride", None)
+    assert override_cls is not None
+
+    measured = MusicStructure(
+        source_sha256="b" * 64,
+        duration_seconds=61.38,
+        bpm=112.35,
+        beats_seconds=[index * 0.535 for index in range(115)],
+        downbeats_seconds=[index * 2.14 for index in range(29)],
+        energy_curve=[
+            EnergyPoint(time_seconds=float(second), value=value)
+            for second, value in enumerate(
+                [0.60] * 34 + [0.92] * 13 + [0.40] * 12 + [0.03] * 3
+            )
+        ],
+        sections=[
+            MusicStructureSection(
+                start=0, end=48, role="intro", energy=0.79, confidence=0.8
+            ),
+            MusicStructureSection(
+                start=48, end=61.38, role="breath", energy=0.32, confidence=0.9
+            ),
+        ],
+        ending=MusicEnding(last_onset_seconds=59.88, behavior="decay"),
+        confidence=0.96,
+    )
+
+    slots = build_timeline_slots(
+        measured,
+        60.0,
+        role_overrides=[override_cls(start=34, end=49, role="climax")],
+    )
+
+    climax = [slot for slot in slots if slot.section_role == "climax"]
+    intro = [slot for slot in slots if slot.section_role == "intro"]
+    assert climax
+    assert all(slot.desired_motion == "high" for slot in climax)
+    assert all(slot.content_need == "high_visual_impact" for slot in climax)
+    assert sum(slot.duration for slot in climax) / len(climax) < (
+        sum(slot.duration for slot in intro) / len(intro)
+    )
+    assert len({round(slot.energy, 2) for slot in slots}) > 1
+    assert slots[0].start == 0.0
+    assert slots[-1].end == 60.0
+    assert all(left.end == right.start for left, right in zip(slots, slots[1:]))

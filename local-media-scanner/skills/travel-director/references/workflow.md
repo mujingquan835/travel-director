@@ -2,9 +2,17 @@
 
 Read this reference for confirmation, music import, or resume details. The runner owns internal stages, hashes, and strict artifacts. For `needs_creative_direction`, read [creative-direction.md](creative-direction.md).
 
+The runtime requires Python 3.12, uv, and FFmpeg/ffprobe on PATH. From the resolved package root, `uv sync --locked` installs runtime dependencies. Developers running the full test suite use `uv sync --locked --extra dev --extra vision`, then `uv run pytest -q` and `git diff --check`; these test dependencies do not enable model calls in the Skill workflow.
+
 ## Run And Resume
 
 Start from the package root returned by `scripts/resolve_workspace.py`:
+
+Workspace resolution uses this order: explicit `--workspace`, then `TRAVEL_DIRECTOR_WORKSPACE`, then the current Git checkout (or current directory outside Git). A configured value may name the package itself or a repository containing `local-media-scanner`. An invalid configured value fails immediately, including an empty value; it never falls back. A valid explicit argument overrides the environment.
+
+If the current checkout has no valid package, discovery checks its registered Git worktrees and the resolver script's parent directories. One unique valid package is accepted; multiple candidates produce an ambiguity error listing their paths. Select the intended checkout explicitly instead of assuming a feature branch or main is preferred. There is no machine-specific default directory. An installed Skill invoked outside a project needs a configured workspace when no package can be discovered.
+
+Before resuming across checkouts, verify the returned absolute package path and run `git -C <package-path> rev-parse HEAD` to identify its code revision (when Git-managed). Keep resolver stdout as the package path so callers can use it directly; failures are written to stderr with a nonzero exit code.
 
 ```bash
 uv run travel-director run --input <absolute-folder> --brief <description>
@@ -110,6 +118,24 @@ uv run travel-director run --input <absolute-folder> --brief <description> --pro
 
 This returns an independent new project path with reused visual evidence and new frozen music. Continue from that path; retain the parent. Retrying the same replacement against the same parent reuses the version. It is not an overwrite flag.
 
+## Same-music timeline revision
+
+For a requested update to an already completed timeline using the same music and creative plan:
+
+```bash
+uv run travel-director run --input <same-folder> --brief <same-description> --project <completed-parent> --new-timeline-revision
+```
+
+This implies timeline building; do not combine it with music import, creative/confirmation responses or `--new-music-version`. The parent must have valid delivery files and receipt. The child copies verified observations, creative evidence, frozen music and analysis without rescanning or reanalyzing. Its independent `timeline_revision.json` records parent path/state/receipt hashes, inherited file hashes, algorithm version/source fingerprints and default configuration. The new delivery receipt binds that revision record.
+
+The same parent, algorithm and requirements resolve to the same child. A completed child is reused without consulting the changed audio catalog; library changes alone do not force a revision. Retry the identical request against the parent after a recoverable failure, or resume the returned child normally. A pending child whose algorithm source changed blocks; start the new algorithm request from the completed parent. Report damaged evidence rather than overwriting it. For another deliberate revision, use the appropriate completed parent; do not invent modified Brief text to change identity.
+
+Required SFX options can accompany revision creation. They are saved in the revision configuration and retained on child retries. Copying evidence costs disk space; absolute provenance references retain their original source locations. Revision creation does not add preview rendering.
+
+New Runner deliveries (schema 1.2.0) freeze selected Hook/Outro files under `delivery/assets/`. `sfx_assets` records each role, original library path, project-relative frozen path, measured duration, size and SHA-256. Import the frozen files listed in Markdown; the original paths in the plans are provenance only. Delivery/resume checks validate the frozen bytes. Library files can move or change without altering completed deliveries; missing or changed frozen copies block, and must not be silently repaired from the library. Legacy 1.0.0/1.1.0 deliveries remain readable but do not claim frozen SFX; request a new revision when frozen effects are needed.
+
+Outro retains the existing behavior/role/name eligibility rules and selects the lexicographically smallest candidate path, independent of catalog order. `validate_sfx_assets` verifies the frozen files for traceable recommendations; library paths only record provenance. This Skill does not render or mix those assets.
+
 Unfrozen legacy projects reuse existing analysis and request a new creative plan; they do not rescan or overwrite historical summaries. Valid new submissions append creative revisions. Stale submissions are rejected; rerun to obtain the current request and author from its current source hashes. Corrupt records block rather than being silently regenerated. All already-frozen projects, whether legacy or using creative revisions, resume their existing contract even after reference-library updates, without replanning or reselection.
 
 On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, and `music_structure` paths. The measured structure contains the actual BPM, beats, downbeats, energy curve, section candidates, ending behavior, confidence, and source hash. To generate the beat grid timeline delivery:
@@ -118,7 +144,57 @@ On `waiting_for_timeline`, report the returned `music_asset`, `frozen_music`, an
 uv run travel-director run --input <absolute-folder> --brief <description> --project <project_path> --build-timeline
 ```
 
-On `completed`, report the generated `timeline_delivery` (JSON) and `timeline_markdown` (Markdown) paths. The delivery includes the beat-aligned slot grid, text placeholders, and audio packaging (Hook Riser+Hit, BGM ducking, and Outro SFX). On `blocked`, report the saved project and the exact blocker without producing prompts.
+On timeline `completed`, link the returned `timeline_delivery` (JSON) and `timeline_markdown` (Markdown) paths. The original timeline remains a placeholder plan. Report separately the text guidance returned by --build-guide. Report Hook Riser+Hit, BGM ducking, and Outro only when present in the saved plan; these are mixing instructions, not rendered audio. Include a recorded omission reason when available; a null plan without a reason must not be described as an intentional creative choice. On `blocked`, report the saved project and the exact blocker without producing prompts.
+
+Fast text guidance is supported. Slow mode is limited to still placeholders and is not yet implemented. Direct Jianying draft JSON and prototype render commands remain outside scope. A separately authored concise edit decision may use the validated FCPXML delivery flow described in [fcpxml-delivery.md](fcpxml-delivery.md).
+
+New timeline deliveries (schema 1.1.0) record `audio_packaging.hook` and `audio_packaging.outro`, each with `status` and `reason`. Report these same values from the JSON, Markdown and Runner message: `ready` means a plan exists, `disabled` means explicitly disabled by configuration, `no_match` means no usable candidate, `unavailable` means the library could not be used, and `deferred` means the actual ending cut point has not been analyzed. Optional omissions may accompany a completed placeholder plan. Unexpected catalog or packaging exceptions return `blocked` with an error reason before delivery is recorded, never a silent omission.
+
+When the user explicitly requires Hook or Outro, append `--require-sfx hook` or `--require-sfx outro` to the `--build-timeline` run; repeat the option for both. Carry these requirements on every retry; they are per-call requirements, not inferred from creative prose. A required component without a `ready` report blocks delivery. Do not remove the flag to bypass a blocker. Requirements are also checked when resuming an existing completed delivery without rewriting it. Schema 1.0.0 deliveries remain readable; absent diagnostics mean unknown historical status, not disabled or ready. No requirement flag is added for an optional suggestion.
 
 
-Timeline completion verifies both JSON and Markdown against a recorded delivery receipt. Missing or changed files, an interrupted receipt write, or a legacy delivery without a receipt returns `blocked`; report the reason and preserve the existing files rather than treating a saved completion key as sufficient. When the target ends before the measured music ends, Outro timing uses the target duration and automatic ending-based SFX selection is deferred because the cut point has not been analyzed. `completed` describes the placeholder timeline plan, not a rendered or mixed video.
+Timeline completion verifies both JSON and Markdown against a recorded delivery receipt. Missing or changed files, an interrupted receipt write, or a legacy delivery without a receipt returns `blocked`; report the reason and preserve the existing files rather than treating a saved completion key as sufficient. When the target ends before the measured music ends, Outro timing uses the target duration and automatic ending-based SFX selection is deferred because the cut point has not been analyzed. Inspect `current_stage` and returned artifact paths to distinguish timeline completion from music/picture guidance completion.
+
+## Formal Timeline Delivery and Validation Exports (R09)
+
+`timeline_delivery_store.record_timeline_delivery` is the only project-completing timeline writer. It writes under `delivery/`, records JSON and receipt hashes in project state, validates JSON/Markdown/receipt together, and rejects any attempt to replace completed bytes. The Runner calls this path; a missing or interrupted receipt remains `blocked` and is never reported as completed.
+
+`delivery.export_fast_mode_validation_artifacts` is an internal, unreceipted diagnostic exporter. It cannot write a directory named `delivery`, and inside a recognized project it may write only below `validation/`. It does not update project state or produce `receipt.json`. Each file replacement is atomic, but the JSON/Markdown pair is not a formal transaction; after interruption, inspect or discard that validation directory. Never link a validation export as user delivery.
+
+## Music And Picture Guidance (Corrected R06)
+
+This Skill does not edit. Use unchanged input/brief and the existing project:
+
+```bash
+uv run travel-director run --input <absolute-folder> --brief <description> --project <project_path> --build-guide
+```
+
+The command implies timeline planning if needed and writes a separate text guide under `guidance/<content-fingerprint>/`. It reuses verified creative sections and music analysis. It does not select source clips, write source in/out, cut music, mix audio or render media. JSON and Markdown are bound by a receipt; retries reuse identical bytes, corruption blocks, and old deliveries remain unchanged. New music/timeline revisions exclude prior guidance.
+
+Read the music/picture suggestion table: music time, narrative purpose, picture suggestion, pacing suggestion and reason, overlapping analyzed music sections with confidence, and material gaps. Beats/downbeats in JSON are optional listening references, not mandatory cut points. Creative section boundaries are not asserted to be detected musical phrase boundaries. Low-confidence or unknown music does not automatically trigger fast cuts. Suggestions require listening/editorial review; no claim of approved beat sync or listening quality is allowed.
+
+Fast mode is text guidance. Slow mode is limited to representative still-image placeholders, never moving footage or a rendered edit; its display remains unimplemented in this correction. Do not substitute video for stills.
+
+The old `--place-footage` and `--build-preview` flags are hidden and fail before project writes. The R06 auto-editing implementation was withdrawn; existing experimental MP4s and placements remain historical, rejected artifacts. Do not use internal prototype commands to bypass this boundary. The base `status` command describes the timeline; repeat `--build-guide` to verify the guide.
+
+## Audio Packaging Advice (R07)
+
+`--build-guide` also includes `audio_packaging_advice`. Treat the supplied 《音效设计核心理论-视频提炼》 as a design reference: useful sound groups assign distinct functions such as progression, release, transition body, low-frequency/tail support and detail accent. Do not turn its “3–5 layers” observation into a fixed quota. Every layer must name the concrete visual event it serves; when that event is absent or unconfirmed, recommend removing the layer. Zero layers and deliberate space are valid.
+
+Keep source plan status separate from recommendation readiness. A timeline `ready` status means a Riser/Hit instruction exists, not that it fits the picture or has passed listening review. The guide exposes `source_status` and `advice_status`, labels frozen files only as verified candidates, and treats unfrozen paths as provenance. It never reads or processes audio.
+
+For Hook, describe the rise, release point, optional transition body, optional tail/low-frequency support, optional detail accent, and three BGM relationship intervals. The intervals are left-closed/right-open to avoid double-counting boundaries. Duck depth and recovery are parameter proposals requiring listening; recovery must be positive, Hit volume must be bounded, and the pre-trigger must stay inside Hook duration.
+
+For each creative section, retain the original SFX prose as a proposal. Before implementation the editor must annotate a concrete picture event and timing; otherwise cancel it. Review masking of music, speech and location sound, dynamic change, and deliberate silence. A layered group is not automatically “better” when its layers have no picture function.
+
+For Outro, if the target duration is shorter than the measured source track, the source ending behavior is inapplicable. Require listening at the actual target cut, keep the recommendation deferred, and do not expose an automatic Outro candidate. Tail duration must follow the final picture hold and original-sound space. `outro_pre_end_seconds` cannot exceed the target duration.
+
+The advice contains no rendered result, gain measurement or listening verdict. Report this boundary and ask the user to review the proposed anchors and density; do not create a mix sample as proof.
+
+## Creative Audio Intent and Boundary Reconciliation (R08)
+
+The guide reads only structured `audio_intent` saved with the creative direction. A missing object remains `not_recorded`; text such as “保留现场底噪” stays a creative proposal and is never silently promoted into a user mandate. The precedence order is user-explicit intent, then creative proposals, then generic defaults. At the same provenance level a section decision outranks a global decision. Conflicts created across scopes retain the higher-priority choice and expose the overridden field.
+
+`hook_policy=disabled` suppresses Hook advice even when the older timeline contains a ready Riser/Hit plan; the source plan remains visible for provenance. `added_sfx_policy=disabled` suppresses effect proposals at its effective priority. `original_sound_priority=preserve|foreground` and `silence_priority=preserve|required` move added effects behind the protected sound space. Required silence disables conflicting effect advice. These rules produce text statuses only and never modify audio.
+
+Creative section boundaries keep narrative authority. Music-section boundaries with analysis and section confidence at least 0.6 are listening cues. Exact matches are `aligned`; offsets up to 0.5 seconds are `near`; larger offsets are `mismatch`. Both near and mismatch retain the creative time and show a review window. Missing reliable evidence is `music_boundary_unavailable`. When the target cut is shorter than the analyzed track, its final boundary is `target_cut_unanalyzed`. None of these states cuts music, snaps a section, assigns footage, or renders media.

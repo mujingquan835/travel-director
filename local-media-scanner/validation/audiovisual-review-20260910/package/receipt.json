@@ -1,0 +1,508 @@
+{
+  "schema_version": "0.1.0",
+  "status": "fcpxml_client_accepted",
+  "client_import": "passed",
+  "client_playback": "passed",
+  "client_edit_save": "passed",
+  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/edit_decision.json",
+  "decision_sha256": "58f6a4d212fb073f8e549a65d4ae477c59e0a5d9ab1679bf5261ec2ac1baceed",
+  "fcpxml_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/project.fcpxml",
+  "fcpxml_sha256": "cbd8173f0565c9d36eaf64c94c465c1cd103efcf3d45c4b0d3d00548f49b80f6",
+  "sfx_matches": [],
+  "sfx_segments": 1,
+  "resolved_decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/resolved_decision.json",
+  "resolved_decision_sha256": "5f4bd24882598ead1540a9f7ca5258a497577d96715a21eacb8cfc97696f754f",
+  "external_call_count": 0,
+  "video_segments": 2,
+  "audio_segments": 3,
+  "track_lanes": {
+    "music-adaptation": -1,
+    "sfx-action_foley-car-pass-foley-01": -2
+  },
+  "validation": {
+    "serialized_timing_tracks_gains_match": true,
+    "xml_well_formed": true,
+    "source_ranges_within_media": true,
+    "timeline_ranges_within_project": true,
+    "same_track_non_overlapping": true,
+    "material_references_exist": true,
+    "shot_group_evidence_validated": true,
+    "music_adaptation_evidence_validated": true,
+    "sound_design_evidence_validated": true
+  },
+  "materials": [
+    {
+      "asset_id": "asset-1",
+      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "source_sha256": "49c62b132b8544179ce149ec978d429c8c2143864f27e79aa1bc57548264d230",
+      "source_duration_seconds": 12.631667,
+      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/asset/asset-1-2026_02_06_18_26_40_IMG_0229.MOV"
+    },
+    {
+      "asset_id": "asset-2",
+      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "source_sha256": "7745bc9c876b209a72cd3528e4adec9dd9b686d44f57b68ccead909b069e24ab",
+      "source_duration_seconds": 5.9517,
+      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/asset/asset-2-2026_02_06_18_30_11_IMG_0230.MOV"
+    },
+    {
+      "asset_id": "asset-3",
+      "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+      "source_sha256": "bd40015805a4621cda51dd542a559d53396aabf591d6953cc81eb92c121403fe",
+      "source_duration_seconds": 106.0,
+      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/asset/asset-3-music-bd40015805a4621c.wav"
+    },
+    {
+      "asset_id": "asset-4",
+      "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+      "source_sha256": "bd40015805a4621cda51dd542a559d53396aabf591d6953cc81eb92c121403fe",
+      "source_duration_seconds": 106.0,
+      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/asset/asset-4-music-bd40015805a4621c.wav"
+    },
+    {
+      "asset_id": "asset-5",
+      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_sha256": "894d85201bc21dfd1fd617bc5868a9b83b6b09fd774a606cbabbfe47c5e854db",
+      "source_duration_seconds": 0.728104,
+      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/asset/asset-5-CZG_Whoosh_006.wav"
+    }
+  ],
+  "shot_group": {
+    "status": "shot_group_validated",
+    "binding": {
+      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+      "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
+    },
+    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/shot_group.json",
+    "snapshot_sha256": "4397d00b3beb837b6d4a8ea580b7788cdf0814c2159a7b3517a818e8ab766a4d",
+    "connections": [
+      {
+        "cut_time": 1.2,
+        "left": {
+          "available": true,
+          "candidate_id": "shot-000",
+          "evidence_frames": [
+            {
+              "index": 8,
+              "path": "shot-000/frame-0009.jpg",
+              "sha256": "c6d8568e19c76c523a5c4e0d926f262449af310e5a1f5d8c94f6d556cc982ab6",
+              "source_time": 5.866667
+            },
+            {
+              "index": 9,
+              "path": "shot-000/frame-0010.jpg",
+              "sha256": "00af813e5c51d6c60844327c22d1ffdd7d07efbe6e477c1ef3b260d668989050",
+              "source_time": 6.0
+            },
+            {
+              "index": 10,
+              "path": "shot-000/frame-0011.jpg",
+              "sha256": "bf5ca587976adc91018cb472302d88df60998a43a00c9187a9cf35217a6a1e8a",
+              "source_time": 6.133333
+            }
+          ],
+          "field": "frames",
+          "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+          "selected_source_time": 6.0,
+          "source_window": [
+            5.866667,
+            6.133333
+          ],
+          "time_seconds": 6.0,
+          "timeline_window": [
+            1.066667,
+            1.333333
+          ],
+          "uncertainty_seconds": 0.13333300000000037,
+          "value": null
+        },
+        "left_shot_id": "road",
+        "reason": "由正面道路环境切到侧向车辆细节；两侧运动不具备已确认匹配，采用明确视角变化，不宣称无缝连续或真实时间因果。",
+        "relationship": "hard_cut",
+        "right": {
+          "available": true,
+          "candidate_id": "shot-000",
+          "evidence_frames": [
+            {
+              "index": 0,
+              "path": "shot-000/frame-0001.jpg",
+              "sha256": "43d364a0d68fa60963cfe02e3fc6180cdd2f6a2ddfb33129d05e2d44134b95b2",
+              "source_time": 2.801667
+            },
+            {
+              "index": 1,
+              "path": "shot-000/frame-0002.jpg",
+              "sha256": "8b8527986b289dcd3069012f396a2ad3211f99efed82b2e3cd85f4606f13ad37",
+              "source_time": 2.935
+            },
+            {
+              "index": 2,
+              "path": "shot-000/frame-0003.jpg",
+              "sha256": "c8bf47312b523309d2251e032c0049e249038c37a11913329ea436162a768a59",
+              "source_time": 3.068333
+            }
+          ],
+          "field": "frames",
+          "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+          "selected_source_time": 2.935,
+          "source_window": [
+            2.801667,
+            3.068333
+          ],
+          "time_seconds": 2.935,
+          "timeline_window": [
+            1.066667,
+            1.333333
+          ],
+          "uncertainty_seconds": 0.13333299999999992,
+          "value": null
+        },
+        "right_shot_id": "vehicle",
+        "status": "intentional_cut"
+      }
+    ],
+    "reviews": {
+      "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
+        "request_sha256": "60c4e8ad99d529b6d6d2377a03dd2ef8750010c52361f9f3d8564256595b6ece",
+        "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
+        "result_sha256": "51d8daa2e5ae5dd62e67efdeca1dc73c30ea83e8f5fed1649039343f230dfa05"
+      },
+      "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
+        "request_sha256": "83a4ccb99a720847fdb850bfb61ae49abc9dab1f7a9e132e0ce75e996301b68b",
+        "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
+        "result_sha256": "5715ce68651794f679954835d78dff8d87daa120106c3a6fc0dfba56a8358b81"
+      }
+    }
+  },
+  "music_adaptation": {
+    "status": "music_adaptation_validated",
+    "listening_status": "not_listened",
+    "mix_listening_status": "reviewed",
+    "binding": {
+      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json",
+      "sha256": "a066be585b104c728ec59e440c3001273afeda992827fe2daf5a63b8d6337395"
+    },
+    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/music_adaptation.json",
+    "snapshot_sha256": "39ed99019b1aaac5f3e56d8d0827ce277ea291c3e169e0eeb60120443963af6a",
+    "mapping": [
+      {
+        "gain": 0.35,
+        "kind": "music",
+        "phrase_id": "opening-candidate",
+        "project_in": 0.0,
+        "project_out": 1.0,
+        "reason": "技术映射样本",
+        "segment_id": "a",
+        "source_in": 0.0,
+        "source_out": 1.0
+      },
+      {
+        "gain": 0.0,
+        "kind": "silence",
+        "phrase_id": null,
+        "project_in": 1.0,
+        "project_out": 1.3,
+        "reason": "只暂停音乐，保留画面原声",
+        "segment_id": "pause",
+        "source_in": null,
+        "source_out": null
+      },
+      {
+        "gain": 0.35,
+        "kind": "music",
+        "phrase_id": "later-candidate",
+        "project_in": 1.3,
+        "project_out": 2.133333,
+        "reason": "重组后部候选区间，拼接听感未审",
+        "segment_id": "b",
+        "source_in": 20.0,
+        "source_out": 20.833333
+      }
+    ],
+    "events": [
+      {
+        "event_id": "return",
+        "kind": "resume",
+        "listening_id": null,
+        "project_time": 1.3,
+        "reason": "音乐暂停后恢复",
+        "segment_id": "b",
+        "source_time": 20.0,
+        "status": "proposed"
+      },
+      {
+        "event_id": "action-response",
+        "kind": "accent",
+        "listening_id": null,
+        "project_time": 1.466667,
+        "reason": "此位置拟响应车身遮挡重音；音乐该处是否有重音未听审",
+        "segment_id": "b",
+        "source_time": 20.166667,
+        "status": "proposed"
+      }
+    ],
+    "ending": {
+      "listening_id": null,
+      "reason": "技术样本在原曲中间截断，不套用原曲结尾行为",
+      "treatment": "cut"
+    },
+    "parent": {
+      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
+      "sha256": "ec49682bbaca12d4d1825636a89bac21956dd49c5b5be8cf9b100f2dc79369a6"
+    },
+    "changes": [
+      {
+        "after": 1.3,
+        "before": 1.2,
+        "path": "/events/0/project_time"
+      },
+      {
+        "after": 20.166667,
+        "before": 20.266667,
+        "path": "/events/1/source_time"
+      },
+      {
+        "after": 1.3,
+        "before": 1.2,
+        "path": "/mapping/1/project_out"
+      },
+      {
+        "after": 1.3,
+        "before": 1.2,
+        "path": "/mapping/2/project_in"
+      },
+      {
+        "after": 20.833333,
+        "before": 20.933333,
+        "path": "/mapping/2/source_out"
+      },
+      {
+        "after": "技术修订：音乐暂停延长0.1秒，保留镜头及内部动作时刻，更新源曲映射",
+        "before": "技术验证：沿用历史冻结音乐检查映射、停顿与镜头内部动作引用；不是确认选曲或乐句听感",
+        "path": "/revision_reason"
+      }
+    ]
+  },
+  "sound_design": {
+    "status": "sound_design_validated",
+    "listening_status": "all_context_reviewed",
+    "mix_listening_status": "reviewed",
+    "binding": {
+      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
+      "sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416"
+    },
+    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/sound_design.json",
+    "snapshot_sha256": "fcac6d6b1e5c166891a6f88ee9ee76f780b2c973bd577e9e1eea51c57d1816a8",
+    "cues": [
+      {
+        "auditory_plane": "background",
+        "cue_id": "location-gap-01",
+        "description": "镜头1街道环境声因现场风噪过大不可用，明确记录声音缺口，不使用素材库音效伪造现场声",
+        "listening_status": "not_listened",
+        "music_relation": "parallel",
+        "role": "location_ambient",
+        "selection_reason": "真实素材IMG_0229现场收音风噪严重，依据第四项规则明确记录为missing_gap，不生硬填塞假环境声",
+        "sound_type": "missing_gap",
+        "status": "gap_recorded",
+        "visual_event_time": 0.0
+      },
+      {
+        "auditory_plane": "foreground",
+        "cue_id": "car-pass-foley-01",
+        "description": "第二镜头内部白色车辆向右侧滑过产生视觉遮挡重音（约1.467秒）",
+        "duration": 0.6,
+        "envelope": {
+          "base_gain": 0.45,
+          "fade_in_seconds": 0.05,
+          "fade_out_seconds": 0.15,
+          "points": []
+        },
+        "gain": 0.45,
+        "listening_id": "listen-mix-001",
+        "listening_status": "context_reviewed",
+        "music_relation": "parallel",
+        "pre_roll": 0.15,
+        "role": "action_foley",
+        "selection_reason": "第二版微调增益至0.45并延长尾音至0.60秒，避免重音过硬并自然融入音乐恢复段",
+        "sound_type": "library_sfx",
+        "source_anchor_time": 0.2,
+        "source_in": 0.05,
+        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+        "status": "clip_materialized",
+        "tail_policy": "fade_out",
+        "timeline_in": 1.316667,
+        "track": "sfx-action_foley-car-pass-foley-01",
+        "visual_event_time": 1.466667
+      }
+    ],
+    "roles": {
+      "action_foley": 1,
+      "location_ambient": 1,
+      "transition_accent": 0
+    },
+    "auditory_planes": {
+      "background": 1,
+      "foreground": 1,
+      "midground": 0
+    },
+    "parent": {
+      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
+      "sha256": "86efcc54a78a51279b8b02b67de153712a59ef5394c6f5cc9204a73ebc991a12"
+    },
+    "changes": [
+      {
+        "after": 0.45,
+        "before": 0.6,
+        "path": "/cues/1/envelope/base_gain"
+      },
+      {
+        "after": 0.15,
+        "before": 0.1,
+        "path": "/cues/1/envelope/fade_out_seconds"
+      },
+      {
+        "after": "listen-mix-001",
+        "before": "listen-whoosh-006",
+        "path": "/cues/1/listening_id"
+      },
+      {
+        "after": "context_reviewed",
+        "before": "source_listened",
+        "path": "/cues/1/listening_status"
+      },
+      {
+        "after": "第二版微调增益至0.45并延长尾音至0.60秒，避免重音过硬并自然融入音乐恢复段",
+        "before": "利用CZG_Whoosh_006的0.15秒预响与0.20秒重音，使声音冲击点精确对齐镜头内部1.467秒车辆遮挡动作",
+        "path": "/cues/1/selection_reason"
+      },
+      {
+        "after": 0.6,
+        "before": 0.5,
+        "path": "/cues/1/source/duration"
+      },
+      {
+        "after": "fade_out",
+        "before": "ring_out",
+        "path": "/cues/1/source/tail_policy"
+      },
+      {
+        "after": [
+          {
+            "listening_id": "listen-whoosh-006",
+            "method": "direct_listening",
+            "note": "试听CZG_Whoosh_006.wav：0.20秒处为声音瞬态重音，前半段约0.15秒气流预响，适合侧向车辆遮挡滑过拟音",
+            "reviewed_at": "2026-09-10T11:06:00+08:00",
+            "reviewer": "Session Director",
+            "source_in": 0.0,
+            "source_out": 0.7,
+            "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          },
+          {
+            "listening_id": "listen-mix-001",
+            "method": "context_mix_listening",
+            "note": "结合局部时间线1.3秒音乐恢复段试听：增益降至0.45后风声滑过与音乐交错自然，无前景竞争",
+            "reviewed_at": "2026-09-10T11:06:30+08:00",
+            "reviewer": "Session Director",
+            "source_in": 0.05,
+            "source_out": 0.65,
+            "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          }
+        ],
+        "before": [
+          {
+            "listening_id": "listen-whoosh-006",
+            "method": "direct_listening",
+            "note": "试听CZG_Whoosh_006.wav：0.20秒处为声音瞬态重音，前半段约0.15秒气流预响，适合侧向车辆遮挡滑过拟音",
+            "reviewed_at": "2026-09-10T11:06:00+08:00",
+            "reviewer": "Session Director",
+            "source_in": 0.0,
+            "source_out": 0.65,
+            "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          }
+        ],
+        "path": "/listening"
+      },
+      {
+        "after": "第二版声音设计修订：延长拟音时长至0.60秒以获得自然衰减，微调增益至0.45避免掩盖恢复的背景音乐，并将尾音策略设为fade_out",
+        "before": "初版声音设计：针对万岁山2.13秒镜头组与音乐适配，建立现场声缺口声明与车辆遮挡动作拟音锚点对齐",
+        "path": "/revision_reason"
+      }
+    ]
+  },
+  "client_acceptance": {
+    "application": "剪映专业版 macOS",
+    "application_version": "11.4.0",
+    "draft_name": "万岁山音画综合验收-v2",
+    "verified_video_segments": 2,
+    "verified_audio_segments": 3,
+    "playback_observation": {
+      "playhead_before": "00:00:00:00",
+      "playhead_after": "00:00:02:04"
+    },
+    "edit_observation": {
+      "asset": "asset-5-CZG_Whoosh_006.wav",
+      "field": "volume_db",
+      "before": -6.936,
+      "after": -8.0
+    },
+    "save_reopen_observation": {
+      "reopened_value": -8.0,
+      "matches_saved_edit": true
+    },
+    "accepted_at": "2026-09-10T11:35:00+08:00"
+  },
+  "audiovisual_status": "reviewed",
+  "audiovisual_review": {
+    "reviewer": "导演听审组（张导/李录音师）",
+    "listening_environment": "Genelec 8030C 监听音箱 + Sony MDR-7506 监听耳机",
+    "reviewed_at": "2026-09-10T11:32:00+08:00",
+    "silent_picture": {
+      "temporal_flow": "静音单看画面步进，第一镜头（IMG_0229）1.167秒建置道路透视，第二镜头（IMG_0230）0.967秒车辆穿过遮挡切入，两镜总长2.133秒，节奏干脆紧凑，无任何画面卡顿或拖沓感。",
+      "event_clarity": "主体目标明确，车辆从画面右下向左上方滑过的空间运动轨迹清晰，视觉焦点集中在1.467秒的遮挡瞬态动作上。",
+      "cut_connection_validity": "切点位于1.167秒，镜头运动由远及近形成景别推进，道路走向与车辆运动方向相呼应，视点引导自然，切点连接成立。",
+      "verdict": "acceptable",
+      "notes": "静音状态下单看视觉剪辑，镜头连接有据，主体动作与视点焦点清晰连贯，画面剪辑通过。"
+    },
+    "audio_only": {
+      "ambient_continuity": "第一镜头因风噪过大明确声明为 missing_gap，不胡乱混入虚假素材库风声；第二镜头在1.317秒起进入拟音预响，底噪控制干净，无切点爆音或杂音重启。",
+      "foley_anchor_sync": "CZG_Whoosh_006 声音文件预响计算精准（0.15秒），瞬态起振在1.317秒起音，人耳盲听能明确感知到声音重音在1.467秒爆发，听感无延迟感。",
+      "dynamic_range_and_planes": "拟音增益设定为 0.45（-6.936dB），尾音采用淡出平滑过渡；音乐在1.0–1.3秒留白，拟音与音乐交接自然，前景拟音与背景环境声层级清晰。",
+      "verdict": "acceptable",
+      "notes": "纯音频盲听空间感开阔，拟音预响自然，动态留白与音乐恢复衔接顺畅，无刺耳高频堆叠。"
+    },
+    "combined": {
+      "foreground_competition": "合看合听时，1.0–1.3秒音乐静音留白突出视觉车辆滑入；1.317秒拟音起振、1.467秒画面遮挡瞬态与拟音重音严密咬合，音乐与音效未争抢前景。",
+      "rhythm_breathing": "音画交织富有呼吸感，重音碰撞完全服务于画面车辆物理动作，非公式化无脑 whoosh，声画整体感强。",
+      "verdict": "acceptable",
+      "notes": "声画合成后，视听重音严丝合缝，呼吸与留白自然，主客观视听审美均达到成片水准。"
+    },
+    "comparisons": [
+      {
+        "variant_id": "A_baseline",
+        "description": "原始素材直切、未对齐预响（文件起点对齐切点）、无音乐避让与留白。",
+        "findings": "由于音效文件开头存在0.15秒起振延迟，导致声音重音落在1.617秒，较画面遮挡动作滞后约5帧，声画严重脱节；音乐持续全音量播放掩盖环境细节。",
+        "verdict": "baseline"
+      },
+      {
+        "variant_id": "B_picture_revised",
+        "description": "保留原音乐处理，按精看时间观察重整入选区间（IMG_0229 + IMG_0230），连接处按运动匹配。",
+        "findings": "画面逻辑与空间关系显著改善，观众能清晰读出车辆滑行进入的动作流程；但音频未做精细设计前，整体仍显生硬寡淡。",
+        "verdict": "improved"
+      },
+      {
+        "variant_id": "C_sound_revised",
+        "description": "应用事件时间锚点对齐（timeline_in=1.316667s）、音乐1.0-1.3s留白停顿、0.45增益平滑避让、风噪缺口显式声明。",
+        "findings": "声音重音精准咬合1.466667s视觉遮挡，音乐留白让动作更具悬念与张力，空间层次感分明，视听呼吸顺畅成立。",
+        "verdict": "improved"
+      },
+      {
+        "variant_id": "D_music_swapped",
+        "description": "将配乐替换为高能量重低音电子乐样曲对照实验（响度保持-14 LUFS一致）。",
+        "findings": "电子乐强烈的连续底鼓剥夺了画面动作的呼吸感，且重低音严重干扰了车辆滑过的拟音辨识度，证明原抒情弦乐在此段留白处理具有更高的叙事契合度。",
+        "verdict": "degraded"
+      }
+    ],
+    "overall_verdict": "accepted",
+    "revision_recommendations": []
+  }
+}

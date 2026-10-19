@@ -117,6 +117,23 @@ def status_command(
     typer.echo(inspect_travel_director(project).model_dump_json(indent=2))
 
 
+@app.command("serve")
+def serve_command(
+    project: Path = typer.Option(..., "--project", file_okay=False),
+    port: int = typer.Option(8765, "--port"),
+    lan: bool = typer.Option(
+        False,
+        "--lan",
+        help="Bind 0.0.0.0 for the local network. The default bind is 127.0.0.1.",
+    ),
+) -> None:
+    """Serve the read-only confirm desk for one local project."""
+
+    from director.confirm_serve import serve_bind_host, serve_confirm_desk
+
+    serve_confirm_desk(project, host=serve_bind_host(lan), port=port)
+
+
 @app.command('prepare-shot-review')
 def prepare_shot_review_command(
     project: Path = typer.Option(..., '--project', exists=True, file_okay=False),

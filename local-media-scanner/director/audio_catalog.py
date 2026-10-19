@@ -89,10 +89,12 @@ def resolve_audio_root() -> Path:
         except (OSError, ValueError, TypeError) as exc:
             raise AudioCatalogUnavailable(f"Audio configuration unavailable: {config_path}: {exc}") from exc
 
-    fallback = Path("/Users/meimaodawang/Documents/音效及音乐").resolve()
-    if not fallback.exists() or not fallback.is_dir():
-        raise AudioCatalogUnavailable(f"Fallback audio root does not exist or is not a directory: {fallback}")
-    return fallback
+    raise AudioCatalogUnavailable(
+        "Audio library root is not configured. Set environment variable "
+        "TRAVEL_DIRECTOR_AUDIO_ROOT to an existing directory, or create "
+        "~/.config/travel-director/audio.toml with an audio_root key. "
+        "No personal/default home-directory fallback is used."
+    )
 
 
 def _probe_duration(path: Path) -> float:

@@ -174,3 +174,24 @@ def test_missing_library_directories_do_not_create_source_folders(tmp_path):
     with pytest.raises(ValueError, match="Missing audio library directories"):
         build_audio_catalog(missing_root)
     assert list(missing_root.iterdir()) == []
+
+
+def test_resolve_audio_root_requires_env_or_config(tmp_path, monkeypatch):
+    """Without TRAVEL_DIRECTOR_AUDIO_ROOT or a valid config, fail clearly (no personal path fallback)."""
+    from director.audio_catalog import AudioCatalogUnavailable
+
+    monkeypatch.delenv("TRAVEL_DIRECTOR_AUDIO_ROOT", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with pytest.raises(AudioCatalogUnavailable, match="TRAVEL_DIRECTOR_AUDIO_ROOT"):
+        resolve_audio_root()
+
+
+def test_resolve_audio_root_config_file(tmp_path, monkeypatch):
+    monkeypatch.delenv("TRAVEL_DIRECTOR_AUDIO_ROOT", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    audio_root = tmp_path / "library"
+    audio_root.mkdir()
+    config = tmp_path / ".config" / "travel-director" / "audio.toml"
+    config.parent.mkdir(parents=True)
+    config.write_text(f'audio_root = "{audio_root}"\n', encoding="utf-8")
+    assert resolve_audio_root() == audio_root.resolve()

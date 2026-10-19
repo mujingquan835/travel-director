@@ -144,6 +144,24 @@ def test_constructed_curve_maps_peak_breath_and_settle() -> None:
     assert BEAT_GRID_PROXY_WARNING in document.warnings
 
 
+def test_high_energy_flat_mid_is_peak_cut_despite_low_beat_density() -> None:
+    """Loud mid with sparse beats (proxy onset low, flat slope) must still be peak_cut under M0 proxy."""
+
+    structure = _structure(
+        [(10.0, 0.5), (25.0, 0.55), (45.0, 0.95), (60.0, 0.35)],
+        ramp_tail=(0.5, 0.15),
+        beat_free=[(25.0, 45.0)],
+    )
+    document = analyze_music_edit_regions(structure)
+    _assert_invariants(document)
+    assert BEAT_GRID_PROXY_WARNING in document.warnings
+    assert _role_at(document, 35.0) == "peak_cut"
+    peak = next(r for r in document.regions if r.start <= 35.0 < r.end)
+    assert peak.edit_role == "peak_cut"
+    assert peak.mean_energy >= 0.9
+    assert peak.onset_rate < 0.5  # beat-free mid → low proxy density
+
+
 def test_rising_region_becomes_build() -> None:
     structure = _structure(
         [(10.0, 0.5), (22.0, 0.3), (30.0, 0.9), (45.0, 0.95), (60.0, 0.4)],

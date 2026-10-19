@@ -266,6 +266,14 @@ def analyze_music_edit_regions(
     rate_p50 = _percentile(rates, config.narrative_onset_percentile)
     rate_slack = 1.0 + config.onset_rate_tolerance
     eps = 1e-6
+    # Loudest non-hook / non-outro span (dominant mid-song energy).
+    mid_energies = [
+        signal.mean(a, b)
+        for index, (a, b) in enumerate(spans)
+        if not (hook_end > 0 and index == 0)
+        and not (carve_outro and a >= outro_start - tol)
+    ]
+    max_mid_energy = max(mid_energies) if mid_energies else 0.0
 
     roles: list[EditRole] = []
     establish_taken = False
@@ -295,9 +303,23 @@ def analyze_music_edit_regions(
                 hook_soft = True
         elif length < config.min_region_seconds - 1e-9:
             role = "unknown"
-        elif mean_energy >= e_p80 - eps and (
-            rate * rate_slack >= rate_p70
-            or signal.entry_slope(start, config.entry_lookback_seconds) > config.slope_threshold
+        elif (
+            # Energy gate uses the same relative percentile slack as onset_rate (§13).
+            mean_energy * rate_slack >= e_p80 - eps
+            and (
+                # While onset_rate is beat-grid proxy, Ē>=e_p80 (outside hook/outro) suffices for peak_cut.
+                BEAT_GRID_PROXY_WARNING in warnings
+                or rate * rate_slack >= rate_p70
+                or signal.entry_slope(start, config.entry_lookback_seconds)
+                > config.slope_threshold
+            )
+        ) or (
+            # Dominant mid-song energy under beat-grid proxy (pointwise E_p80 can be outro-skewed).
+            BEAT_GRID_PROXY_WARNING in warnings
+            and not is_hook_window
+            and not in_outro
+            and mean_energy >= max_mid_energy - eps
+            and mean_energy >= e_med - eps
         ):
             role = "peak_cut"
         elif mean_energy <= e_med * config.breath_energy_ratio + eps:

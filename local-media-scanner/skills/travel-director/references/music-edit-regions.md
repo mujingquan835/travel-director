@@ -141,7 +141,7 @@ outro 窗 = 末尾 `max(8s, 0.12 * duration)`。
 判定顺序（先匹配先得，除非注明覆盖）：
 
 1. **settle_outro**：落在 outro 窗，且（`Ē <= E_med` 或 `ending.behavior in {decay, fade}` 或 `musical_label == outro`）。覆盖同窗的 peak。
-2. **peak_cut**：`Ē >= E_p80` 且（`onset_rate >=` 全曲区 onset_rate 的 P70，或 `musical_label in {chorus, drop}`，或进入该区前 4s 的能量斜率显著为正）。
+2. **peak_cut**：`Ē` 相对 `E_p80`（含 5% 容差）且（M0 在 `onset_rate_from_beat_grid_proxy` 下能量门限即足够；否则还需 `onset_rate >=` 全曲区 P70，或 `musical_label in {chorus, drop}`，或进入该区前 4s 能量斜率显著为正）；或 M0 代理下该区为非 hook/outro 中均能最高且 ≥ `E_med`（主导中段高能）。
 3. **breath**：`Ē <= E_med * 0.45`（对齐现 `breath_energy_ratio`）且不在已判 settle 的窗。
 4. **build**：`slope > 0.08` 且未判 peak；或 `musical_label` 暗示过渡（若有 pre-chorus 则用）。
 5. **hook**（`enable_hook_region` 默认 true）：`[0, min(3, 0.08*duration)]`；若开场 onset 密或能量已高则 `edit_role=hook`，否则仍划出该窗但降为 `establish` 并 `warnings` 记 `hook_window_soft`。
@@ -209,5 +209,6 @@ outro 窗 = 末尾 `max(8s, 0.12 * duration)`。
 - 换曲：`--new-music-version` 生成的子项目不复制旧 `music_edit_regions.json`（作废），需在子项目重跑；同项目内再跑时结果变化则覆盖并标 `regenerated`，不变则字节不动。`source_sha256` 与冻结曲不符的文件读取时视为不存在。
 - 边界：沿用现有能量 sections，各内部边界在 ±1 个能量窗内吸到最陡的能量阶跃；再切出开场 hook 窗 `[0, min(3, 0.08·duration)]` 与收尾窗（`duration ≥ 12s` 时末尾 `max(8s, 0.12·duration)`，整窗为一区）；中段短于 `min_region_seconds` 的区并入能量更接近的邻区，无法合并则标 `unknown` 并记 `short_region_unmerged`。
 - `onset_rate`：M0 用 beat 网格密度（区内 beat 数 / 区长）作代理，`warnings` 恒含 `onset_rate_from_beat_grid_proxy`；真 onset 留给 M1。分位比较带 5% 相对容差。
+- **CHANGE (peak_cut / beat-proxy)**：在 `onset_rate_from_beat_grid_proxy` 期间，中段（非 hook/outro）`Ē` 相对 `E_p80` 带与 onset 相同的 5% 相对容差即可单独标 `peak_cut`（不要求 beat 密度达 P70 或正进入斜率）；另将「非 hook/outro 中均能最高且 ≥ E_med」的主导高能段标为 `peak_cut`，避免点位 `E_p80` 被 outro 抬高时平坦高能中段被错标 `narrative_hold`。
 - `peak_cut` 镜长均值 `max(0.5, 60/bpm)` 夹在 `[0.5, 1.4]` 内以满足不变量 4；`unknown` 的 `snap_policy` 取 `free`。
 - `musical_label` 恒为 null，`downbeat_detector` 恒为 `every_fourth_beat`，`evidence_basis` 恒为 `energy`。全部区域只是未经听审的候选。

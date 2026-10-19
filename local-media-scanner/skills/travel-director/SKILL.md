@@ -19,9 +19,15 @@ uv run travel-director run --input <absolute-folder> --brief <description>
 
 Reuse the returned `project_path` with `--project` on every later call. Read [references/workflow.md](references/workflow.md) for confirmation, music import, or resume details.
 
+## Fine-cut sidecars and FCPXML delivery
+
+These steps are **not** automatic main-path clip selection. Use them only when a concise edit decision (or short candidate set) already exists. Statuses such as `needs_shot_observation` / `shot_review_validated` / `shot_group_validated` are sidecar evidence states, not Runner stage transitions.
+
 When the user requests an editable Jianying handoff and a concise edit decision is ready, read [references/fcpxml-delivery.md](references/fcpxml-delivery.md). Use `travel-director export-fcpxml` for generation and `travel-director record-fcpxml-acceptance` only after the client checks. Keep `fcpxml_generated` separate from `fcpxml_client_accepted`; generation alone is never a client acceptance claim.
 
 Before assigning precise source ranges, action moments or movement-based connections to selected shots, read [references/shot-review.md](references/shot-review.md). Use `travel-director prepare-shot-review` on explicit short candidate intervals, inspect its dense timestamped evidence, then `travel-director submit-shot-review` with compact judgments. Use `travel-director inspect-shot-review` to validate saved evidence before reuse. This is an independent local temporal-review sidecar after coarse selection, not a replacement for the eight-field coarse contract or a new full-library scan. `needs_shot_observation` and `shot_review_validated` are this sidecar's statuses, not Runner stage transitions. Resume the existing project unchanged after saving the sidecar; cite its validated result when authoring precise edit decisions. Never infer continuous motion or frame-accurate actions from coarse sheets. When dense samples still cannot resolve an action, retain an explicit unknown and timing uncertainty.
+
+## Main Runner status loop
 
 Handle the returned state:
 
@@ -31,7 +37,7 @@ For a selected local combination of 2–4 shots, read [references/shot-group.md]
 
 For evidence-backed sound event design, read [references/sound-design.md](references/sound-design.md). Use `travel-director build-sound-design` over a base decision, mapping visual events to acoustic pre-roll anchors, assigning layer roles (location ambient, action foley, transition accent) and auditory depth planes. Use `--parent` plus a new directory for revisions and `travel-director inspect-sound-design` before reuse. Rejects late-arriving accents caused by naive file-start alignment and forbids claiming external library files as location recordings. Export the derived bound decision through `export-fcpxml`, which revalidates the `sound_design` binding, snapshots `sound_design.json` into the package, and records cues, planes and listening provenance in the receipt.
 
-For final delivery and aesthetic closure, read [references/audiovisual-review.md](references/audiovisual-review.md). Verification strictly separates program checks, NLE client compatibility, and human subjective review. Execute the three-step review protocol (silent picture, blind audio, combined) and compare localized 15–20s A/B/C/D variants. Use `travel-director record-audiovisual-review` to record structured appraisal into the delivery `receipt.json`, closing the loop on `mix_listening_status`. Use `travel-director inspect-audiovisual-review` to verify recorded evidence. Code tests and NLE import success never equal aesthetic approval.
+For aesthetic closure after client-compatible delivery, read [references/audiovisual-review.md](references/audiovisual-review.md). Verification strictly separates program checks, NLE client compatibility, and human subjective review. Execute the three-step review protocol (silent picture, blind audio, combined) and compare localized 15–20s A/B/C/D variants **only when real listening/viewing is performed**. Use `travel-director record-audiovisual-review` to record structured appraisal into the delivery `receipt.json` (this is what may update `mix_listening_status`). Use `travel-director inspect-audiovisual-review` to verify recorded evidence. Code tests, FCPXML generation, and NLE import success never equal aesthetic approval; do not cite repo validation samples as completed subjective review.
 
 
 - `needs_visual_observation`: read [references/visual-observation-contract.md](references/visual-observation-contract.md). For each returned action, inspect only the returned contact sheets and write compact visual judgments (field, value, confidence only) to a temporary JSON file. Then expand it into a full `AgentBatchResult` using the local script and validate:

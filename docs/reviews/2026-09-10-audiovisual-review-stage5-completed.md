@@ -1,5 +1,8 @@
 # 第五项：成片实际听看验证与审美闭环记录
 
+> **P0 honesty correction (2026-10-19):** The checked-in `local-media-scanner/validation/audiovisual-review-20260910/audiovisual_review.json` is **DEMO_INVALID / insufficient evidence**. It must not be treated as completed subjective audiovisual acceptance. Mechanism code (`record-audiovisual-review`) may exist; this sample does **not** close `mix_listening_status` / aesthetic loop for real delivery.
+
+
 2026-09-10。阶段完成：三维度验证解耦合同、静音看画面/盲听纯音频/音画合成复看三步听看协议、A/B/C/D四版对照实验矩阵、剪映客户端实际验收记录、主观音画听看验收闭环（mix_listening_status 升级为 reviewed）、Skill规范更新与本地安装、全量单元测试（645 passed）。未提交Git、未推送或运行本轮CI。
 
 ## 已实现的变化
@@ -30,15 +33,15 @@
 
 ## 文件与调用
 
-源码根目录：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`。
+源码根目录：`<checkout>/local-media-scanner`。
 
-- [主观音画听看数据合同](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/audiovisual_review_schema.py)
-- [主观音画听看实现](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/audiovisual_review.py)
-- [Skill参考规范](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/references/audiovisual-review.md)
-- [Skill主入口](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/SKILL.md)
-- [FCPXML交付规范更新](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/references/fcpxml-delivery.md)
-- [单元测试套件](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/tests/director/test_audiovisual_review.py)
-- 本地安装入口：`/Users/meimaodawang/.codex/skills/travel-director/SKILL.md`；调用名 `$travel-director`。
+- [主观音画听看数据合同](file://<checkout>/local-media-scanner/director/audiovisual_review_schema.py)
+- [主观音画听看实现](file://<checkout>/local-media-scanner/director/audiovisual_review.py)
+- [Skill参考规范](file://<checkout>/local-media-scanner/skills/travel-director/references/audiovisual-review.md)
+- [Skill主入口](file://<checkout>/local-media-scanner/skills/travel-director/SKILL.md)
+- [FCPXML交付规范更新](file://<checkout>/local-media-scanner/skills/travel-director/references/fcpxml-delivery.md)
+- [单元测试套件](file://<checkout>/local-media-scanner/tests/director/test_audiovisual_review.py)
+- 本地安装入口：`$CODEX_HOME/skills/travel-director/SKILL.md`；调用名 `$travel-director`。
 
 从源码根运行 CLI：
 
@@ -84,7 +87,7 @@ uv run travel-director inspect-audiovisual-review --receipt <receipt.json>
   6. 篡改工程文件拦截（FCPXML 内容被篡改时拒绝登记）；
   7. CLI 命令行调用测试（`record-audiovisual-review` 与 `inspect-audiovisual-review`）。
 - Skill 规范校验：14 个文件，24 个本地链接全部有效；本地安装至 `~/.codex/skills/travel-director/` 成功。
-- [完整测试运行日志](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/tests.log)
+- [完整测试运行日志](file://<checkout>/local-media-scanner/validation/audiovisual-review-20260910/tests.log)
 
 ---
 
@@ -112,7 +115,7 @@ uv run travel-director inspect-audiovisual-review --receipt <receipt.json>
 
 ### 产物链接
 
-- [主观音画听看验收报告](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/audiovisual_review.json)
-- [全链路验收收据 receipt.json](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/receipt.json)
-- [FCPXML工程文件](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/package/project.fcpxml)
-- [全量自动化测试日志](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/audiovisual-review-20260910/tests.log)
+- [主观音画听看验收报告](file://<checkout>/local-media-scanner/validation/audiovisual-review-20260910/audiovisual_review.json)
+- [全链路验收收据 receipt.json](file://<checkout>/local-media-scanner/validation/audiovisual-review-20260910/package/receipt.json)
+- [FCPXML工程文件](file://<checkout>/local-media-scanner/validation/audiovisual-review-20260910/package/project.fcpxml)
+- [全量自动化测试日志](file://<checkout>/local-media-scanner/validation/audiovisual-review-20260910/tests.log)

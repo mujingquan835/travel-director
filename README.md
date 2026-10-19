@@ -20,11 +20,19 @@ uv run travel-director run --help
 
 完整测试使用 `uv sync --locked --extra dev --extra vision` 安装依赖，再运行 `uv run pytest -q` 和 `git diff --check`。运行与测试均需要 Python 3.12、FFmpeg/ffprobe；正常 Skill 流程不启用模型。
 
-已实现本地音频库索引、带缓存的候选推荐、用户选曲后的冻结分析，以及快速占位时间线 JSON/Markdown 交付和完整性校验。
+**主 Runner 流程（规划交付）已实现：** 本地素材稀疏观察、创意方案、本地音频库索引与候选推荐、用户选曲后的冻结分析、快速占位时间线 JSON/Markdown（`delivery/` + `receipt.json`）、以及 `--build-guide` 音乐/画面与音频包装建议。
 
-`completed` 表示快速时间线方案已验证，素材槽位仍待填充。正式流程尚未接入真实素材预览、完整混音、慢速可视化填槽或编辑工程导出。万岁山案例已完成用户选曲和方案验证；剪辑点收尾听感仍需真实预览验收。
+**精剪侧车与 FCPXML（在有简洁剪辑决策后）：** Skill 另支持镜头精看、局部镜头组、音乐乐句适配、声音事件设计，以及 `export-fcpxml` / `record-fcpxml-acceptance` 生成可导入剪映的 FCPXML 包并分别记录程序生成与客户端兼容。详见 `local-media-scanner/skills/travel-director/SKILL.md` 与 `references/fcpxml-delivery.md`。
 
-原始视频、音乐库、模型缓存、虚拟环境及运行产物保留本地，不随代码仓库上传。音频根目录可通过 `TRAVEL_DIRECTOR_AUDIO_ROOT` 配置，目录支持“音乐/音效”及旧版 BGM/SFX 布局。克隆到其他位置后，可用 `TRAVEL_DIRECTOR_WORKSPACE` 指定 `local-media-scanner` 的绝对路径。
+**明确未宣称 / 未完成：**
+
+- `completed` 只表示规划时间线方案已校验，不是成片、不是自动剪辑完成。
+- 主观音画听看机制（`record-audiovisual-review`）存在，但仓库内 validation 样例为 **DEMO_INVALID**，不能当作审美闭环已完成。
+- 音量包络 / fade 等音频处理导出（`needs_audio_processing`）尚未实现（P1）。
+- 自动选镜主路径增强、clip_worthiness / 六镜头角色、1–2 帧 stinger 等不在当前 P0。
+- 不生成成片 MP4；不以鼠标在剪映里手搭时间线作为正式交付。
+
+原始视频、音乐库、模型缓存、虚拟环境及运行产物保留本地，不随代码仓库上传。音频根目录通过环境变量 **`TRAVEL_DIRECTOR_AUDIO_ROOT`** 配置（可选：`~/.config/travel-director/audio.toml` 的 `audio_root`）；**无个人家目录硬编码回退**。目录支持“音乐/音效”及旧版 BGM/SFX 布局。克隆到其他位置后，可用 `TRAVEL_DIRECTOR_WORKSPACE` 指定 `local-media-scanner` 的绝对路径。
 
 ## Git 分支
 

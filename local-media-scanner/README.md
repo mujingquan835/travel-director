@@ -1,6 +1,6 @@
 # Travel Director — 本地素材分析与时间线方案
 
-本目录包含 Scanner、Director Runner 和 Codex Skill。当前正式流程支持本地素材观察、创意方案、音乐候选推荐、用户选曲后的冻结分析，以及快速时间线 JSON/Markdown 交付。
+本目录包含 Scanner、Director Runner 和 Codex Skill。主 Runner 流程支持本地素材观察、创意方案、音乐候选推荐、用户选曲后的冻结分析，以及快速时间线 JSON/Markdown 交付；在另有简洁剪辑决策时，Skill 还可走精剪侧车并导出经校验的 FCPXML（剪映手递）。
 
 ## 安装与使用
 
@@ -19,7 +19,7 @@ uv run travel-director run --help
 uv run python skills/travel-director/scripts/install.py --codex-home "${CODEX_HOME:-$HOME/.codex}"
 ```
 
-更新已有副本时，在安装命令末尾增加 `--replace`；安装器会先备份旧副本。设置 `TRAVEL_DIRECTOR_WORKSPACE` 为当前包目录的绝对路径，避免在多个 checkout 间误用版本。
+更新已有副本时，在安装命令末尾增加 `--replace`；安装器会先备份旧副本。设置 `TRAVEL_DIRECTOR_WORKSPACE` 为当前包目录的绝对路径，避免在多个 checkout 间误用版本。本地音乐/音效库根目录通过 `TRAVEL_DIRECTOR_AUDIO_ROOT` 配置（可选 `~/.config/travel-director/audio.toml`）；无个人路径硬编码回退。
 
 仓库自带不依赖开发者家目录或 PyYAML 的 Skill 规范校验：
 
@@ -39,12 +39,14 @@ uv run travel-director run --input <absolute-folder> --brief <description>
 
 ## 交付能力
 
-| 交付类型 | 当前正式 Runner 支持 | 内容 |
+| 交付类型 | 当前状态 | 内容 |
 | --- | --- | --- |
-| 快速时间线方案 | 支持 | 节拍对齐占位槽位、叙事/运镜提示，以及实际生成的音频包装计划；JSON、Markdown 和完整性收据 |
-| 音乐画面与音频包装建议 | 支持，R06–R08 | `--build-guide` 输出音乐分段、画面内容、快切/停留建议，以及遵循结构化创意意图的 Hook/Outro/原声/留白建议；不剪辑或混音 |
+| 快速时间线方案 | Runner 支持 | 节拍对齐占位槽位、叙事/运镜提示，以及实际生成的音频包装计划；JSON、Markdown 和完整性收据 |
+| 音乐画面与音频包装建议 | Runner 支持（R06–R08） | `--build-guide` 输出音乐分段、画面内容、快切/停留建议，以及遵循结构化创意意图的 Hook/Outro/原声/留白建议；不剪辑或混音 |
+| 精剪侧车 → FCPXML | Skill + CLI 支持 | 镜头精看 / 镜头组 / 音乐适配 / 声音设计后，`export-fcpxml` 物化时间范围、轨道、增益与媒体引用；`record-fcpxml-acceptance` 单独记录剪映导入验收。生成 ≠ 客户端验收 ≠ 主观听感通过 |
+| 主观音画听看记录 | 机制有，样例无效 | `record-audiovisual-review` 可写入收据；仓库 `validation/.../audiovisual_review.json` 为 DEMO_INVALID，不得当作审美闭环完成 |
 | 慢速静帧占位 | 尚未实现 | 仅代表静帧辅助理解建议，不播放或拼接动态素材 |
-| 自动剪辑 / 实际混音 / 编辑工程 | 不属于此 Skill | 不生成实际成片或剪辑工程 |
+| 自动成片 / 完整混音 / 音量包络·fade | 未实现 / 非本 Skill 成片职责 | 不生成成片 MP4；`needs_audio_processing` 的 fade 提案不可当作已导出包络 |
 
 本 Skill 提供编排建议，不负责剪辑。快速模式使用 `--build-guide`，输出到独立 `guidance/<内容指纹>/`，原音乐、素材和旧交付保持不变。音乐时间与节拍仅作参考，不是每拍必切；素材缺口和分析置信度保留。音频包装按推进、释放、主体、支撑、点缀等功能给出条件式建议，每层必须对应具体画面事件，没有依据时允许不加。用户明确禁用 Hook、保留现场声或留出静默时，通过结构化创意意图控制优先级；未记录时不从自由文本推断。创意分段时间保持不变，音乐分析边界只形成试听窗口。Ducking 参数和声效候选均需试听复核，不代表已混音。旧 R06 自动填槽、源入出点与 MP4 路线已撤回。
 

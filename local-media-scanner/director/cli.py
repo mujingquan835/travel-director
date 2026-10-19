@@ -513,6 +513,38 @@ def analyze_music_command(
     typer.echo(str(output))
 
 
+@app.command("analyze-music-edit-regions")
+def analyze_music_edit_regions_command(
+    project: Path = typer.Option(..., "--project", exists=True, file_okay=False),
+    provider: str = typer.Option("heuristic_v1", "--provider"),
+    disable_hook_region: bool = typer.Option(
+        False,
+        "--disable-hook-region",
+        help="Only when the user/Brief explicitly turns the opening hook off.",
+    ),
+    target_duration_seconds: float | None = typer.Option(
+        None, "--target-duration-seconds", min=0.001
+    ),
+) -> None:
+    """Write unconfirmed music edit-region candidates bound to the project's frozen music."""
+
+    from director.music_edit_regions import (
+        EditRegionConfig,
+        build_project_music_edit_regions,
+    )
+
+    try:
+        config = EditRegionConfig(
+            provider=provider,
+            enable_hook_region=not disable_hook_region,
+            target_duration_seconds=target_duration_seconds,
+        )
+        result = build_project_music_edit_regions(project, config)
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 @app.command("run-local")
 def run_local_command(
     project_id: str = typer.Option(..., "--project-id"),

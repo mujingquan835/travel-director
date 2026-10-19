@@ -61,7 +61,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
         if load_creative(child, validate_sources=False) is None:
             build_skill_run_summary(child.root)
         return child
-    excluded = {"generation", "music_structure.json", "timeline_slots.json",
+    excluded = {"generation", "music_structure.json", "music_edit_regions.json", "timeline_slots.json",
                 "clip_placements.json", "sfx_plan.json", "render", "previews", "guidance", "music_version.json", "delivery", "timeline_revision.json"}
     for path in parent.root.rglob('*'):
         if path.is_symlink():
@@ -76,7 +76,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
         child = _paths(temporary)
         child_state = load_project_state(child)
         child_state.project_id = target.name
-        removed = {"music_asset", "music_structure", "music_version", "timeline",
+        removed = {"music_asset", "music_structure", "music_edit_regions", "music_version", "timeline",
                    "clip_placements", "sfx_plan", "render", "generation", "timeline_delivery", "timeline_delivery_receipt", "timeline_revision"}
         for key in removed:
             child_state.completed_artifact_hashes.pop(key, None)

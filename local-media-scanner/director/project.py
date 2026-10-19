@@ -69,6 +69,7 @@ class ProjectPaths:
     generation_dir: Path
     generated_music: Path
     music_structure: Path
+    music_edit_regions: Path
     timeline_slots: Path
     clip_placements: Path
     sfx_plan: Path
@@ -135,6 +136,7 @@ def _paths(root: Path) -> ProjectPaths:
         generation_dir=root / "generation",
         generated_music=root / "generation" / "music_asset.json",
         music_structure=root / "music_structure.json",
+        music_edit_regions=root / "music_edit_regions.json",
         timeline_slots=root / "timeline_slots.json",
         clip_placements=root / "clip_placements.json",
         sfx_plan=root / "sfx_plan.json",

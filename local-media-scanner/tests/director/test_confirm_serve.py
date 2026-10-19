@@ -47,6 +47,23 @@ def _json(port: int, path: str) -> tuple[int, dict]:
     return status, json.loads(body.decode("utf-8"))
 
 
+def _post_json(port: int, path: str, payload: dict) -> tuple[int, dict]:
+    body = json.dumps(payload).encode("utf-8")
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    try:
+        connection.request(
+            "POST",
+            path,
+            body=body,
+            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+        )
+        response = connection.getresponse()
+        raw = response.read()
+        return response.status, json.loads(raw.decode("utf-8"))
+    finally:
+        connection.close()
+
+
 @pytest.fixture
 def desk(tmp_path: Path):
     paths = _project(tmp_path)
@@ -147,6 +164,136 @@ def test_versions_list_and_get_draft_and_confirmed(desk) -> None:
     assert code == 200
     assert draft_body["version_id"] == draft.version_id
     assert draft_body["regions"]["regions"][0]["edit_role"] == "narrative_hold"
+
+
+def test_project_page_shows_status_fields_refresh_and_stub_links(desk) -> None:
+    _paths, server = desk
+    port = _port(server)
+    status, _headers, page = _request(port, "/")
+    text = page.decode("utf-8")
+
+    assert status == 200
+    assert "刷新产物" in text
+    assert "访达打开目录" in text
+    assert 'data-field="frozen-music"' in text
+    assert 'data-field="music-edit-regions"' in text
+    assert 'data-field="confirmed-count"' in text
+    assert 'data-field="fcpxml"' in text
+    assert 'id="error"' in text
+    assert 'id="hints"' in text
+    assert 'id="project-path-input"' in text
+    assert 'id="refresh"' in text
+    assert 'fetch("/api/status"' in text
+    assert "missing" in text
+    assert 'href="/music"' in text
+    assert 'href="/export"' in text
+    for path in ("/music", "/export"):
+        stub_status, _stub_headers, stub = _request(port, path)
+        assert stub_status == 200
+        assert b"Slice 4+/8 coming" in stub
+
+
+def test_refresh_refetch_sees_new_fcpxml_and_receipt(desk) -> None:
+    paths, server = desk
+    port = _port(server)
+    before_code, before = _json(port, "/api/status")
+    assert before_code == 200
+    assert before["fcpxml"]["present"] is False
+    assert before["fcpxml"]["receipt_present"] is False
+
+    package = paths.root / "delivery"
+    package.mkdir()
+    (package / "project.fcpxml").write_text("<fcpxml/>", encoding="utf-8")
+    (package / "receipt.json").write_text("{}\n", encoding="utf-8")
+    after_code, after = _json(port, "/api/status")
+
+    assert after_code == 200
+    assert after["fcpxml"]["present"] is True
+    assert after["fcpxml"]["paths"] == ["delivery/project.fcpxml"]
+    assert after["fcpxml"]["receipt_present"] is True
+    assert after["fcpxml"]["receipt_paths"] == ["delivery/receipt.json"]
+    assert after["regions_versions"]["confirmed_count"] == 0
+
+
+def test_reveal_opens_resolved_project_root_and_refuses_other_paths(desk, tmp_path: Path) -> None:
+    from director.confirm_serve import file_manager_command
+
+    paths, server = desk
+    calls: list[list[str]] = []
+    server.directory_opener = lambda command: calls.append(list(command))
+    port = _port(server)
+    root = str(paths.root.resolve())
+
+    status, payload = _post_json(port, "/api/reveal", {})
+
+    assert status == 200
+    assert payload["opened"] == root
+    assert calls == [file_manager_command(paths.root)]
+    assert calls[0][0] in {"open", "xdg-open"}
+    assert calls[0][-1] == root
+
+    calls.clear()
+    status, payload = _post_json(port, "/api/reveal", {"path": str(tmp_path / "elsewhere")})
+    assert status == 400
+    assert "project root" in payload["error"]
+    assert calls == []
+
+    status, payload = _post_json(port, "/api/reveal", {"path": "../secret"})
+    assert status == 400
+    assert calls == []
+
+
+def test_open_project_switches_desk_and_records_recent_paths(tmp_path: Path) -> None:
+    from director.project import create_visual_project
+    from director.visual_schema import RawCreativeBrief
+
+    first = _project(tmp_path)
+    second = create_visual_project(
+        tmp_path / "runs", "other", RawCreativeBrief(raw_description="另一段旅行")
+    )
+    recent = tmp_path / "recent.json"
+    server = start_confirm_desk(first.root, host="127.0.0.1", port=0, recent_path=recent)
+    try:
+        port = _port(server)
+        status, payload = _post_json(port, "/api/project", {"path": str(second.root)})
+        assert status == 200
+        assert payload["project_path"] == str(second.root.resolve())
+
+        recent_status, recent_payload = _json(port, "/api/recent")
+        assert recent_status == 200
+        assert recent_payload["paths"][0] == str(second.root.resolve())
+
+        bad = tmp_path / "not-a-project"
+        bad_status, bad_payload = _post_json(port, "/api/project", {"path": str(bad)})
+        assert bad_status == 404
+        assert "project_state.json" in bad_payload["error"]
+        assert bad_payload["hint"].startswith("travel-director ")
+        _again, recent_after = _json(port, "/api/recent")
+        assert str(bad) not in recent_after["paths"]
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_bad_path_page_is_not_blank_and_api_hint_remains(tmp_path: Path) -> None:
+    server = start_confirm_desk(tmp_path / "not-a-project", host="127.0.0.1", port=0)
+    try:
+        port = _port(server)
+        status, _headers, page = _request(port, "/")
+        text = page.decode("utf-8")
+        assert status == 200
+        assert len(page) > 400
+        assert 'id="error"' in text
+        assert "刷新产物" in text
+        assert "访达打开目录" in text
+        api_status, payload = _json(port, "/api/status")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert api_status == 404
+    assert "project_state.json" in payload["error"]
+    assert payload["hint"].startswith("travel-director ")
 
 
 def test_bad_project_path_returns_json_hint(tmp_path: Path) -> None:

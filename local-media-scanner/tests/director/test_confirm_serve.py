@@ -1,7 +1,7 @@
-"""Read-only local confirm desk (Slice 2).
+"""Local confirm desk: project page, music draft edits, and frozen audio.
 
-The server is a stdlib ThreadingHTTPServer bound to one project. It does not
-write drafts, confirm, re-run analysis, or export FCPXML.
+The server is a stdlib ThreadingHTTPServer bound to one project. Slice 4 writes
+the regions draft only. It does not confirm, re-run analysis, or export FCPXML.
 """
 
 from __future__ import annotations
@@ -167,7 +167,7 @@ def test_versions_list_and_get_draft_and_confirmed(desk) -> None:
 
 
 def test_project_page_shows_status_fields_refresh_and_stub_links(desk) -> None:
-    _paths, server = desk
+    paths, server = desk
     port = _port(server)
     status, _headers, page = _request(port, "/")
     text = page.decode("utf-8")
@@ -175,22 +175,24 @@ def test_project_page_shows_status_fields_refresh_and_stub_links(desk) -> None:
     assert status == 200
     assert "刷新产物" in text
     assert "访达打开目录" in text
-    assert 'data-field="frozen-music"' in text
-    assert 'data-field="music-edit-regions"' in text
-    assert 'data-field="confirmed-count"' in text
-    assert 'data-field="fcpxml"' in text
+    assert "配乐已定" in text
+    assert "音乐分段分析" in text
+    assert "分段已确认" in text
+    assert "已导出剪映工程" in text
     assert 'id="error"' in text
     assert 'id="hints"' in text
     assert 'id="project-path-input"' in text
+    assert 'id="project-name"' in text
     assert 'id="refresh"' in text
     assert 'fetch("/api/status"' in text
-    assert "missing" in text
+    assert "data.hints" in text
     assert 'href="/music"' in text
     assert 'href="/export"' in text
-    for path in ("/music", "/export"):
-        stub_status, _stub_headers, stub = _request(port, path)
-        assert stub_status == 200
-        assert b"Slice 4+/8 coming" in stub
+    assert paths.root.name in text
+
+    export_status, _export_headers, export_page = _request(port, "/export")
+    assert export_status == 200
+    assert "导出：后续版本开放" in export_page.decode("utf-8")
 
 
 def test_refresh_refetch_sees_new_fcpxml_and_receipt(desk) -> None:
@@ -425,3 +427,278 @@ def test_audio_path_traversal_is_refused(desk, tmp_path: Path) -> None:
     assert status == 400
     assert b"SECRET-BYTES" not in body
     assert b"traversal" in body.lower() or b"outside" in body.lower()
+
+
+def _record_regions(paths, document=None):
+    from director.project import record_supporting_artifact
+
+    document = _document() if document is None else document
+    record_supporting_artifact(
+        paths, paths.music_edit_regions, document, state_key="music_edit_regions"
+    )
+    return document
+
+
+def _region_payloads(document):
+    return [region.model_dump(mode="json") for region in document.regions]
+
+
+def test_draft_edit_accepts_valid_changes_and_rejects_invalid_and_stale(desk) -> None:
+    from director.music_edit_regions_versions import load_regions_draft
+
+    paths, server = desk
+    document = _record_regions(paths)
+    port = _port(server)
+
+    status, opened = _json(port, "/api/music-desk")
+    assert status == 200
+    assert opened["revision"]
+    assert [item["region_id"] for item in opened["regions"]] == ["r1", "r2", "r3"]
+    assert opened["regions"][0]["kind_label"] == "前奏"
+    assert opened["regions"][0]["source"] == "analyzer"
+    assert opened["regions"][0]["enabled"] is True
+    revision = opened["revision"]
+    assert load_regions_draft(paths) is not None
+
+    edited = _region_payloads(document)
+    edited[1]["edit_role"] = "peak_cut"
+    edited[1]["musical_proxy"] = "climax"
+    edited[1]["enabled"] = False
+    edited[1]["evidence_basis"] = "manual"
+    edited[0]["end"] = 12.0
+    edited[1]["start"] = 12.0
+    status, saved = _post_json(
+        port, "/api/regions-draft", {"expected_revision": revision, "regions": edited}
+    )
+    assert status == 200, saved
+    assert saved["revision"] != revision
+    assert saved["regions"][0]["end"] == 12.0
+    assert saved["regions"][1]["edit_role"] == "peak_cut"
+    assert saved["regions"][1]["kind_label"] == "高潮"
+    assert saved["regions"][1]["enabled"] is False
+    assert saved["regions"][1]["source"] == "user"
+    kept = load_regions_draft(paths)
+    assert kept is not None
+    assert kept.regions.regions[1].enabled is False
+
+    stale, stale_body = _post_json(
+        port, "/api/regions-draft", {"expected_revision": revision, "regions": edited}
+    )
+    assert stale == 409
+    assert "revision" in stale_body["error"]
+
+    invalid = _region_payloads(saved_document(saved))
+    invalid[0]["end"] = invalid[0]["start"]
+    code, body = _post_json(
+        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": invalid}
+    )
+    assert code == 400
+    assert "start" in body["error"]
+    assert load_regions_draft(paths).regions_sha256 == saved["revision"]
+
+    outside = _region_payloads(saved_document(saved))
+    outside[0]["end"] = 100.0
+    outside[1]["start"] = 100.0
+    code, body = _post_json(
+        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": outside}
+    )
+    assert code == 400
+    assert "duration" in body["error"]
+
+    nan_regions = _region_payloads(saved_document(saved))
+    nan_regions[0]["start"] = float("nan")
+    code, body = _post_json(
+        port,
+        "/api/regions-draft",
+        {"expected_revision": saved["revision"], "regions": nan_regions},
+    )
+    assert code == 400
+    assert "finite" in body["error"]
+    assert load_regions_draft(paths).regions_sha256 == saved["revision"]
+
+
+def saved_document(view: dict):
+    """Rebuild a MusicEditRegions-like object is unnecessary; copy view regions."""
+
+    from director.music_edit_regions_schema import MusicEditRegions
+
+    payload = {
+        "source_sha256": "a" * 64,
+        "duration_seconds": view["duration_seconds"],
+        "bpm": 120.0,
+        "provider": "heuristic_v1",
+        "downbeat_detector": "every_fourth_beat",
+        "regions": [
+            {key: value for key, value in region.items() if key not in {"kind_label", "source"}}
+            for region in view["regions"]
+        ],
+        "ending": {"last_onset_seconds": 28.0, "behavior": "decay"},
+        "confidence": 0.5,
+    }
+    return MusicEditRegions.model_validate(payload)
+
+
+def test_discard_draft_removes_it_and_stale_discard_is_refused(desk) -> None:
+    from director.music_edit_regions_versions import load_regions_draft
+
+    paths, server = desk
+    document = _record_regions(paths)
+    port = _port(server)
+    _status, opened = _json(port, "/api/music-desk")
+    edited = _region_payloads(document)
+    edited[1]["edit_role"] = "build"
+    edited[1]["evidence_basis"] = "manual"
+    status, saved = _post_json(
+        port,
+        "/api/regions-draft",
+        {"expected_revision": opened["revision"], "regions": edited},
+    )
+    assert status == 200, saved
+
+    stale, body = _post_json(
+        port, "/api/regions-draft/discard", {"expected_revision": opened["revision"]}
+    )
+    assert stale == 409
+    assert "revision" in body["error"]
+    assert load_regions_draft(paths) is not None
+    assert load_regions_draft(paths).regions_sha256 == saved["revision"]
+
+    status, payload = _post_json(
+        port, "/api/regions-draft/discard", {"expected_revision": saved["revision"]}
+    )
+    assert status == 200
+    assert payload["discarded"] is True
+    assert load_regions_draft(paths) is None
+
+
+def test_draft_write_refuses_traversal_and_replaces_atomically(desk, tmp_path: Path, monkeypatch) -> None:
+    import os
+
+    from director.music_edit_regions_versions import load_regions_draft
+
+    paths, server = desk
+    document = _record_regions(paths)
+    port = _port(server)
+    outside = tmp_path / "escaped" / "draft.json"
+    status, payload = _post_json(
+        port,
+        "/api/regions-draft",
+        {
+            "expected_revision": None,
+            "path": "../secret",
+            "regions": _region_payloads(document),
+        },
+    )
+    assert status == 400
+    assert "project" in payload["error"]
+    assert not outside.exists()
+    assert load_regions_draft(paths) is None
+
+    status, _headers, _body = _request(port, "/api/regions-draft/../../secret.txt", method="POST")
+    assert status == 400
+
+    replaced: list[tuple[str, str]] = []
+    real_replace = os.replace
+
+    def spy(src, dst):
+        replaced.append((str(src), str(dst)))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr("director.project.os.replace", spy)
+    code, saved = _post_json(
+        port,
+        "/api/regions-draft",
+        {"expected_revision": None, "regions": _region_payloads(document)},
+    )
+    assert code == 200, saved
+    draft = paths.root / "music_edit_regions_versions" / "draft.json"
+    assert draft.is_file()
+    assert draft.resolve().is_relative_to(paths.root.resolve())
+    assert any(
+        destination.endswith("draft.json") and ".tmp" in Path(source).name
+        for source, destination in replaced
+    )
+
+
+def test_music_page_renders_regions_and_edit_controls(desk) -> None:
+    paths, server = desk
+    _record_regions(paths)
+    port = _port(server)
+    status, _headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+
+    assert status == 200
+    assert "r1" in text
+    assert "前奏" in text
+    assert "高潮" in text
+    assert "可卡点" in text
+    assert "保存草稿" in text
+    assert "丢弃草稿" in text
+    assert "分析" in text
+    assert "/audio/frozen" in text
+    assert "currentTime" in text
+    assert "confirm(" in text
+    assert "expected_revision" in text
+    assert "锁定版本" not in text
+    assert "waveform" not in text.lower()
+    assert paths.root.name in text
+
+
+def test_project_page_chinese_steps_next_step_and_unique_hints(desk) -> None:
+    from director.music_edit_regions_versions import confirm_regions_draft, save_regions_draft
+
+    paths, server = desk
+    port = _port(server)
+    status, _headers, page = _request(port, "/")
+    text = page.decode("utf-8")
+    full = str(paths.root.resolve())
+
+    assert status == 200
+    assert "配乐自动分段" in text
+    assert "你听并修改确认" in text
+    assert "用确认版导出剪映" in text
+    assert "显示命令" in text
+    assert 'id="copy-commands"' in text
+    assert "完成" in text and "未完成" in text
+    assert "下一步" in text
+    assert f'id="project-name"' in text
+    assert paths.root.name in text
+    assert f'title="{full}"' in text
+    assert "music_edit_regions" not in text
+    assert "receipt" not in text.lower()
+    assert text.count("analyze-music-edit-regions") == 0
+
+    code, payload = _json(port, "/api/status")
+    assert code == 200
+    analyze = [hint for hint in payload["hints"] if "analyze-music-edit-regions" in hint]
+    assert analyze == [payload["music_edit_regions"]["hint"]]
+    assert len(analyze) == 1
+    assert payload["hints"].count(analyze[0]) == 1
+    assert payload["progress"]["next"]["title"] == "配乐已定"
+    assert payload["progress"]["steps"][0]["state"] == "未完成"
+    assert "music_edit_regions" not in payload["progress"]["next"]["instruction"]
+    assert "receipt" not in payload["progress"]["next"]["instruction"]
+
+    _freeze_wav(paths, b"RIFF" + b"\x00" * 32)
+    code, payload = _json(port, "/api/status")
+    assert payload["progress"]["next"]["title"] == "音乐分段分析"
+    assert payload["progress"]["steps"][0]["state"] == "完成"
+
+    document = _record_regions(paths)
+    code, payload = _json(port, "/api/status")
+    assert payload["progress"]["next"]["title"] == "分段已确认"
+    assert payload["progress"]["steps"][1]["state"] == "完成"
+
+    save_regions_draft(paths, document)
+    confirm_regions_draft(paths)
+    code, payload = _json(port, "/api/status")
+    assert payload["progress"]["next"]["title"] == "已导出剪映工程"
+    assert payload["progress"]["steps"][2]["state"] == "完成"
+
+    package = paths.root / "delivery"
+    package.mkdir()
+    (package / "project.fcpxml").write_text("<fcpxml/>", encoding="utf-8")
+    code, payload = _json(port, "/api/status")
+    assert payload["progress"]["next"] is None
+    assert payload["progress"]["steps"][3]["state"] == "完成"
+    assert all(step["state"] == "完成" for step in payload["progress"]["steps"])

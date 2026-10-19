@@ -63,6 +63,7 @@ class MusicEditRegion(StrictModel):
     content_need: str = Field(min_length=1)
     confidence: float = Field(ge=0.0, le=1.0)
     evidence_basis: Literal["energy", "structure_model", "hybrid", "manual"]
+    enabled: bool = True
 
     @model_validator(mode="after")
     def positive_length_and_shot_budget(self) -> "MusicEditRegion":

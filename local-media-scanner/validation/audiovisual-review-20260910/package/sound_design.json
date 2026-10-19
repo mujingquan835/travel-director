@@ -4,7 +4,7 @@
     "foreground": 1,
     "midground": 0
   },
-  "base_decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
+  "base_decision_path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
   "base_decision_sha256": "b3f431b0d9f0dca33ba4b971cd8a95016bcb193ee4dc543512644288d9e67947",
   "changes": [
     {
@@ -52,7 +52,7 @@
           "reviewer": "Session Director",
           "source_in": 0.0,
           "source_out": 0.7,
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
         },
         {
           "listening_id": "listen-mix-001",
@@ -62,7 +62,7 @@
           "reviewer": "Session Director",
           "source_in": 0.05,
           "source_out": 0.65,
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
         }
       ],
       "before": [
@@ -74,7 +74,7 @@
           "reviewer": "Session Director",
           "source_in": 0.0,
           "source_out": 0.65,
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
         }
       ],
       "path": "/listening"
@@ -119,7 +119,7 @@
       "sound_type": "library_sfx",
       "source_anchor_time": 0.2,
       "source_in": 0.05,
-      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
       "status": "clip_materialized",
       "tail_policy": "fade_out",
       "timeline_in": 1.316667,
@@ -131,11 +131,11 @@
   "missing_gaps": 1,
   "mix_listening_status": "not_reviewed",
   "parent": {
-    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
+    "path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
     "sha256": "86efcc54a78a51279b8b02b67de153712a59ef5394c6f5cc9204a73ebc991a12"
   },
   "plan": {
-    "base_decision": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
+    "base_decision": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
     "cues": [
       {
         "auditory_plane": "background",
@@ -189,7 +189,7 @@
           "sound_type": "library_sfx",
           "source_anchor_time": 0.2,
           "source_in": 0.05,
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
           "tail_policy": "fade_out"
         },
         "visual_anchor": {
@@ -211,7 +211,7 @@
         "reviewer": "Session Director",
         "source_in": 0.0,
         "source_out": 0.7,
-        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+        "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
       },
       {
         "listening_id": "listen-mix-001",
@@ -221,7 +221,7 @@
         "reviewer": "Session Director",
         "source_in": 0.05,
         "source_out": 0.65,
-        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+        "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
       }
     ],
     "revision_reason": "第二版声音设计修订：延长拟音时长至0.60秒以获得自然衰减，微调增益至0.45避免掩盖恢复的背景音乐，并将尾音策略设为fade_out",

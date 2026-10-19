@@ -24,7 +24,7 @@
 - 3 条警告仍来自 `audioread` 使用 Python 3.12 已弃用的 `aifc`、`audioop`、`sunau`，R09 未新增警告。
 - `python3 -m py_compile` 与 `git diff --check` 通过。
 - 全仓搜索不再存在 `save_fast_mode_delivery` 调用或文档示例。
-- 仓库 Skill 与 `/Users/meimaodawang/.codex/skills/travel-director` 同步一致。
+- 仓库 Skill 与 `$CODEX_HOME/skills/travel-director` 同步一致。
 
 ## 真实项目恢复验证
 

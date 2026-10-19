@@ -1,6 +1,6 @@
 {
   "status": "sound_design_inspected",
-  "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
+  "path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
   "sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416",
   "listening_status": "all_context_reviewed",
   "mix_listening_status": "not_reviewed",
@@ -17,7 +17,7 @@
   "playable_segments": 1,
   "missing_gaps": 1,
   "parent": {
-    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
+    "path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
     "sha256": "86efcc54a78a51279b8b02b67de153712a59ef5394c6f5cc9204a73ebc991a12"
   },
   "changes_count": 9

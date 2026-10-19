@@ -1,6 +1,6 @@
 ============================= test session starts ==============================
 platform darwin -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
-rootdir: /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner
+rootdir: <checkout>/local-media-scanner
 configfile: pyproject.toml
 testpaths: tests
 plugins: cov-7.1.0, anyio-4.14.2
@@ -75,15 +75,15 @@ tests/test_vision.py ........                                            [100%]
 
 =============================== warnings summary ===============================
 tests/director/test_audio_packaging_status.py::test_runner_packaging_results[missing]
-  /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:16: DeprecationWarning: 'aifc' is deprecated and slated for removal in Python 3.13
+  <checkout>/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:16: DeprecationWarning: 'aifc' is deprecated and slated for removal in Python 3.13
     import aifc
 
 tests/director/test_audio_packaging_status.py::test_runner_packaging_results[missing]
-  /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:17: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
+  <checkout>/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:17: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
     import audioop
 
 tests/director/test_audio_packaging_status.py::test_runner_packaging_results[missing]
-  /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:19: DeprecationWarning: 'sunau' is deprecated and slated for removal in Python 3.13
+  <checkout>/local-media-scanner/.venv/lib/python3.12/site-packages/audioread/rawread.py:19: DeprecationWarning: 'sunau' is deprecated and slated for removal in Python 3.13
     import sunau
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

@@ -6,7 +6,7 @@
 
 > 日期：2026-09-03
 >
-> 权威工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+> 权威工作树：`<checkout>`
 >
 > 分支：`feature/local-media-scanner-v0.1`
 >
@@ -28,8 +28,8 @@
 - warning 来自现有 `aifc`、`audioop`、`sunau` 弃用提示。
 - Skill 校验：`Skill is valid!`。
 - 临时安装目录与仓库 Skill 源通过 `diff -qr`。
-- 正式安装目录 `/Users/meimaodawang/.codex/skills/travel-director` 与仓库 Skill 源通过 `diff -qr`。
-- 本次备份：`/Users/meimaodawang/.codex/skill-backups/travel-director.backup-20260903-104447`。
+- 正式安装目录 `$CODEX_HOME/skills/travel-director` 与仓库 Skill 源通过 `diff -qr`。
+- 本次备份：`$CODEX_HOME/skill-backups/travel-director.backup-20260903-104447`。
 
 ## 范围边界
 

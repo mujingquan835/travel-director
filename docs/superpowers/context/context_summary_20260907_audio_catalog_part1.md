@@ -4,7 +4,7 @@
 
 ## 修改
 
-工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`。
+工作树：`<checkout>/local-media-scanner`。
 
 - audio_catalog.py 优先读取“音乐/音效”，兼容 BGM/SFX；缺目录明确报错，不再在素材库自动创建空目录。
 - 索引音效根目录中的文件，作为环境音效候选，不自动应用。

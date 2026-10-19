@@ -13,12 +13,12 @@
 ## 2. 证据与生产版本
 
 - 用户四份文件已读取，另核对了剪映填空对照表所在目录与实际项目产物。
-- 真实项目：`/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416`。
+- 真实项目：`<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416`。
 - 本次运行工作区由 WorkBuddy 明确指定为根目录 `local-media-scanner`；本轮读取 main HEAD 为 `f886676`。
-- 功能工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`，本轮读取 HEAD 为 `57104e3`。
+- 功能工作树：`<checkout>`，本轮读取 HEAD 为 `57104e3`。
 - 已安装 Skill 包含 `--build-guide`、同音乐修订等较新说明；本次根目录 CLI 缺少对应命令。生产日志也明确记载 `--build-guide` 不存在。未来不能按“目录存在”判定发行版兼容。
 - 新工作树已有同音乐时间线修订、确定性 Hook 等改进，不能重复列为完全未实现；但这些不等于支持改 Brief 时长、真实填槽和剪映草稿交付。
-- 原始会话：`/Users/meimaodawang/.workbuddy/projects/Users-meimaodawang-Desktop-万岁山素材/43e50291-4c94-4c86-a0c6-a1be77cec8c4.jsonl`。
+- 原始会话：`<local-session>/projects/Users-<user>-Desktop-万岁山素材/43e50291-4c94-4c86-a0c6-a1be77cec8c4.jsonl`。
 - 本轮数值汇总：`2026-09-08-wansuishan-run-audit.json`，只保存统计，不复制整个会话。
 
 ## 3. 五项问题的诊断

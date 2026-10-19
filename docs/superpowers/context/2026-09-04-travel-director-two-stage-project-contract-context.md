@@ -2,7 +2,7 @@
 
 ## 完成范围
 
-- 权威 worktree：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+- 权威 worktree：`<checkout>`
 - 分支：`feature/local-media-scanner-v0.1`
 - `run_contract.json` 0.3.0 绑定绝对素材根目录、Brief SHA-256、受支持素材清单、文件大小、`mtime_ns`、`ctime_ns` 与源文件 SHA-256。
 - 新项目首次绑定时每个素材只计算一次源 SHA-256；相同项目恢复只比较根目录、Brief 和文件快速身份，不重读源视频。
@@ -12,7 +12,7 @@
 - 无素材指纹的旧项目保持只读阻断，benchmark 子集不能绑定更大目录。
 - 视觉阶段完成后返回 `waiting_for_music`，包含建议时长、恰好三条音乐提示词与 `provide_music` 动作；`completed` 保留给未来真正产生剪辑草稿的阶段。
 - `run --response-file <downloaded-json>` 可导入本地页面下载的 Brief/画面确认。错误类型、错误哈希和重复导入均在不改写项目状态的前提下阻断。
-- 正式 `$travel-director` Skill 已更新并同步到 `/Users/meimaodawang/.codex/skills/travel-director`。
+- 正式 `$travel-director` Skill 已更新并同步到 `$CODEX_HOME/skills/travel-director`。
 
 ## 验收证据
 

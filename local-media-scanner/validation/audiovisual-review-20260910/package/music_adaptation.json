@@ -394,7 +394,7 @@
         "gain": 1.0,
         "kind": "video",
         "source_in": 4.8,
-        "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+        "source_path": "<footage-dir>/2026_02_06_18_26_40_IMG_0229.MOV",
         "timeline_in": 0.0,
         "track": "main"
       },
@@ -403,7 +403,7 @@
         "gain": 1.0,
         "kind": "video",
         "source_in": 2.935,
-        "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+        "source_path": "<footage-dir>/2026_02_06_18_30_11_IMG_0230.MOV",
         "timeline_in": 1.2,
         "track": "main"
       },
@@ -412,7 +412,7 @@
         "gain": 0.35,
         "kind": "music",
         "source_in": 0.0,
-        "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+        "source_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
         "timeline_in": 0.0,
         "track": "music-adaptation"
       },
@@ -421,7 +421,7 @@
         "gain": 0.35,
         "kind": "music",
         "source_in": 20.0,
-        "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+        "source_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
         "timeline_in": 1.3,
         "track": "music-adaptation"
       }
@@ -431,7 +431,7 @@
     "schema_version": "0.1.0",
     "sfx_cues": [],
     "shot_group": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+      "path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/group.json",
       "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
     }
   },
@@ -439,18 +439,18 @@
   "frozen_music": {
     "analysis_sha256": "034e8831716ec7de013f0b3638ac3a7d4b9d8887a8453e865495f119e50e8be8",
     "asset_sha256": "6933ec99667a756ac5f9a9d9263bac43e27b3f137bc5afec9c1a59535c938283",
-    "path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
-    "project_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416",
+    "path": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+    "project_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416",
     "sha256": "bd40015805a4621cda51dd542a559d53396aabf591d6953cc81eb92c121403fe"
   },
   "listening_status": "not_listened",
   "mix_listening_status": "not_reviewed",
   "parent": {
-    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
+    "path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
     "sha256": "ec49682bbaca12d4d1825636a89bac21956dd49c5b5be8cf9b100f2dc79369a6"
   },
   "plan": {
-    "base_decision": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
+    "base_decision": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
     "ending": {
       "listening_id": null,
       "reason": "技术样本在原曲中间截断，不套用原曲结尾行为",
@@ -514,7 +514,7 @@
         "source_out": 20.833333
       }
     ],
-    "music_project": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416",
+    "music_project": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416",
     "pacing": [
       {
         "action_field": null,
@@ -581,7 +581,7 @@
         ],
         "field": "action_accent",
         "offset_seconds": 0.0,
-        "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+        "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
         "source_time": 3.201667,
         "timeline_time": 1.4666669999999997,
         "uncertainty_seconds": 0.133335

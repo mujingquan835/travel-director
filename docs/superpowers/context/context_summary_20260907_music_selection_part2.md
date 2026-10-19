@@ -11,7 +11,7 @@
 - 推荐仅接受时长大于等于目标且不超过 600 秒的版本；优先 +10 秒以内预制版本，否则取最短合格版本。
 - 新增 audio_catalog_cache.py。缓存位于 `~/.cache/travel-director/audio`，可通过 TRAVEL_DIRECTOR_AUDIO_CACHE 覆盖；文件路径、目录、大小、mtime_ns、ctime_ns 形成清单签名，增删改后刷新；坏缓存重建，扫描期间变动则提示重试。缓存不替代选定音频的内容哈希冻结。
 - 相同候选内容不重写项目推荐文件，原子替换缓存与推荐 JSON。
-- 仓库 SKILL.md / references/workflow.md 已更新，同步至全局 `/Users/meimaodawang/.codex/skills/travel-director`，字节一致及 skill-creator quick_validate 验证通过。
+- 仓库 SKILL.md / references/workflow.md 已更新，同步至全局 `$CODEX_HOME/skills/travel-director`，字节一致及 skill-creator quick_validate 验证通过。
 
 ## 验证
 

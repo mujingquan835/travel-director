@@ -26,7 +26,7 @@
           }
         ],
         "field": "frames",
-        "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+        "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
         "selected_source_time": 6.0,
         "source_window": [
           5.866667,
@@ -67,7 +67,7 @@
           }
         ],
         "field": "frames",
-        "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+        "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
         "selected_source_time": 2.935,
         "source_window": [
           2.801667,
@@ -126,7 +126,7 @@
         "function": "context",
         "gain": 1.0,
         "reason": "先交代夜间道路与车流",
-        "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+        "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
         "shot_id": "road",
         "source_in": 4.8,
         "source_out": 6.0
@@ -136,7 +136,7 @@
         "function": "detail",
         "gain": 1.0,
         "reason": "再切到侧向观察的前景车辆遮挡，作为视角与景别变化的局部试验",
-        "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+        "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
         "shot_id": "vehicle",
         "source_in": 2.935,
         "source_out": 3.868333
@@ -144,14 +144,14 @@
     ]
   },
   "reviews": {
-    "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
+    "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
       "request_sha256": "60c4e8ad99d529b6d6d2377a03dd2ef8750010c52361f9f3d8564256595b6ece",
-      "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
+      "result_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
       "result_sha256": "51d8daa2e5ae5dd62e67efdeca1dc73c30ea83e8f5fed1649039343f230dfa05"
     },
-    "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
+    "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
       "request_sha256": "83a4ccb99a720847fdb850bfb61ae49abc9dab1f7a9e132e0ce75e996301b68b",
-      "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
+      "result_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
       "result_sha256": "5715ce68651794f679954835d78dff8d87daa120106c3a6fc0dfba56a8358b81"
     }
   },
@@ -164,11 +164,11 @@
       "gain": 1.0,
       "material_id": "sha256:49c62b132b8544179ce149ec978d429c8c2143864f27e79aa1bc57548264d230",
       "reason": "先交代夜间道路与车流",
-      "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+      "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
       "shot_id": "road",
       "source_in": 4.8,
       "source_out": 6.0,
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_26_40_IMG_0229.MOV",
       "source_sha256": "49c62b132b8544179ce149ec978d429c8c2143864f27e79aa1bc57548264d230",
       "timeline_in": 0.0
     },
@@ -179,11 +179,11 @@
       "gain": 1.0,
       "material_id": "sha256:7745bc9c876b209a72cd3528e4adec9dd9b686d44f57b68ccead909b069e24ab",
       "reason": "再切到侧向观察的前景车辆遮挡，作为视角与景别变化的局部试验",
-      "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+      "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
       "shot_id": "vehicle",
       "source_in": 2.935,
       "source_out": 3.868333,
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_30_11_IMG_0230.MOV",
       "source_sha256": "7745bc9c876b209a72cd3528e4adec9dd9b686d44f57b68ccead909b069e24ab",
       "timeline_in": 1.2
     }

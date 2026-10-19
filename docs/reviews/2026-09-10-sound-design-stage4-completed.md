@@ -41,14 +41,14 @@
 
 ## 文件与调用
 
-源码根目录：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`。
+源码根目录：`<checkout>/local-media-scanner`。
 
-- [声音设计实现](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/sound_design.py)
-- [声音设计合同](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/sound_design_schema.py)
-- [Skill参考规范](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/references/sound-design.md)
-- [导出接入与合同更新](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/fcpxml_delivery.py)
-- [单元测试套件](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/tests/director/test_sound_design.py)
-- 本地安装入口：`/Users/meimaodawang/.codex/skills/travel-director/SKILL.md`；调用名 `$travel-director`。
+- [声音设计实现](file://<checkout>/local-media-scanner/director/sound_design.py)
+- [声音设计合同](file://<checkout>/local-media-scanner/director/sound_design_schema.py)
+- [Skill参考规范](file://<checkout>/local-media-scanner/skills/travel-director/references/sound-design.md)
+- [导出接入与合同更新](file://<checkout>/local-media-scanner/director/fcpxml_delivery.py)
+- [单元测试套件](file://<checkout>/local-media-scanner/tests/director/test_sound_design.py)
+- 本地安装入口：`$CODEX_HOME/skills/travel-director/SKILL.md`；调用名 `$travel-director`。
 
 从源码根运行 CLI：
 
@@ -64,7 +64,7 @@ uv run travel-director export-fcpxml --decision <返回的edit_decision.json> --
 - 全量测试通过：**638 passed，3 个既有依赖弃用警告，45.67 秒**。
 - 本轮新增 14 项测试，覆盖时间锚点计算、预响超界拒绝、画布溢出、源区间越界、库音效冒充现场声拒绝、missing_gap 无轨记录、听审记录覆盖度、版本差异比对、不可变覆盖拦截、包络关键点合法性、以及画面组+音乐适配+声音设计**三绑定联合导出**与防篡改核验。
 - Skill validator 通过：13 个文件，22 个本地链接有效；`git diff --check` 通过；本机安装后 resolver、validator 及 inspect 均通过。
-- [完整测试日志](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/tests.log)
+- [完整测试日志](file://<checkout>/local-media-scanner/validation/sound-design-20260910/tests.log)
 
 ## 真实数据端到端验证
 
@@ -86,10 +86,10 @@ uv run travel-director export-fcpxml --decision <返回的edit_decision.json> --
 
 ### 产物链接
 
-- [真实声音设计计划 v1](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/plan-v1.json)
-- [初版声音设计结果 v1](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json)
-- [真实声音设计计划 v2](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/plan-v2.json)
-- [修订版声音设计及差异 v2](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json)
-- [FCPXML交付工程](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/project.fcpxml)
-- [导出收据与三绑定证据](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/receipt.json)
-- [全链路历史哈希检查](file:///Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/history-check.json)
+- [真实声音设计计划 v1](file://<checkout>/local-media-scanner/validation/sound-design-20260910/plan-v1.json)
+- [初版声音设计结果 v1](file://<checkout>/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json)
+- [真实声音设计计划 v2](file://<checkout>/local-media-scanner/validation/sound-design-20260910/plan-v2.json)
+- [修订版声音设计及差异 v2](file://<checkout>/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json)
+- [FCPXML交付工程](file://<checkout>/local-media-scanner/validation/sound-design-20260910/package/project.fcpxml)
+- [导出收据与三绑定证据](file://<checkout>/local-media-scanner/validation/sound-design-20260910/package/receipt.json)
+- [全链路历史哈希检查](file://<checkout>/local-media-scanner/validation/sound-design-20260910/history-check.json)

@@ -4,13 +4,13 @@
   "client_import": "not_tested",
   "client_playback": "not_tested",
   "client_edit_save": "not_tested",
-  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
+  "decision_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
   "decision_sha256": "7cff14bc2669740c3f5482f9b9d736c55f6f48017f546129d74153b4cbb05385",
-  "fcpxml_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/project.fcpxml",
+  "fcpxml_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/package/project.fcpxml",
   "fcpxml_sha256": "b76dda292cd4c75b07e9da3a889a40e7c417759b80d72265cfad20a1bd1c4536",
   "sfx_matches": [],
   "sfx_segments": 0,
-  "resolved_decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/resolved_decision.json",
+  "resolved_decision_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/package/resolved_decision.json",
   "resolved_decision_sha256": "e90ce9bceab858e77c27544c93e92bfe6c38100d54df4fadbe9951b74213d2b1",
   "external_call_count": 0,
   "video_segments": 2,
@@ -28,26 +28,26 @@
   "materials": [
     {
       "asset_id": "asset-1",
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_26_40_IMG_0229.MOV",
       "source_sha256": "49c62b132b8544179ce149ec978d429c8c2143864f27e79aa1bc57548264d230",
       "source_duration_seconds": 12.631667,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/asset/asset-1-2026_02_06_18_26_40_IMG_0229.MOV"
+      "packaged_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/package/asset/asset-1-2026_02_06_18_26_40_IMG_0229.MOV"
     },
     {
       "asset_id": "asset-2",
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_30_11_IMG_0230.MOV",
       "source_sha256": "7745bc9c876b209a72cd3528e4adec9dd9b686d44f57b68ccead909b069e24ab",
       "source_duration_seconds": 5.9517,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/asset/asset-2-2026_02_06_18_30_11_IMG_0230.MOV"
+      "packaged_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/package/asset/asset-2-2026_02_06_18_30_11_IMG_0230.MOV"
     }
   ],
   "shot_group": {
     "status": "shot_group_validated",
     "binding": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+      "path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/group.json",
       "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
     },
-    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/shot_group.json",
+    "snapshot_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/package/shot_group.json",
     "snapshot_sha256": "4397d00b3beb837b6d4a8ea580b7788cdf0814c2159a7b3517a818e8ab766a4d",
     "connections": [
       {
@@ -76,7 +76,7 @@
             }
           ],
           "field": "frames",
-          "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+          "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
           "selected_source_time": 6.0,
           "source_window": [
             5.866667,
@@ -117,7 +117,7 @@
             }
           ],
           "field": "frames",
-          "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+          "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
           "selected_source_time": 2.935,
           "source_window": [
             2.801667,
@@ -136,14 +136,14 @@
       }
     ],
     "reviews": {
-      "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
+      "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
         "request_sha256": "60c4e8ad99d529b6d6d2377a03dd2ef8750010c52361f9f3d8564256595b6ece",
-        "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
+        "result_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
         "result_sha256": "51d8daa2e5ae5dd62e67efdeca1dc73c30ea83e8f5fed1649039343f230dfa05"
       },
-      "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
+      "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
         "request_sha256": "83a4ccb99a720847fdb850bfb61ae49abc9dab1f7a9e132e0ce75e996301b68b",
-        "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
+        "result_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
         "result_sha256": "5715ce68651794f679954835d78dff8d87daa120106c3a6fc0dfba56a8358b81"
       }
     }

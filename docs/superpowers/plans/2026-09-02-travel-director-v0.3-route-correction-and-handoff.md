@@ -4,7 +4,7 @@
 
 状态：路线校正已完成，待新窗口复核；尚未开始 V0.3 开发
 
-权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+权威工作区：`<checkout>`
 
 分支：`feature/local-media-scanner-v0.1`
 
@@ -74,7 +74,7 @@
 dda2c751aba3de2fa5a718a3c6861b694c20ff527ed2a4367f5c192c74693f1b
 ```
 
-但截至本文写入时，原路径 `/Users/meimaodawang/Downloads/blind_annotation.json` 已不存在，仓库内也没有该文件。它从未成为提交到 Git 的正式制品。
+但截至本文写入时，原路径 `<downloads>/blind_annotation.json` 已不存在，仓库内也没有该文件。它从未成为提交到 Git 的正式制品。
 
 因此新窗口不得声称当前仍持有 Ground Truth，也不得凭历史对话重建内容。开始正式评估前，必须让用户重新提供原文件，或从用户确认的可靠副本恢复，并重新运行哈希绑定校验。
 
@@ -353,7 +353,7 @@ Task 1 与 Task 2 主要消耗代码阅读、测试和规则推理额度，不�
 新窗口必须从以下路径开始：
 
 ```text
-/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1
+<checkout>
 ```
 
 不要在根目录 `main` 判断 Scanner 缺失或重做已有功能。
@@ -373,8 +373,8 @@ Task 1 与 Task 2 主要消耗代码阅读、测试和规则推理额度，不�
 
 ```bash
 git worktree list
-git -C /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1 status --short
-git -C /Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1 log -1 --oneline
+git -C <checkout> status --short
+git -C <checkout> log -1 --oneline
 ```
 
 然后完整阅读：

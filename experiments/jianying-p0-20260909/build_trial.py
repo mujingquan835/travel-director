@@ -1,6 +1,7 @@
 """Isolated draft-writing experiment; does not certify Jianying compatibility."""
 import hashlib
 import json
+import os
 import subprocess
 import time
 import uuid
@@ -11,14 +12,39 @@ import pyJianYingDraft as draft
 ROOT = Path(__file__).resolve().parent
 NAME = 'TD-P0-12s-code-20260909-v2'
 OUTPUT = ROOT / 'drafts'
-FOOTAGE = Path('/Users/meimaodawang/Desktop/万岁山素材')
+
+
+def _require_dir(env_name: str) -> Path:
+    raw = os.environ.get(env_name)
+    if not raw:
+        raise SystemExit(
+            f"Set {env_name} to a local directory before running this historical experiment script."
+        )
+    path = Path(raw).expanduser().resolve()
+    if not path.is_dir():
+        raise SystemExit(f"{env_name} is not a directory: {path}")
+    return path
+
+
+FOOTAGE = _require_dir("TRAVEL_DIRECTOR_FOOTAGE_DIR")
+AUDIO_ROOT = _require_dir("TRAVEL_DIRECTOR_AUDIO_ROOT")
+# Optional: absolute path to a frozen music wav used by the original trial.
+MUSIC = Path(
+    os.environ.get(
+        "TRAVEL_DIRECTOR_EXPERIMENT_MUSIC",
+        str(
+            ROOT.parents[1]
+            / "local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav"
+        ),
+    )
+).expanduser().resolve()
 SPECS = [
     ('main_video', FOOTAGE / '2026_02_06_18_40_27_IMG_0235.MOV', 0, 1, 4, 0),
     ('main_video', FOOTAGE / '2026_02_07_13_24_51_IMG_0364.MOV', 4, 1, 4, 0),
     ('main_video', FOOTAGE / '2026_02_07_21_24_44_IMG_0504.MOV', 8, 2, 4, 0),
-    ('music', Path('/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav'), 0, 0, 12, .35),
-    ('whoosh', Path('/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_007.wav'), 0, 0, 2.16, .8),
-    ('subdrop', Path('/Users/meimaodawang/Documents/音效及音乐/音效/上升音效/CZG_SubDrop_001.wav'), 7.6, 0, 2.94, .75),
+    ('music', MUSIC, 0, 0, 12, .35),
+    ('whoosh', AUDIO_ROOT / '音效/风声/CZG_Whoosh_007.wav', 0, 0, 2.16, .8),
+    ('subdrop', AUDIO_ROOT / '音效/上升音效/CZG_SubDrop_001.wav', 7.6, 0, 2.94, .75),
 ]
 
 def us(seconds):

@@ -5,7 +5,7 @@
 
 ## 权威工作区
 
-- 工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+- 工作树：`<checkout>`
 - 分支：`feature/local-media-scanner-v0.1`
 - 计划编写前 HEAD：`1578d8f docs: define music-driven montage prototype`
 - 主工作区 `main` 仅有 Scanner 设计和旧计划，不含 Scanner 源码；后续开发不得在 `main` 直接开始。
@@ -78,7 +78,7 @@
 - Task 6 按 TDD 完成参考安全的 60 秒音乐蓝图与原创约束 prompt，提交：`a69d51c feat: build reference-safe music blueprints`。
 - Task 7 新增可替换生成 Provider 协议、单次用户授权契约、即梦帮助文本能力解析与 fail-closed 门禁。
 - 离线门禁证明：未授权时返回 `blocked/not_authorized`；授权但无音乐命令时返回 `blocked/unsupported_capability`；两种情况均不触发 runner。
-- 只读检查安装位置 `/Users/meimaodawang/.local/bin/dreamina`，仅执行 `dreamina --version` 与 `dreamina --help`。
+- 只读检查安装位置 `<home>/.local/bin/dreamina`，仅执行 `dreamina --version` 与 `dreamina --help`。
 - 当前构建为 `673dd28-dirty`（commit `673dd28`，build time `2026-08-17T16:06:28Z`）；帮助只暴露图像/视频生成，没有 music/audio 生成命令，结论为 `music_generation=false`。
 - 按停止规则未检查登录态、未查询积分、未请求生成授权、未运行生成；外部调用数0，费用0。
 - 脱敏运行证据位于被忽略的 `local-media-scanner/prototype/runs/dreamina-capability-20260830/dreamina/capabilities.json`。

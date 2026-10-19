@@ -13,6 +13,31 @@ from urllib.parse import unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parent
+
+def _require_dir(env_name: str) -> Path:
+    raw = os.environ.get(env_name)
+    if not raw:
+        raise SystemExit(
+            f"Set {env_name} to a local directory before running this historical experiment script."
+        )
+    path = Path(raw).expanduser().resolve()
+    if not path.is_dir():
+        raise SystemExit(f"{env_name} is not a directory: {path}")
+    return path
+
+
+FOOTAGE = _require_dir("TRAVEL_DIRECTOR_FOOTAGE_DIR")
+AUDIO_ROOT = _require_dir("TRAVEL_DIRECTOR_AUDIO_ROOT")
+MUSIC = Path(
+    os.environ.get(
+        "TRAVEL_DIRECTOR_EXPERIMENT_MUSIC",
+        str(
+            ROOT.parents[1]
+            / "local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav"
+        ),
+    )
+).expanduser().resolve()
+
 PACKAGE = ROOT / "TD-P0-12s-FCPXML-20260909-v2"
 ASSETS = PACKAGE / "asset"
 OUTPUT = PACKAGE / "TD-P0-12s-FCPXML-20260909-v2.fcpxml"
@@ -20,32 +45,32 @@ OUTPUT = PACKAGE / "TD-P0-12s-FCPXML-20260909-v2.fcpxml"
 MEDIA = [
     {
         "id": "r2", "kind": "video", "track": "main_video",
-        "path": Path("/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_40_27_IMG_0235.MOV"),
+        "path": FOOTAGE / "2026_02_06_18_40_27_IMG_0235.MOV",
         "timeline_start": 0, "source_start": 1, "duration": 4, "volume_db": -96,
     },
     {
         "id": "r3", "kind": "video", "track": "main_video",
-        "path": Path("/Users/meimaodawang/Desktop/万岁山素材/2026_02_07_13_24_51_IMG_0364.MOV"),
+        "path": FOOTAGE / "2026_02_07_13_24_51_IMG_0364.MOV",
         "timeline_start": 4, "source_start": 1, "duration": 4, "volume_db": -96,
     },
     {
         "id": "r4", "kind": "video", "track": "main_video",
-        "path": Path("/Users/meimaodawang/Desktop/万岁山素材/2026_02_07_21_24_44_IMG_0504.MOV"),
+        "path": FOOTAGE / "2026_02_07_21_24_44_IMG_0504.MOV",
         "timeline_start": 8, "source_start": 2, "duration": 4, "volume_db": -96,
     },
     {
         "id": "r5", "kind": "audio", "track": "music",
-        "path": Path("/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav"),
+        "path": MUSIC,
         "timeline_start": 0, "source_start": 0, "duration": 12, "volume_db": -9.119,
     },
     {
         "id": "r6", "kind": "audio", "track": "whoosh",
-        "path": Path("/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_007.wav"),
+        "path": AUDIO_ROOT / "音效/风声/CZG_Whoosh_007.wav",
         "timeline_start": 0, "source_start": 0, "duration": 2.16, "volume_db": -1.938,
     },
     {
         "id": "r7", "kind": "audio", "track": "subdrop",
-        "path": Path("/Users/meimaodawang/Documents/音效及音乐/音效/上升音效/CZG_SubDrop_001.wav"),
+        "path": AUDIO_ROOT / "音效/上升音效/CZG_SubDrop_001.wav",
         "timeline_start": 7.6, "source_start": 0, "duration": 2.94, "volume_db": -2.499,
     },
 ]

@@ -6,8 +6,8 @@
 
 ## 安全恢复位置
 
-- 主项目：`/Users/meimaodawang/Documents/旅行导演`
-- 隔离 worktree：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+- 主项目：`<checkout>`
+- 隔离 worktree：`<checkout>`
 - 开发分支：`feature/local-media-scanner-v0.1`
 - 已完成检查点：`1721042 feat: freeze 30-video ground truth set`
 - 主分支未被合并，实现仍只在隔离 worktree 中。
@@ -47,7 +47,7 @@
 ## 恢复核验命令
 
 ```bash
-cd "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner"
+cd "<checkout>/local-media-scanner"
 git status --short
 git log --oneline -6
 uv run pytest -q

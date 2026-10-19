@@ -10,7 +10,7 @@
 - 音频计划只按实际存在内容报告，不能称已经混音；空音效计划不能被解释为有意留白。
 - 安装说明区分 `uv sync --locked` 与完整测试的 `uv sync --locked --extra dev --extra vision`；强调 Python 3.12、FFmpeg/ffprobe 与正常流程不调用模型。
 - 已通过现有安装器同步全局 Skill，目录逐文件比较一致。
-- 旧 Skill 备份：`/Users/meimaodawang/.codex/skill-backups/travel-director.backup-20260908-090236`。
+- 旧 Skill 备份：`$CODEX_HOME/skill-backups/travel-director.backup-20260908-090236`。
 
 ## 验证及范围
 

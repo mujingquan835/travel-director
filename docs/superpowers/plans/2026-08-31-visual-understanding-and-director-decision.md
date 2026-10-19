@@ -2,7 +2,7 @@
 
 日期：2026-08-31  
 状态：待用户复核，未开始开发  
-权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`  
+权威工作区：`<checkout>`  
 分支：`feature/local-media-scanner-v0.1`  
 编写基线：`9f1616590baedbeab0f301d60ad9a4447d2a7afd`
 
@@ -192,7 +192,7 @@ MusicStyleRecommendation =
 
 - `local-media-scanner/scanner/schema.py`
 - Scanner 模型权重、阈值、缓存、Ground Truth 和既有运行产物
-- `/Users/meimaodawang/Desktop/万岁山素材` 或其他原始素材目录
+- `<footage-dir>` 或其他原始素材目录
 - 曲多多、即梦、音乐 Provider 和剪映集成代码
 
 ## 可执行任务

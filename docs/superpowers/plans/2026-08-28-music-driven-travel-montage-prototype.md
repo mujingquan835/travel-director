@@ -12,8 +12,8 @@
 
 ## Global Constraints
 
-- Work only in `/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1` on `feature/local-media-scanner-v0.1`; do not implement against `main`, which does not contain Scanner source.
-- Treat `/Users/meimaodawang/Desktop/万岁山素材` as read-only; never move, rename, overwrite, upload, or commit source video/audio.
+- Work only in `<checkout>` on `feature/local-media-scanner-v0.1`; do not implement against `main`, which does not contain Scanner source.
+- Treat `<footage-dir>` as read-only; never move, rename, overwrite, upload, or commit source video/audio.
 - Preserve Scanner V0.1 and its current 72-test baseline. Add adapters; do not widen `ScannerCard` into a Director object.
 - Treat Scanner technical metadata, sparse frames, raw CV evidence, cache/error structure as usable. Treat `people_count_estimate`, `scene_type`, `shot_scale`, `simple_action`, and `main_objects` according to `field_status` and `BENCHMARK.md`; never convert candidate or unreliable semantics into facts.
 - Target duration is 30–180 seconds. Original import volume does not determine final clip count.

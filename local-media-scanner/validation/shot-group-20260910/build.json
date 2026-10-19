@@ -1,7 +1,7 @@
 {
   "status": "shot_group_validated",
-  "group_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
-  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
+  "group_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/group.json",
+  "decision_path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
   "shot_count": 2,
   "connection_count": 1,
   "duration_seconds": 2.133333,

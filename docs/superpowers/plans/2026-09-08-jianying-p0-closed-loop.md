@@ -8,11 +8,11 @@
 
 **Tech Stack:** Python 3.12, Pydantic, FFmpeg/ffprobe, pytest, Jianying Pro 11.4.0 macOS UI.
 
-**Spec:** `/Users/meimaodawang/Documents/旅行导演/docs/reviews/2026-09-08-wansuishan-skill-optimization.md`
+**Spec:** `<checkout>/docs/reviews/2026-09-08-wansuishan-skill-optimization.md`
 
 ## Global Constraints
 
-- Work only in `/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1` for repository changes.
+- Work only in `<checkout>` for repository changes.
 - Reuse the existing 万岁山 scan and observations; perform zero new scan or visual-model calls.
 - Create a new Jianying test project named `TD-P0-万岁山-12s-20260908`; never change or delete an existing draft.
 - Do not write Jianying 11.4.0 encrypted `draft_info.json` directly.
@@ -36,12 +36,12 @@
 Trial timeline values:
 
 - Canvas: 1920x1080, 30 fps, duration 12.0 seconds.
-- Video 1: `/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_40_27_IMG_0235.MOV`, source 1.000–5.000 seconds, timeline 0.000–4.000 seconds.
-- Video 2: `/Users/meimaodawang/Desktop/万岁山素材/2026_02_07_13_24_51_IMG_0364.MOV`, source 1.000–5.000 seconds, timeline 4.000–8.000 seconds.
-- Video 3: `/Users/meimaodawang/Desktop/万岁山素材/2026_02_07_21_24_44_IMG_0504.MOV`, source 2.000–6.000 seconds, timeline 8.000–12.000 seconds.
-- Music: `/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav`, source 0.000–12.000 seconds, timeline 0.000–12.000 seconds, gain 0.35.
-- SFX 1: `/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_007.wav`, source 0.000–2.160 seconds, timeline 0.000–2.160 seconds, gain 0.80.
-- SFX 2: `/Users/meimaodawang/Documents/音效及音乐/音效/上升音效/CZG_SubDrop_001.wav`, source 0.000–2.94644 seconds, timeline 7.600–10.54644 seconds, gain 0.75.
+- Video 1: `<footage-dir>/2026_02_06_18_40_27_IMG_0235.MOV`, source 1.000–5.000 seconds, timeline 0.000–4.000 seconds.
+- Video 2: `<footage-dir>/2026_02_07_13_24_51_IMG_0364.MOV`, source 1.000–5.000 seconds, timeline 4.000–8.000 seconds.
+- Video 3: `<footage-dir>/2026_02_07_21_24_44_IMG_0504.MOV`, source 2.000–6.000 seconds, timeline 8.000–12.000 seconds.
+- Music: `<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav`, source 0.000–12.000 seconds, timeline 0.000–12.000 seconds, gain 0.35.
+- SFX 1: `$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_007.wav`, source 0.000–2.160 seconds, timeline 0.000–2.160 seconds, gain 0.80.
+- SFX 2: `$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/上升音效/CZG_SubDrop_001.wav`, source 0.000–2.94644 seconds, timeline 7.600–10.54644 seconds, gain 0.75.
 - Source-video audio is muted in the preview; Jianying video clips remain editable and their source audio may remain attached but muted.
 
 - [ ] Write a failing test that invokes `build_p0_trial` in a temporary directory and asserts the literal timeline values, six media identities, 12-second preview duration within one frame, H.264/AAC codecs, 1920x1080 dimensions, and SHA-256 receipt verification.
@@ -71,7 +71,7 @@ Trial timeline values:
 
 **Files:**
 - Modify: `skills/travel-director/SKILL.md`
-- Modify installed copy only after repository tests pass: `/Users/meimaodawang/.codex/skills/travel-director/SKILL.md`
+- Modify installed copy only after repository tests pass: `$CODEX_HOME/skills/travel-director/SKILL.md`
 
 **Interfaces:**
 - Consumes: Task 1 and Task 2 receipts.

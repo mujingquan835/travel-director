@@ -24,3 +24,11 @@
 ## 证据
 build_trial.py：生成与独立序列化检查脚本；receipt.json：实际轨道、时间和哈希；requirements.lock.txt：本次依赖版本。
 重复运行同名输出会拒绝覆盖。音乐只用于格式试验，未证明创作质量符合此前标准。
+
+## 本地路径（复跑时）
+
+脚本不再硬编码个人家目录。复跑前请设置：
+
+- `TRAVEL_DIRECTOR_FOOTAGE_DIR`：素材目录
+- `TRAVEL_DIRECTOR_AUDIO_ROOT`：音效/音乐库根目录
+- 可选 `TRAVEL_DIRECTOR_EXPERIMENT_MUSIC`：试验用音乐 wav 的绝对路径

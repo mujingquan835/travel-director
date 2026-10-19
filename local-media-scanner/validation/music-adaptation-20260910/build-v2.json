@@ -2,10 +2,10 @@
   "status": "music_adaptation_validated",
   "listening_status": "not_listened",
   "mix_listening_status": "not_reviewed",
-  "adaptation_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json",
-  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
+  "adaptation_path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json",
+  "decision_path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
   "parent": {
-    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
+    "path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
     "sha256": "ec49682bbaca12d4d1825636a89bac21956dd49c5b5be8cf9b100f2dc79369a6"
   },
   "change_count": 6,

@@ -33,7 +33,7 @@ V0.1 不开发正式 GUI、Web App、账号系统、云数据库、视频上传�
 - 系统 Python 3.14.4；项目使用 `uv` 管理 Python 3.12，不修改系统 Python。
 - PyTorch 推理后端：`auto` 优先 MPS，失败时显式记录原因并回退 CPU；也可强制 `cpu` 或 `mps`。
 
-真实素材目录只读使用：`/Users/meimaodawang/Desktop/万岁山素材/`。
+真实素材目录只读使用：`<footage-dir>/`。
 
 只读盘点结果：
 

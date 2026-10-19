@@ -1,8 +1,8 @@
 {
   "status": "sound_design_validated",
-  "sound_design_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
+  "sound_design_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
   "sound_design_sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416",
-  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/edit_decision.json",
+  "decision_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v2/edit_decision.json",
   "listening_status": "all_context_reviewed",
   "mix_listening_status": "not_reviewed",
   "roles": {
@@ -64,13 +64,13 @@
           "reviewer": "Session Director",
           "source_in": 0.0,
           "source_out": 0.65,
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
         }
       ],
       "after": [
         {
           "listening_id": "listen-whoosh-006",
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
           "source_in": 0.0,
           "source_out": 0.7,
           "reviewer": "Session Director",
@@ -80,7 +80,7 @@
         },
         {
           "listening_id": "listen-mix-001",
-          "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+          "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
           "source_in": 0.05,
           "source_out": 0.65,
           "reviewer": "Session Director",

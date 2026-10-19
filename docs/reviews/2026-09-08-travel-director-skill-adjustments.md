@@ -4,10 +4,10 @@
 
 ## 1. 审查范围与基线
 
-- 权威功能工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`。
+- 权威功能工作树：`<checkout>`。
 - 包目录：上述工作树的 `local-media-scanner`；下文代码路径均相对于包目录，`../.github` 相对于仓库根目录。
 - 功能分支：`feature/local-media-scanner-v0.1`，本次读取 HEAD 为 `c45e1d9`；本地 main 为 `f886676`，不能混用两者报告功能。
-- 已安装 `/Users/meimaodawang/.codex/skills/travel-director` 与功能分支 `skills/travel-director` 经目录比较一致。
+- 已安装 `$CODEX_HOME/skills/travel-director` 与功能分支 `skills/travel-director` 经目录比较一致。
 - 已读：Skill 入口、workflow、creative-direction、visual-observation-contract、安装与工作区解析脚本，以及 Runner、交付存储、时间线、音效和粗剪相关实现。
 - 测试基线来自上一阶段：本地 452 passed、3 warnings；GitHub Actions run 34102081885 成功。本次为文档审查，没有重跑全量测试或刷新远端 PR 状态。
 - 真实案例：`prototype/runs/travel-project-3d14b9a84b`，万岁山素材、60 秒竖屏目标、用户选定 Fireflies。

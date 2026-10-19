@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0.0",
-  "base_decision": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
+  "base_decision": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
   "revision_reason": "第二版声音设计修订：延长拟音时长至0.60秒以获得自然衰减，微调增益至0.45避免掩盖恢复的背景音乐，并将尾音策略设为fade_out",
   "listening": [
     {
       "listening_id": "listen-whoosh-006",
-      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
       "source_in": 0.0,
       "source_out": 0.70,
       "reviewer": "Session Director",
@@ -15,7 +15,7 @@
     },
     {
       "listening_id": "listen-mix-001",
-      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
       "source_in": 0.05,
       "source_out": 0.65,
       "reviewer": "Session Director",
@@ -56,7 +56,7 @@
         "uncertainty_seconds": 0.133335
       },
       "source": {
-        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+        "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
         "sound_type": "library_sfx",
         "source_anchor_time": 0.20,
         "pre_roll": 0.15,

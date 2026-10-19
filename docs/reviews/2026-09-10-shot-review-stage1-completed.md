@@ -13,16 +13,16 @@
 
 ## 文件与安装
 
-运行源码根目录：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`。
+运行源码根目录：`<checkout>/local-media-scanner`。
 
-- [精看实现](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/shot_review.py)
-- [独立精看合同](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/shot_review_schema.py)
-- [使用与证据规则](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/references/shot-review.md)
-- [新增测试](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/tests/director/test_shot_review.py)
-- 源 Skill：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director`。
-- 安装入口：[SKILL.md](/Users/meimaodawang/.codex/skills/travel-director/SKILL.md)。调用名：`$travel-director`。
-- 安装回执：`/Users/meimaodawang/.codex/skill-receipts/travel-director.json`，绑定 77 个运行时 Python 文件。resolver 当轮通过。
-- 原安装备份：`/Users/meimaodawang/.codex/skill-backups/travel-director.backup-20260910-093958`。
+- [精看实现](<checkout>/local-media-scanner/director/shot_review.py)
+- [独立精看合同](<checkout>/local-media-scanner/director/shot_review_schema.py)
+- [使用与证据规则](<checkout>/local-media-scanner/skills/travel-director/references/shot-review.md)
+- [新增测试](<checkout>/local-media-scanner/tests/director/test_shot_review.py)
+- 源 Skill：`<checkout>/local-media-scanner/skills/travel-director`。
+- 安装入口：[SKILL.md]($CODEX_HOME/skills/travel-director/SKILL.md)。调用名：`$travel-director`。
+- 安装回执：`$CODEX_HOME/skill-receipts/travel-director.json`，绑定 77 个运行时 Python 文件。resolver 当轮通过。
+- 原安装备份：`$CODEX_HOME/skill-backups/travel-director.backup-20260910-093958`。
 - 当前 HEAD 仍为 `7a150d9`，本次安装绑定的是含未提交修改的实际源码哈希，不能将新功能说成已发布到该提交。此前用户的 Skill/compact 脚本修改完整保留。
 
 ## 最小使用方式
@@ -45,7 +45,7 @@ uv run travel-director inspect-shot-review --request <返回的request.json>
 - 第一次扩展 VFR 测试暴露了 trim duration 相对首帧计算导致末尾超界的问题，改为 post-seek 时间域内明确 start/end。修复后重跑完整测试。
 - 完整测试：**580 passed，3 个既有依赖弃用警告，34.91 秒**。
 - 仓库 Skill 验证通过，11 个本地链接有效；`git diff --check` 通过；本机安装后 resolver、Skill validator、真实结果 CLI inspect 均通过。
-- [完整测试日志](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-review-20260910/tests.log)
+- [完整测试日志](<checkout>/local-media-scanner/validation/shot-review-20260910/tests.log)
 
 ## 真实素材验证
 
@@ -58,9 +58,9 @@ uv run travel-director inspect-shot-review --request <返回的request.json>
 - 建议可用区间约 2.802–3.868 秒，是观察支持的剪辑候选范围，不是已输出 EDL。
 - 第二次同请求 cache_hit=true，实测 0.1066 秒；测试另通过阻止解码函数验证缓存不重解码。该耗时仅代表本机这一个区间，不推广为全项目性能保证。
 
-[查看时间样本图](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/shot-000-sheet-00.jpg)
+[查看时间样本图](<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/shot-000-sheet-00.jpg)
 
-[查看保存的精看结果](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json)
+[查看保存的精看结果](<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json)
 
 附加证据位于 `validation/shot-review-20260910/`：selection、compact 观察、prepare/submit 返回、源 PTS 对照、缓存计时、安装后 inspect 返回与测试日志。该目录是功能验证材料，不是正式剪映交付。
 

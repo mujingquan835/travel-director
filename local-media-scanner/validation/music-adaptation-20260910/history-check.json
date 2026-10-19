@@ -1,9 +1,9 @@
 {
   "unchanged": true,
   "hashes": {
-    "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/project_state.json": "926fd76cbece0a79eb4658c8716438ef5351dbaf18b398b2335d75702458cc1d",
-    "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/music_structure.json": "034e8831716ec7de013f0b3638ac3a7d4b9d8887a8453e865495f119e50e8be8",
-    "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/music_asset.json": "6933ec99667a756ac5f9a9d9263bac43e27b3f137bc5afec9c1a59535c938283",
-    "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json": "7cff14bc2669740c3f5482f9b9d736c55f6f48017f546129d74153b4cbb05385"
+    "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/project_state.json": "926fd76cbece0a79eb4658c8716438ef5351dbaf18b398b2335d75702458cc1d",
+    "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/music_structure.json": "034e8831716ec7de013f0b3638ac3a7d4b9d8887a8453e865495f119e50e8be8",
+    "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/music_asset.json": "6933ec99667a756ac5f9a9d9263bac43e27b3f137bc5afec9c1a59535c938283",
+    "<checkout>/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json": "7cff14bc2669740c3f5482f9b9d736c55f6f48017f546129d74153b4cbb05385"
   }
 }

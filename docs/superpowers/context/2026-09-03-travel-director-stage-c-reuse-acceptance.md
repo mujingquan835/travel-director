@@ -6,13 +6,13 @@
 
 > 日期：2026-09-03
 >
-> 权威工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+> 权威工作树：`<checkout>`
 >
 > 分支：`feature/local-media-scanner-v0.1`
 
 ## 复用输入
 
-- 原始素材目录：`/Users/meimaodawang/Desktop/万岁山素材`，当前仍存在，目录中有 274 个受支持视频文件。
+- 原始素材目录：`<footage-dir>`，当前仍存在，目录中有 274 个受支持视频文件。
 - 原 Brief：`制作一条有进入、探索和收束结构的开封旅行短片，兼顾城市氛围与同行体验。`
 - 已完成项目：`local-media-scanner/benchmark/runs/travel-director-skill-blind-v1`。
 - 项目包含 12 条素材、2 个调用方视觉观察批次、Brief 确认、视觉确认、DirectorTreatment、DirectorReview、三条音乐提示词和最终总结。

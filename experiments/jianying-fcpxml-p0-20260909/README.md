@@ -23,3 +23,11 @@
 ## 依据
 
 扣子官方文档的剪映工程导入流程明确使用 `.fcpxml` 文件和 `asset` 目录：https://docs.coze.cn/cozespace_video
+
+## 本地路径（复跑时）
+
+脚本不再硬编码个人家目录。复跑前请设置：
+
+- `TRAVEL_DIRECTOR_FOOTAGE_DIR`：素材目录
+- `TRAVEL_DIRECTOR_AUDIO_ROOT`：音效/音乐库根目录
+- 可选 `TRAVEL_DIRECTOR_EXPERIMENT_MUSIC`：试验用音乐 wav 的绝对路径

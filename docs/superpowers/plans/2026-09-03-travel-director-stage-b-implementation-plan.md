@@ -8,7 +8,7 @@
 >
 > 历史状态：已实施并通过当时回归；后续验收结论见上方更正
 >
-> 权威工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+> 权威工作树：`<checkout>`
 
 ## 1. 目标
 
@@ -91,7 +91,7 @@ Brief 聊天答复：
 - 3 条 warning 均为现有 `aifc` / `audioop` / `sunau` 弃用警告。
 - Skill 结构校验：`Skill is valid!`。
 - 临时安装目录与仓库 Skill 源文件一致。
-- 正式 Skill 已安装到 `/Users/meimaodawang/.codex/skills/travel-director`，旧版由安装器备份。
+- 正式 Skill 已安装到 `$CODEX_HOME/skills/travel-director`，旧版由安装器备份。
 - 未运行真实视频，未调用独立模型或外部服务。
 
 ## 7. 下一停止点

@@ -31,7 +31,7 @@
 ## 开封隔离验收
 
 成功制品目录：
-`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/outputs/reference-av-acceptance/kaifeng-a6lvjxvh/`
+`<checkout>/outputs/reference-av-acceptance/kaifeng-a6lvjxvh/`
 
 - `acceptance.json`：全部原项目文件前置哈希、最终不变断言、视觉证据不变、重复提交/换曲复用结果。
 - `方案.md`：参考选择 → 声画联合表 → 音乐要求 → 三条提示词，完整可读。
@@ -54,6 +54,6 @@
 
 真实项目：`local-media-scanner/prototype/runs/travel-project-3d14b9a84b`。其旧内部 status=completed/current_stage=visual_review 只表示视觉阶段；`music_asset` 和 `creative_current` 均仍为空。未给真实项目绑定音乐或新创作方案。
 
-权威工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`，分支 `feature/local-media-scanner-v0.1`，基线 HEAD `7b0e946`。本轮代码、测试、Skill、验收脚本与阶段记录已落盘，**尚未 Git 提交、合并或推送**，未删除工作树及用户其他文档。安装版 Skill 路径为 `/Users/meimaodawang/.codex/skills/travel-director`。
+权威工作树：`<checkout>`，分支 `feature/local-media-scanner-v0.1`，基线 HEAD `7b0e946`。本轮代码、测试、Skill、验收脚本与阶段记录已落盘，**尚未 Git 提交、合并或推送**，未删除工作树及用户其他文档。安装版 Skill 路径为 `$CODEX_HOME/skills/travel-director`。
 
 下一次真正制作时，按用户交付用途继续正式项目；本验收目录不能冒充真实项目。当前阶段完成不意味着生成了音乐或视频，也不承诺音乐平台审核通过。

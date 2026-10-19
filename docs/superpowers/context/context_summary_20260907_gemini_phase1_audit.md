@@ -5,7 +5,7 @@
 ## 已确认
 
 - 权威代码：`.worktrees/local-media-scanner-v0.1/local-media-scanner`，分支 `feature/local-media-scanner-v0.1`，提交 `2fca13e`，该工作树检查时干净。外层 main 有原有未跟踪文件，不能笼统称全工作区干净。
-- 全局 `/Users/meimaodawang/.codex/skills/travel-director` 与仓库技能目录 `diff -qr` 一致。
+- 全局 `$CODEX_HOME/skills/travel-director` 与仓库技能目录 `diff -qr` 一致。
 - `.venv/bin/pytest -q` 实跑：429 passed, 3 warnings in 19.14s。
 - `--build-timeline` 已接入 Runner，交付 JSON 与 Markdown；当前 completed 仅指占位时间线方案完成，不代表真实画面匹配、混音或剪映工程完成。
 - 真实库“音乐”下有 40 个分类，“音效”下有 37 个支持格式文件。369 首及 98.92% 未重新完成逐曲索引验证。

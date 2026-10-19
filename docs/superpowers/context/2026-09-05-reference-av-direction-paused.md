@@ -4,9 +4,9 @@
 
 ## 权威位置与边界
 
-- 工作目录：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`
+- 工作目录：`<checkout>/local-media-scanner`
 - 工作树：`feature/local-media-scanner-v0.1`，HEAD `7b0e946`。所有本轮修改尚未提交，已经保存到磁盘。不要重新开发、reset 或覆盖已有改动。
-- 需求：用户对话中的“续接计划：完成参考片与声画规划改造”、`/Users/meimaodawang/Downloads/PLAN.md`，实施分解见 `docs/superpowers/plans/2026-09-05-reference-av-direction.md`。
+- 需求：用户对话中的“续接计划：完成参考片与声画规划改造”、`<downloads>/PLAN.md`，实施分解见 `docs/superpowers/plans/2026-09-05-reference-av-direction.md`。
 - 当前对话实施，不接入音乐生成/额外模型，不新增试听页面，不渲染，不剪辑。音乐审美由用户外部选定。明确交付剪辑的单首音频直接导入；失败、参考、复盘音频不导入；多首未选定只问对象。
 - 四例默认参考，案例二仅 0–180 秒。用户当前要求优先，不自动改变地点、片长或画幅。参考声学语义未知，不伪称听辨。
 
@@ -52,10 +52,10 @@
 
 - 原项目：`prototype/runs/travel-project-3d14b9a84b`，约 156 MB。
 - 暂停前只读核对：state `status=completed,current_stage=visual_review` 是旧内部视觉状态；`music_asset=null,creative_current=null`。真实项目未绑定音乐、未写入新创作方案。
-- 输入：`/Users/meimaodawang/Desktop/万岁山素材`。
+- 输入：`<footage-dir>`。
 - brief 原文：`制作一条 60 秒竖屏开封旅行短片，有进入、探索、高潮和收束，纪实风格，兼顾城市氛围与同行体验。`
 - 已有 270 素材；treatment 提示 `missing_director_function:climax` 和 `missing_director_function:ending`。不得把高潮和收束镜头描述为已经具备。
-- 参考研究素材：`/Users/meimaodawang/Documents/旅行导演/outputs/reference-review-20260905/`。其中早期 Skill融合方案/阶段总结含已被用户推翻的“必须先听辨/候选试听”想法，不能沿用。
+- 参考研究素材：`<checkout>/outputs/reference-review-20260905/`。其中早期 Skill融合方案/阶段总结含已被用户推翻的“必须先听辨/候选试听”想法，不能沿用。
 - 两首拒绝音乐仍不导入：Downloads 中 `jimeng-2026-09-05-1334-边界回声.wav` 与 `jimeng-2026-09-05-1948-暖光漫行.wav`。不从拒绝记录推导乐器或流派禁用。
 
 ## 文件与协作状态

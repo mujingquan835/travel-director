@@ -6,7 +6,7 @@
 
 日期：2026-08-31
 历史状态：待用户复核，未开始开发
-权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+权威工作区：`<checkout>`
 分支：`feature/local-media-scanner-v0.1`
 编写基线：`9f1616590baedbeab0f301d60ad9a4447d2a7afd`
 

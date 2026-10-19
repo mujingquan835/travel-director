@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Treat /Users/meimaodawang/Desktop/万岁山素材/ as read-only input; never move, rename, overwrite, upload, or commit source videos.
+- Treat <footage-dir>/ as read-only input; never move, rename, overwrite, upload, or commit source videos.
 - Scanner answers What is it; no Director, Editorial Role, timeline, music, SFX, Dreamina generation, export, GUI, Web App, or cloud service.
 - Sequence Detection is not implemented in V0.1 and no sequence_candidate field is emitted.
 - Use Python >=3.12,<3.13 inside local-media-scanner/.venv; do not install into system Python 3.14.
@@ -247,7 +247,7 @@ Run ffprobe as a list argument, parse JSON, select the first video stream, parse
 Run:
 
     uv run pytest tests/test_metadata.py -v
-    uv run travel-scanner inspect --input /Users/meimaodawang/Desktop/万岁山素材 > /tmp/travel-scanner-inspect.json
+    uv run travel-scanner inspect --input <footage-dir> > /tmp/travel-scanner-inspect.json
 
 Expected: 272 video entries, no writes beneath the source folder. Record measured metadata time and any failures in EXPERIMENTS.md.
 
@@ -433,7 +433,7 @@ Bin by shooting day/time, portrait/landscape, resolution, duration (<3, 3–10, 
 
 - [ ] **Step 4: Generate, manually inspect, and freeze Ground Truth**
 
-    uv run travel-scanner select-testset --input /Users/meimaodawang/Desktop/万岁山素材 --count 30 --seed 20260827 --manifest benchmark/test_manifest.json --contact-sheet benchmark/test_selection.html
+    uv run travel-scanner select-testset --input <footage-dir> --count 30 --seed 20260827 --manifest benchmark/test_manifest.json --contact-sheet benchmark/test_selection.html
 
 Watch each selected video before any detector/SigLIP real run. Apply annotation_guide.md definitions. Use uncertain only for genuinely ambiguous labels; never copy model output. Verify:
 
@@ -940,7 +940,7 @@ Before committing, confirm generated JSON/HTML contain relative paths only and n
 
 Use seed 20260827 and preserve duration/resolution/time-of-day strata without consulting Ground Truth accuracy. Validate:
 
-    uv run travel-scanner select-testset --input /Users/meimaodawang/Desktop/万岁山素材 --count 100 --seed 20260827 --manifest benchmark/performance_manifest_100.json --performance-only
+    uv run travel-scanner select-testset --input <footage-dir> --count 100 --seed 20260827 --manifest benchmark/performance_manifest_100.json --performance-only
 
 Expected: exactly 100 unique external relative paths and measured total duration/bytes.
 

@@ -8,7 +8,7 @@
 >
 > 历史状态：阶段 A、B 已实施；阶段 C 的旧验收结论已失效
 >
-> 权威工作树：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+> 权威工作树：`<checkout>`
 >
 > 适用范围：当前“本地素材理解 -> 导演方案 -> 3 条音乐生成提示词”阶段
 

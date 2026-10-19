@@ -4,13 +4,13 @@
   "client_import": "not_tested",
   "client_playback": "not_tested",
   "client_edit_save": "not_tested",
-  "decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/edit_decision.json",
+  "decision_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v2/edit_decision.json",
   "decision_sha256": "58f6a4d212fb073f8e549a65d4ae477c59e0a5d9ab1679bf5261ec2ac1baceed",
-  "fcpxml_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/project.fcpxml",
+  "fcpxml_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/project.fcpxml",
   "fcpxml_sha256": "bae922b79a57c1532ecdc465355d33c68bd26077445a99efb2c7ec9bb1de2e41",
   "sfx_matches": [],
   "sfx_segments": 1,
-  "resolved_decision_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/resolved_decision.json",
+  "resolved_decision_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/resolved_decision.json",
   "resolved_decision_sha256": "5f4bd24882598ead1540a9f7ca5258a497577d96715a21eacb8cfc97696f754f",
   "external_call_count": 0,
   "video_segments": 2,
@@ -33,47 +33,47 @@
   "materials": [
     {
       "asset_id": "asset-1",
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_26_40_IMG_0229.MOV",
       "source_sha256": "49c62b132b8544179ce149ec978d429c8c2143864f27e79aa1bc57548264d230",
       "source_duration_seconds": 12.631667,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-1-2026_02_06_18_26_40_IMG_0229.MOV"
+      "packaged_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/asset/asset-1-2026_02_06_18_26_40_IMG_0229.MOV"
     },
     {
       "asset_id": "asset-2",
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_30_11_IMG_0230.MOV",
       "source_sha256": "7745bc9c876b209a72cd3528e4adec9dd9b686d44f57b68ccead909b069e24ab",
       "source_duration_seconds": 5.9517,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-2-2026_02_06_18_30_11_IMG_0230.MOV"
+      "packaged_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/asset/asset-2-2026_02_06_18_30_11_IMG_0230.MOV"
     },
     {
       "asset_id": "asset-3",
-      "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+      "source_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
       "source_sha256": "bd40015805a4621cda51dd542a559d53396aabf591d6953cc81eb92c121403fe",
       "source_duration_seconds": 106.0,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-3-music-bd40015805a4621c.wav"
+      "packaged_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/asset/asset-3-music-bd40015805a4621c.wav"
     },
     {
       "asset_id": "asset-4",
-      "source_path": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
+      "source_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/generation/assets/music-bd40015805a4621c.wav",
       "source_sha256": "bd40015805a4621cda51dd542a559d53396aabf591d6953cc81eb92c121403fe",
       "source_duration_seconds": 106.0,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-4-music-bd40015805a4621c.wav"
+      "packaged_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/asset/asset-4-music-bd40015805a4621c.wav"
     },
     {
       "asset_id": "asset-5",
-      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
       "source_sha256": "894d85201bc21dfd1fd617bc5868a9b83b6b09fd774a606cbabbfe47c5e854db",
       "source_duration_seconds": 0.728104,
-      "packaged_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/asset/asset-5-CZG_Whoosh_006.wav"
+      "packaged_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/asset/asset-5-CZG_Whoosh_006.wav"
     }
   ],
   "shot_group": {
     "status": "shot_group_validated",
     "binding": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+      "path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/group.json",
       "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
     },
-    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/shot_group.json",
+    "snapshot_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/shot_group.json",
     "snapshot_sha256": "4397d00b3beb837b6d4a8ea580b7788cdf0814c2159a7b3517a818e8ab766a4d",
     "connections": [
       {
@@ -102,7 +102,7 @@
             }
           ],
           "field": "frames",
-          "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
+          "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json",
           "selected_source_time": 6.0,
           "source_window": [
             5.866667,
@@ -143,7 +143,7 @@
             }
           ],
           "field": "frames",
-          "review_request": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
+          "review_request": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json",
           "selected_source_time": 2.935,
           "source_window": [
             2.801667,
@@ -162,14 +162,14 @@
       }
     ],
     "reviews": {
-      "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
+      "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/request.json": {
         "request_sha256": "60c4e8ad99d529b6d6d2377a03dd2ef8750010c52361f9f3d8564256595b6ece",
-        "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
+        "result_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/97c3c4795774fe5bdb12615b2b78aeb56cb0047c50848f70d335e1d267c02a55/results/observations.json",
         "result_sha256": "51d8daa2e5ae5dd62e67efdeca1dc73c30ea83e8f5fed1649039343f230dfa05"
       },
-      "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
+      "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/request.json": {
         "request_sha256": "83a4ccb99a720847fdb850bfb61ae49abc9dab1f7a9e132e0ce75e996301b68b",
-        "result_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
+        "result_path": "<checkout>/local-media-scanner/prototype/runs/travel-project-7b639731d7/visual/shot_reviews/d6d7195868a7085d281c4060b9c5852f546d8ee09b03af2a5f397c7d0bebda46/results/observations.json",
         "result_sha256": "5715ce68651794f679954835d78dff8d87daa120106c3a6fc0dfba56a8358b81"
       }
     }
@@ -179,10 +179,10 @@
     "listening_status": "not_listened",
     "mix_listening_status": "not_reviewed",
     "binding": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json",
+      "path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json",
       "sha256": "a066be585b104c728ec59e440c3001273afeda992827fe2daf5a63b8d6337395"
     },
-    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/music_adaptation.json",
+    "snapshot_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/music_adaptation.json",
     "snapshot_sha256": "39ed99019b1aaac5f3e56d8d0827ce277ea291c3e169e0eeb60120443963af6a",
     "mapping": [
       {
@@ -247,7 +247,7 @@
       "treatment": "cut"
     },
     "parent": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
+      "path": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json",
       "sha256": "ec49682bbaca12d4d1825636a89bac21956dd49c5b5be8cf9b100f2dc79369a6"
     },
     "changes": [
@@ -288,10 +288,10 @@
     "listening_status": "all_context_reviewed",
     "mix_listening_status": "not_reviewed",
     "binding": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
+      "path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v2/sound_design.json",
       "sha256": "5fa8c4e7953dc549f8fa757933860c35a167ecbbc4ec4e90ad5d9fdfb1a88416"
     },
-    "snapshot_path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/package/sound_design.json",
+    "snapshot_path": "<checkout>/local-media-scanner/validation/sound-design-20260910/package/sound_design.json",
     "snapshot_sha256": "fcac6d6b1e5c166891a6f88ee9ee76f780b2c973bd577e9e1eea51c57d1816a8",
     "cues": [
       {
@@ -327,7 +327,7 @@
         "sound_type": "library_sfx",
         "source_anchor_time": 0.2,
         "source_in": 0.05,
-        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+        "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
         "status": "clip_materialized",
         "tail_policy": "fade_out",
         "timeline_in": 1.316667,
@@ -346,7 +346,7 @@
       "midground": 0
     },
     "parent": {
-      "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
+      "path": "<checkout>/local-media-scanner/validation/sound-design-20260910/v1/sound_design.json",
       "sha256": "86efcc54a78a51279b8b02b67de153712a59ef5394c6f5cc9204a73ebc991a12"
     },
     "changes": [
@@ -395,7 +395,7 @@
             "reviewer": "Session Director",
             "source_in": 0.0,
             "source_out": 0.7,
-            "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+            "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
           },
           {
             "listening_id": "listen-mix-001",
@@ -405,7 +405,7 @@
             "reviewer": "Session Director",
             "source_in": 0.05,
             "source_out": 0.65,
-            "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+            "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
           }
         ],
         "before": [
@@ -417,7 +417,7 @@
             "reviewer": "Session Director",
             "source_in": 0.0,
             "source_out": 0.65,
-            "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav"
+            "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav"
           }
         ],
         "path": "/listening"

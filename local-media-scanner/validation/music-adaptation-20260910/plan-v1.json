@@ -1,6 +1,6 @@
 {
-  "music_project": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416",
-  "base_decision": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
+  "music_project": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416",
+  "base_decision": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/edit_decision.json",
   "revision_reason": "技术验证：沿用历史冻结音乐检查映射、停顿与镜头内部动作引用；不是确认选曲或乐句听感",
   "listening": [],
   "phrases": [

@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0.0",
-  "base_decision": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
+  "base_decision": "<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/edit_decision.json",
   "revision_reason": "初版声音设计：针对万岁山2.13秒镜头组与音乐适配，建立现场声缺口声明与车辆遮挡动作拟音锚点对齐",
   "listening": [
     {
       "listening_id": "listen-whoosh-006",
-      "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+      "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
       "source_in": 0.0,
       "source_out": 0.65,
       "reviewer": "Session Director",
@@ -46,7 +46,7 @@
         "uncertainty_seconds": 0.133335
       },
       "source": {
-        "source_path": "/Users/meimaodawang/Documents/音效及音乐/音效/风声/CZG_Whoosh_006.wav",
+        "source_path": "$TRAVEL_DIRECTOR_AUDIO_ROOT/音效/风声/CZG_Whoosh_006.wav",
         "sound_type": "library_sfx",
         "source_anchor_time": 0.20,
         "pre_roll": 0.15,

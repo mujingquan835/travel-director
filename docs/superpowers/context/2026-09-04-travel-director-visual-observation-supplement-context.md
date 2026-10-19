@@ -6,10 +6,10 @@
 
 ## 权威位置与边界
 
-- 权威 worktree：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
-- 实现目录：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`
+- 权威 worktree：`<checkout>`
+- 实现目录：`<checkout>/local-media-scanner`
 - 分支：`feature/local-media-scanner-v0.1`
-- 真实素材目录：`/Users/meimaodawang/Desktop/万岁山素材`
+- 真实素材目录：`<footage-dir>`
 - 真实项目：`prototype/runs/travel-project-3d14b9a84b`
 - 本阶段没有修改 Director 规则，没有重命名源素材，也没有调用本地视觉模型、曲多多、即梦、Codex API 或任何外部、付费服务。
 
@@ -38,7 +38,7 @@
 - 三条警告来自 `audioread` 对 `aifc`、`audioop`、`sunau` 的弃用引用，与本次修复无关。
 - `git diff --check` 通过。
 - Skill 官方快速校验通过：`Skill is valid!`
-- 仓库 Skill 与 `/Users/meimaodawang/.codex/skills/travel-director` 安装目录一致。
+- 仓库 Skill 与 `$CODEX_HOME/skills/travel-director` 安装目录一致。
 
 ## 本阶段提交范围
 

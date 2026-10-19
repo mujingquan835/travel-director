@@ -1,5 +1,5 @@
 imageio==2.37.4
 numpy==2.4.6
 pillow==12.3.0
-pyjianyingdraft @ file:///Users/meimaodawang/Documents/%E6%97%85%E8%A1%8C%E5%AF%BC%E6%BC%94/experiments/jianying-p0-20260909/vendor/pyJianYingDraft
+pyjianyingdraft @ file://<checkout>/experiments/jianying-p0-20260909/vendor/pyJianYingDraft
 pymediainfo==7.0.1

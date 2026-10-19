@@ -1,5 +1,5 @@
 {
-  "source_session": "/Users/meimaodawang/.workbuddy/projects/Users-meimaodawang-Desktop-万岁山素材/43e50291-4c94-4c86-a0c6-a1be77cec8c4.jsonl",
+  "source_session": "<local-session>/projects/Users-<user>-Desktop-万岁山素材/43e50291-4c94-4c86-a0c6-a1be77cec8c4.jsonl",
   "accounting": "Sum 231 distinct provider messageId usage records; repeated cached inputs included; not a bill or image-only token measurement.",
   "records": 231,
   "tokens": {
@@ -75,7 +75,7 @@
     }
   },
   "scanner": {
-    "source": "/Users/meimaodawang/Documents/旅行导演/local-media-scanner/prototype/runs/travel-project-70811bf416/visual/scanner/runs/scanner-v1/scanner_result.json",
+    "source": "<checkout>/local-media-scanner/prototype/runs/travel-project-70811bf416/visual/scanner/runs/scanner-v1/scanner_result.json",
     "items": 270,
     "seconds": {
       "cv": 23.948,

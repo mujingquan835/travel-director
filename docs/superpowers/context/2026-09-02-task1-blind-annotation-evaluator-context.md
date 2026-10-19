@@ -4,7 +4,7 @@
 
 状态：完成
 
-权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+权威工作区：`<checkout>`
 
 分支：`feature/local-media-scanner-v0.1`
 
@@ -24,7 +24,7 @@
 
 ## Ground Truth 恢复血缘
 
-- 删除前原附件路径：`/Users/meimaodawang/Downloads/blind_annotation.json`
+- 删除前原附件路径：`<downloads>/blind_annotation.json`
 - 记录的原附件 SHA-256：`dda2c751aba3de2fa5a718a3c6861b694c20ff527ed2a4367f5c192c74693f1b`
 - 派生恢复源 SHA-256：`0104d97dd7067c3e64b838cfbb92f33d4baeb3d9bd8707120db07a76df2ff7c5`
 - 当前恢复制品 SHA-256：`4fbc9536a3be610f4451ac9d98f8e6ffbe6b9c4492c683c41a10dde3f2584749`

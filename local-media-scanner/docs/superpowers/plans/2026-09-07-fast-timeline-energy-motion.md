@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, Pydantic v2, pytest, Typer runner, JSON and Markdown delivery.
 
-**Spec:** `/Users/meimaodawang/Documents/旅行导演/context_summary_20260907_real_case_fast_timeline.md`
+**Spec:** `<checkout>/context_summary_20260907_real_case_fast_timeline.md`
 
 ## Global Constraints
 
@@ -266,7 +266,7 @@ git commit -m "fix: inherit creative climax in fast delivery"
 **Files:**
 - Create: `prototype/runs/travel-project-3d14b9a84b/validation/fast-timeline-90028cc/fast_mode_timeline.json`
 - Create: `prototype/runs/travel-project-3d14b9a84b/validation/fast-timeline-90028cc/timeline_delivery.md`
-- Modify if the installed skill documents exact behavior: `/Users/meimaodawang/.codex/skills/travel-director/references/workflow.md`
+- Modify if the installed skill documents exact behavior: `$CODEX_HOME/skills/travel-director/references/workflow.md`
 
 **Interfaces:**
 - Consumes: the existing frozen music asset and creative revision in `travel-project-3d14b9a84b`.
@@ -287,7 +287,7 @@ Expected: all tests pass with zero failures.
 The parent delivery is hash-locked and must remain unchanged. `--new-music-version` requires a different music hash, so it cannot rebuild the same Fireflies selection. Use the same pure builder invoked by the Runner and save the result beneath the project's `validation` directory without recording it as a replacement completed artifact:
 
 ```bash
-uv run python -c 'from pathlib import Path; from director.project import open_project; from director.audio_import import load_music_evidence; from director.creative_direction import load_creative; from director.audio_catalog import build_audio_catalog, resolve_audio_root; from director.delivery import build_fast_mode_timeline, export_fast_mode_validation_artifacts; root=Path("/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/prototype/runs/travel-project-3d14b9a84b"); paths=open_project(root); asset, structure=load_music_evidence(paths); creative, _, _=load_creative(paths, validate_sources=False); timeline=build_fast_mode_timeline(music_structure=structure, target_duration_seconds=creative.target_duration_seconds, music_asset_path=str((root / asset.frozen_relative_path).resolve()), music_title="Fireflies", creative_sections=creative.sections, sfx_entries=build_audio_catalog(resolve_audio_root()).sfx); output=root / "validation" / "fast-timeline-90028cc"; generated=export_fast_mode_validation_artifacts(timeline, output); print("\n".join(str(path.resolve()) for path in generated))'
+uv run python -c 'from pathlib import Path; from director.project import open_project; from director.audio_import import load_music_evidence; from director.creative_direction import load_creative; from director.audio_catalog import build_audio_catalog, resolve_audio_root; from director.delivery import build_fast_mode_timeline, export_fast_mode_validation_artifacts; root=Path("<checkout>/local-media-scanner/prototype/runs/travel-project-3d14b9a84b"); paths=open_project(root); asset, structure=load_music_evidence(paths); creative, _, _=load_creative(paths, validate_sources=False); timeline=build_fast_mode_timeline(music_structure=structure, target_duration_seconds=creative.target_duration_seconds, music_asset_path=str((root / asset.frozen_relative_path).resolve()), music_title="Fireflies", creative_sections=creative.sections, sfx_entries=build_audio_catalog(resolve_audio_root()).sfx); output=root / "validation" / "fast-timeline-90028cc"; generated=export_fast_mode_validation_artifacts(timeline, output); print("\n".join(str(path.resolve()) for path in generated))'
 ```
 
 Expected: two files are written below `validation/fast-timeline-90028cc`. Do not delete or edit the parent's frozen input, creative revision, delivery, receipt, or project state.

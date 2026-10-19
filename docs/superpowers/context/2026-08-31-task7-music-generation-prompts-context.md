@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+权威工作区：`<checkout>`
 
 分支：`feature/local-media-scanner-v0.1`
 

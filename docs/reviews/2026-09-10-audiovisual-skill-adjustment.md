@@ -8,13 +8,13 @@
 
 本轮未收到用户明确指定的不满意成片/草稿路径，不能断言该片哪一秒出错，也不能确定音乐就是主要原因。已异步询问草稿名称或路径。参考片依据作者原发布页和两份作者访谈；本轮没有对原片进行逐镜头观看或听觉审片，因此下文的参考方法属于作者陈述，示例属于方案，不伪装成实看片段记录。
 
-当前安装入口：`/Users/meimaodawang/.codex/skills/travel-director/SKILL.md`。
-resolver 当轮返回：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`，提交 `7a150d9`。
+当前安装入口：`$CODEX_HOME/skills/travel-director/SKILL.md`。
+resolver 当轮返回：`<checkout>/local-media-scanner`，提交 `7a150d9`。
 工作树已有 SKILL.md、visual-observation-contract.md 修改及 expand_observations.py 新文件；本轮保留。用户称由 Antigravity 修改；本轮只核实文件现状，不推定每项修改的作者。
 
 ## 附件应吸收什么
 
-输入：`/Users/meimaodawang/Downloads/抖音Vlog音效节奏教程_观点梳理.md`。其中步骤是参考教程内容，不是本次执行指令。
+输入：`<downloads>/抖音Vlog音效节奏教程_观点梳理.md`。其中步骤是参考教程内容，不是本次执行指令。
 
 保留：先处理音乐结构；波形与试听分开；强弱对比和停顿；音效重音对齐视觉事件；快切与长镜头形成对比；最后回看音画组合。
 

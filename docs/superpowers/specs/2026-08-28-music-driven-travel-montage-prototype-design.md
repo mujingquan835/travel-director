@@ -2,7 +2,7 @@
 
 日期：2026-08-28  
 状态：产品主线已确认，待新窗口编写实施计划并开发  
-工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`  
+工作区：`<checkout>`  
 分支：`feature/local-media-scanner-v0.1`  
 编写时基线：`a3875df2569bcd977b99f3028bd687cd2d3bdf06`
 

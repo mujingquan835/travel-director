@@ -15,13 +15,13 @@
 
 ## 文件及调用
 
-源码根：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`。
+源码根：`<checkout>/local-media-scanner`。
 
-- [镜头组实现](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/shot_group.py)
-- [镜头组合同](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/shot_group_schema.py)
-- [Skill 使用说明](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/references/shot-group.md)
-- [导出器](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/fcpxml_delivery.py)
-- 安装入口：`/Users/meimaodawang/.codex/skills/travel-director/SKILL.md`，调用名 `$travel-director`；安装回执绑定当前工作树运行文件哈希，resolver 核验通过。
+- [镜头组实现](<checkout>/local-media-scanner/director/shot_group.py)
+- [镜头组合同](<checkout>/local-media-scanner/director/shot_group_schema.py)
+- [Skill 使用说明](<checkout>/local-media-scanner/skills/travel-director/references/shot-group.md)
+- [导出器](<checkout>/local-media-scanner/director/fcpxml_delivery.py)
+- 安装入口：`$CODEX_HOME/skills/travel-director/SKILL.md`，调用名 `$travel-director`；安装回执绑定当前工作树运行文件哈希，resolver 核验通过。
 
 从源码根运行：
 
@@ -39,7 +39,7 @@ uv run travel-director export-fcpxml --decision <返回的edit_decision.json> --
 
 仓库 Skill validator 通过，16 个本地链接有效；官方 quick_validate 使用项目 uv Python 运行通过（系统 Python 缺 yaml，未安装额外依赖）；`git diff --check`通过。安装后再次核验 resolver 与真实镜头组。
 
-[完整测试日志](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/tests.log)
+[完整测试日志](<checkout>/local-media-scanner/validation/shot-group-20260910/tests.log)
 
 ## 真实两镜头验证
 
@@ -52,13 +52,13 @@ uv run travel-director export-fcpxml --decision <返回的edit_decision.json> --
 5. 左侧边界证据5.866667–6.133333秒、右侧2.801667–3.068333秒，约±0.133秒的采样窗口分别保留。组与导出收据都含这些信息。
 6. 直接从绑定EDL生成FCPXML，独立读取XML核对2段视频的源入点、时长、顺序及时间位置。保留原声gain=1，没有新加音乐或音效；原声听感未审。
 
-[局部组合计划](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/plan.json)
+[局部组合计划](<checkout>/local-media-scanner/validation/shot-group-20260910/plan.json)
 
-[已验证镜头组](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json)
+[已验证镜头组](<checkout>/local-media-scanner/validation/shot-group-20260910/group/group.json)
 
-[真实FCPXML](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/project.fcpxml)
+[真实FCPXML](<checkout>/local-media-scanner/validation/shot-group-20260910/package/project.fcpxml)
 
-[导出收据](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/package/receipt.json)
+[导出收据](<checkout>/local-media-scanner/validation/shot-group-20260910/package/receipt.json)
 
 以上是功能验证素材，不是替换用户原草稿的新成片。`fcpxml_generated` 与 `shot_group_validated` 都不等于实际剪映客户端验收或审美合格。
 

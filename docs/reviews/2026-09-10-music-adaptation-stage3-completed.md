@@ -32,12 +32,12 @@
 
 ## 文件与调用
 
-源码根：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner`。
+源码根：`<checkout>/local-media-scanner`。
 
-- [实现](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/music_adaptation.py)
-- [合同](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/director/music_adaptation_schema.py)
-- [Skill使用规则](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/skills/travel-director/references/music-adaptation.md)
-- 安装版：`/Users/meimaodawang/.codex/skills/travel-director/SKILL.md`；调用名`$travel-director`。源码Skill在上述根目录的`skills/travel-director/`。
+- [实现](<checkout>/local-media-scanner/director/music_adaptation.py)
+- [合同](<checkout>/local-media-scanner/director/music_adaptation_schema.py)
+- [Skill使用规则](<checkout>/local-media-scanner/skills/travel-director/references/music-adaptation.md)
+- 安装版：`$CODEX_HOME/skills/travel-director/SKILL.md`；调用名`$travel-director`。源码Skill在上述根目录的`skills/travel-director/`。
 
 从源码根执行：
 
@@ -56,7 +56,7 @@ uv run travel-director export-fcpxml --decision <返回的edit_decision.json> --
 
 仓库Skill validator通过，20个本地链接有效；官方quick_validate通过，git diff --check通过。安装后resolver与真实修订inspect通过。
 
-[测试日志](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/tests.log)
+[测试日志](<checkout>/local-media-scanner/validation/music-adaptation-20260910/tests.log)
 
 ## 真实数据功能验证
 
@@ -76,12 +76,12 @@ uv run travel-director export-fcpxml --decision <返回的edit_decision.json> --
 
 生成FCPXML含2段画面和2段音乐，保留原视频原声。独立读取XML反算音乐源入点与项目起点，确认0.3秒音乐空段及映射一致。输出状态`fcpxml_generated`，源听审`not_listened`，混音听审`not_reviewed`；新包未在剪映验收。
 
-[修订前](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json)
+[修订前](<checkout>/local-media-scanner/validation/music-adaptation-20260910/v1/adaptation.json)
 
-[修订后及差异](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json)
+[修订后及差异](<checkout>/local-media-scanner/validation/music-adaptation-20260910/v2/adaptation.json)
 
-[导出收据](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/package/receipt.json)
+[导出收据](<checkout>/local-media-scanner/validation/music-adaptation-20260910/package/receipt.json)
 
-[历史文件哈希检查](/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/music-adaptation-20260910/history-check.json)
+[历史文件哈希检查](<checkout>/local-media-scanner/validation/music-adaptation-20260910/history-check.json)
 
 本轮完成的是具备证据与版本约束的音乐适配能力。真实乐句判断、顺滑音乐拼接和成片情绪仍需实际听看。后续音效设计应使用这份映射与留白空间安排声音，不能靠增加音效掩盖未经听审的音乐接缝。

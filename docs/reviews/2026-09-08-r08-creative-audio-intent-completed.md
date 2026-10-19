@@ -17,7 +17,7 @@
 - 定向测试：`62 passed`。
 - 全量回归：`530 passed, 3 warnings`。3 条警告仍来自 `audioread` 导入 Python 3.12 已弃用的 `aifc`、`audioop`、`sunau`，本项未扩大警告范围。
 - `git diff --check` 与 Python 编译检查通过。
-- 仓库 Skill 与 `/Users/meimaodawang/.codex/skills/travel-director` 完全一致。
+- 仓库 Skill 与 `$CODEX_HOME/skills/travel-director` 完全一致。
 
 ## 真实案例
 

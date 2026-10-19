@@ -2,7 +2,7 @@
 
 ## 完成范围
 
-- 权威 worktree：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+- 权威 worktree：`<checkout>`
 - 分支：`feature/local-media-scanner-v0.1`
 - 正式 `travel-director run` 新增 `--music <local-audio>`，只允许在原项目已经进入 `waiting_for_music` 后使用。
 - 新增独立 `director/audio_import.py`，负责音乐校验、不可变冻结、项目证据绑定和现有分析器接续；没有重写 `music_analysis.py`。
@@ -23,7 +23,7 @@
 - 3 条警告仍来自既有 `audioread` 对 `aifc`、`audioop`、`sunau` 的弃用引用。
 - `travel-director run --help` 已显示 `--music`。
 - Skill 官方快速校验通过：`Skill is valid!`。
-- 仓库 Skill 与 `/Users/meimaodawang/.codex/skills/travel-director` 安装目录一致。
+- 仓库 Skill 与 `$CODEX_HOME/skills/travel-director` 安装目录一致。
 - `git diff --check` 通过。
 
 ## 真实项目状态

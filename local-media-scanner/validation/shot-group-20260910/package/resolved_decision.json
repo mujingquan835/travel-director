@@ -10,7 +10,7 @@
   "clips": [
     {
       "kind": "video",
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_26_40_IMG_0229.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_26_40_IMG_0229.MOV",
       "track": "main",
       "timeline_in": 0.0,
       "source_in": 4.8,
@@ -19,7 +19,7 @@
     },
     {
       "kind": "video",
-      "source_path": "/Users/meimaodawang/Desktop/万岁山素材/2026_02_06_18_30_11_IMG_0230.MOV",
+      "source_path": "<footage-dir>/2026_02_06_18_30_11_IMG_0230.MOV",
       "track": "main",
       "timeline_in": 1.2,
       "source_in": 2.935,
@@ -29,7 +29,7 @@
   ],
   "sfx_cues": [],
   "shot_group": {
-    "path": "/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner/validation/shot-group-20260910/group/group.json",
+    "path": "<checkout>/local-media-scanner/validation/shot-group-20260910/group/group.json",
     "sha256": "c12bb3c7cb56407ebc2bfc854ae74da12465aefffaae5d61f2336e9cb7eaea74"
   }
 }

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Work only in `/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1/local-media-scanner` on `feature/local-media-scanner-v0.1`; inspect `git worktree list`, branch, HEAD, and status before every execution session.
+- Work only in `<checkout>/local-media-scanner` on `feature/local-media-scanner-v0.1`; inspect `git worktree list`, branch, HEAD, and status before every execution session.
 - Preserve the four unrelated untracked context/plan files currently visible under `../docs/superpowers/`; do not stage, edit, or delete them.
 - Do not call 曲多多、即梦、网易云、QQ 音乐、Spotify、Apple Music, a music-generation service, Codex API, or any paid/external provider. Every acceptance artifact must report `external_call_count=0` and the named services as `not_executed`.
 - Do not bind a model name or provider in the Skill. It must use the visual capability of the agent that invoked it and must not create another task or sub-agent to switch models.
@@ -614,7 +614,7 @@ uv run travel-director prepare-agent-batches --frame-map <project>/visual/materi
 1. explicit `--workspace`;
 2. `TRAVEL_DIRECTOR_WORKSPACE`;
 3. the Git root of the current directory;
-4. known local candidates under `/Users/meimaodawang/Documents/旅行导演/`.
+4. known local candidates under `<checkout>/`.
 
 A candidate is valid only if `pyproject.toml` exposes both `travel-scanner` and `travel-director` and the `director/` package exists. It must print one absolute path or exit non-zero; it must never select root `main` merely because the directory exists.
 
@@ -627,8 +627,8 @@ Run:
 ```bash
 uv run pytest -q tests/director/test_travel_director_skill.py
 uv run python skills/travel-director/scripts/resolve_workspace.py --workspace "$PWD"
-uv run python skills/travel-director/scripts/install.py --codex-home /Users/meimaodawang/.codex
-diff -qr skills/travel-director /Users/meimaodawang/.codex/skills/travel-director
+uv run python skills/travel-director/scripts/install.py --codex-home $CODEX_HOME
+diff -qr skills/travel-director $CODEX_HOME/skills/travel-director
 git diff --check
 ```
 
@@ -742,8 +742,8 @@ After writing `final_summary.json`, `skill-summary` must construct and record th
 uv run pytest -q tests/director/test_skill_summary.py tests/director/test_music_prompt_recommender.py tests/director/test_project.py tests/director/test_visual_review.py
 uv run travel-director accept-director-treatment --help
 uv run travel-director skill-summary --help
-uv run python skills/travel-director/scripts/install.py --codex-home /Users/meimaodawang/.codex --replace
-diff -qr skills/travel-director /Users/meimaodawang/.codex/skills/travel-director
+uv run python skills/travel-director/scripts/install.py --codex-home $CODEX_HOME --replace
+diff -qr skills/travel-director $CODEX_HOME/skills/travel-director
 git diff --check
 git add director/skill_summary.py director/cli.py director/project.py director/visual_review.py skills/travel-director/references/workflow.md tests/director/test_skill_summary.py tests/director/test_project.py tests/director/test_visual_review.py
 git commit -m "feat: summarize travel director skill runs"
@@ -818,7 +818,7 @@ Run:
 ```bash
 uv run pytest -q
 uv run python skills/travel-director/scripts/resolve_workspace.py --workspace "$PWD"
-diff -qr skills/travel-director /Users/meimaodawang/.codex/skills/travel-director
+diff -qr skills/travel-director $CODEX_HOME/skills/travel-director
 rg -n "model:|api_key|https?://" skills/travel-director
 git diff --check
 ```

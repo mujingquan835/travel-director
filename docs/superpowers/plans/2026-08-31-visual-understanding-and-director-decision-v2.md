@@ -4,7 +4,7 @@
 
 状态：已批准；Task 1、Task 2、Task 3、Task 5、Task 6、Task 7 已完成；Task 4 已按硬停止门结束为 `not_qualified`，回退 `scanner_only + assisted`
 
-权威工作区：`/Users/meimaodawang/Documents/旅行导演/.worktrees/local-media-scanner-v0.1`
+权威工作区：`<checkout>`
 
 分支：`feature/local-media-scanner-v0.1`
 编写基线：`9f1616590baedbeab0f301d60ad9a4447d2a7afd`
@@ -332,7 +332,7 @@ MusicGenerationPromptRecommendationBatch =
 
 - `local-media-scanner/scanner/schema.py`
 - Scanner 权重、阈值、缓存和既有运行产物
-- `/Users/meimaodawang/Desktop/万岁山素材` 及其他原始素材目录
+- `<footage-dir>` 及其他原始素材目录
 - 曲多多、即梦、音乐 Provider、剪映或外部平台集成
 
 ## 可执行任务

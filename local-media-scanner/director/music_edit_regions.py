@@ -6,6 +6,10 @@ narrative_hold, build, peak_cut, breath, settle_outro, unknown) and writes a
 sibling ``music_edit_regions.json`` bound to the frozen music hash. Purely
 local and deterministic; it never calls an external service and never claims
 confirmed phrases or downbeats.
+
+Confirmed edit-region versions are a different store. See
+``director.music_edit_regions_versions`` — those drafts and locks are not
+``music_version`` child projects.
 """
 
 from __future__ import annotations
@@ -421,7 +425,9 @@ def build_project_music_edit_regions(
     """Analyse a project's frozen music and record ``music_edit_regions.json``.
 
     A previous file bound to another track (or produced with another config) is
-    replaced; an unchanged result is left byte-identical.
+    replaced; an unchanged result is left byte-identical. When the regions
+    version store already exists, the candidate is also staged as a draft and
+    confirmed snapshots are left untouched.
     """
 
     from director.audio_import import load_music_evidence
@@ -454,6 +460,11 @@ def build_project_music_edit_regions(
     record_supporting_artifact(
         paths, paths.music_edit_regions, regions, state_key="music_edit_regions"
     )
+    # Version store, when present, receives a new or replaced draft. Confirmed
+    # snapshots stay write-once; this never rewrites music_edit_regions_versions/confirmed.
+    from director.music_edit_regions_versions import stage_reanalysis_if_versioned
+
+    stage_reanalysis_if_versioned(paths, regions)
     after = paths.music_edit_regions.read_bytes()
     if before is None:
         status = "created"

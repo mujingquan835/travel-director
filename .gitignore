@@ -1,3 +1,25 @@
 .worktrees/
 **/.DS_Store
 outputs/
+
+# Local credentials, environments, and generated artifacts
+.env
+.env.*
+!.env.example
+**/.venv/
+**/__pycache__/
+**/.cache/
+*.pyc
+# Local session handoffs may include account information
+/context_summary_*.md
+# Keep reusable experiment sources; exclude footage and generated packages
+/experiments/*
+!/experiments/jianying-p0-20260909/
+!/experiments/jianying-fcpxml-p0-20260909/
+/experiments/jianying-p0-20260909/*
+!/experiments/jianying-p0-20260909/README.md
+!/experiments/jianying-p0-20260909/build_trial.py
+!/experiments/jianying-p0-20260909/requirements.lock.txt
+/experiments/jianying-fcpxml-p0-20260909/*
+!/experiments/jianying-fcpxml-p0-20260909/README.md
+!/experiments/jianying-fcpxml-p0-20260909/build_fcpxml.py

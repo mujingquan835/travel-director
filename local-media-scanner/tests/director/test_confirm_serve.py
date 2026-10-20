@@ -1086,3 +1086,117 @@ def test_version_picker_lists_history_confirmed_and_bound_track(desk) -> None:
     assert "<select disabled>" in older_text
     selected = re.search(r'<option[^>]*value="regions-v01"[^>]*>', older_text)
     assert selected is not None and "selected" in selected.group(0)
+
+
+def _pcm_wav(seconds: float = 0.5, rate: int = 8000) -> bytes:
+    import math
+    import struct
+    import wave
+    from io import BytesIO
+
+    frames = bytearray()
+    for index in range(int(rate * seconds)):
+        sample = int(16000 * math.sin(2 * math.pi * 440 * index / rate))
+        frames.extend(struct.pack("<h", sample))
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(rate)
+        handle.writeframes(frames)
+    return buffer.getvalue()
+
+
+def test_peak_buckets_stay_bounded_for_a_ten_minute_track() -> None:
+    import array
+
+    from director.waveform_peaks import peak_buckets
+
+    samples = array.array("h", [0]) * (8000 * 600)
+    samples[8000] = 20000
+    peaks = peak_buckets(samples, 8000)
+    assert len(peaks) == 12000
+    assert max(peaks) <= 1
+    assert max(peaks) > 0
+
+
+def test_waveform_peaks_are_cached_outside_project_state(desk, tmp_path: Path, monkeypatch) -> None:
+    from director.project import load_project_state
+
+    cache = tmp_path / "peaks-cache"
+    monkeypatch.setenv("TRAVEL_DIRECTOR_PEAKS_CACHE", str(cache))
+    paths, server = desk
+    _freeze_wav(paths, _pcm_wav())
+    _record_regions(paths)
+    port = _port(server)
+
+    status, payload = _json(port, "/api/waveform-peaks")
+    assert status == 200, payload
+    assert len(payload["source_sha256"]) == 64
+    assert payload["peaks"]
+    assert all(0 <= value <= 1 for value in payload["peaks"])
+    cached = list(cache.glob("*.json"))
+    assert len(cached) == 1
+    assert cached[0].name == payload["source_sha256"] + ".json"
+    assert not cached[0].resolve().is_relative_to(paths.root.resolve())
+    state = load_project_state(paths)
+    assert not any("peak" in key or "waveform" in key for key in state.completed_artifact_hashes)
+    again, second = _json(port, "/api/waveform-peaks")
+    assert again == 200
+    assert second["peaks"] == payload["peaks"]
+
+
+def test_music_timeline_tracks_positions_unknown_hatch_and_no_drag(desk) -> None:
+    paths, server = desk
+    document = _document()
+    regions = [
+        region.model_copy(update={"edit_role": "unknown"}) if region.region_id == "r2" else region
+        for region in document.regions
+    ]
+    document = document.model_copy(
+        update={
+            "regions": regions,
+            "beats_seconds": [0.5, 1.0],
+            "downbeats_seconds": [0.5],
+            "warnings": ["onset_rate_from_beat_grid_proxy"],
+        }
+    )
+    _record_regions(paths, document)
+    port = _port(server)
+    status, headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+
+    assert status == 200
+    assert "秋日骑行" not in text
+    assert "60秒旅行视频" in text
+    assert paths.root.name in text
+    for label in ("音乐轨", "节拍", "分区轨", "镜头轨", "预留·未启用", "空槽·未选片"):
+        assert label in text
+    assert 'id="track-wave"' in text
+    assert 'id="track-beats"' in text
+    assert 'id="track-regions"' in text
+    assert 'id="track-shots"' in text
+    assert 'data-region-id="r1"' in text
+    assert "left:0.000%;width:33.333%" in text
+    assert "left:33.333%;width:40.000%" in text
+    assert "left:73.333%;width:26.667%" in text
+    assert 'class="blk unknown is-unknown"' in text or 'class="blk is-unknown unknown"' in text
+    assert "repeating-linear-gradient" in text
+    assert 'class="beat db"' in text
+    assert "left:1.667%" in text
+    assert "/vendor/wavesurfer/wavesurfer.min.js" in text
+    assert "/vendor/wavesurfer/plugins/regions.min.js" in text
+    assert "/vendor/wavesurfer/plugins/timeline.min.js" in text
+    assert "cdn." not in text and "unpkg" not in text
+    assert "drag:false" in text and "resize:false" in text
+    assert "drag:true" not in text
+    assert 'draggable="true"' not in text
+    assert "<table" not in text
+    assert "列表视图" in text
+    assert "边界拖动：里程碑 B" in text
+    script, _script_headers, body = _request(port, "/vendor/wavesurfer/wavesurfer.min.js")
+    assert script == 200
+    assert "javascript" in _script_headers.get("content-type", "")
+    assert b"WaveSurfer" in body
+    license_path = Path(__file__).resolve().parents[2] / "director" / "vendor" / "wavesurfer" / "LICENSE"
+    assert "BSD" in license_path.read_text(encoding="utf-8")

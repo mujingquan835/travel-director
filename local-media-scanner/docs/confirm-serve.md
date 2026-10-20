@@ -29,7 +29,9 @@ A bad path stays on the page as text, with the same copyable `travel-director �
 
 ## Music page `/music`
 
-Opening the page loads the open draft. If there is no draft and nothing has been confirmed yet, one is created from `music_edit_regions.json` through `save_regions_draft`. After a version is confirmed, the page shows that locked snapshot and does not create a draft until you ask. Milestone A does not edit boundaries or add, split, or delete regions.
+Opening the page loads the open draft. If there is no draft and nothing has been confirmed yet, one is created from `music_edit_regions.json` through `save_regions_draft`. After a version is confirmed, the page shows that locked snapshot and does not create a draft until you ask. Milestone A does not edit boundaries or add, split, or delete regions. Region blocks are not draggable or resizable. Clicking a block selects it. The project title is the first line of `brief.json` `raw_description`, with the folder name beside it.
+
+The page is a timeline, top to bottom: top bar, transport (play, time, BPM, beat count, overall confidence, provider), then a mm:ss ruler, the music lane, beat ticks (downbeats thicker), colored region blocks, and a shot lane marked 预留·未启用. Shot slots are empty placeholders sized from `suggested_shot_mean_s`. They do not pick clips. A collapsed **列表视图** replaces the old table. The selected span shows loop brackets. The inspector shows 时段 (read-only; 边界拖动：里程碑 B), the role dropdown, 建议镜长, snap_policy, 置信度, 分析依据, and 警告.
 
 The top bar has a version menu (草稿, 已确认 vNN, 历史确认), the bound track's first 8 hash characters, and the confirm time. **确认分区** runs the existing validator. On success it writes a confirmed snapshot and a receipt with `confirmed_by=user`, then the version is locked. There is no unconfirm.
 
@@ -52,7 +54,9 @@ Each row shows:
 
 **保存草稿** sends the current roles. **丢弃草稿** asks for confirmation, then `POST /api/regions-draft/discard`.
 
-Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`. **循环** seeks back to the span start when the playhead reaches the end (with a small tolerance for `timeupdate`). The page shows the current time. There is no waveform.
+Clicking a block selects it. **播放本段** plays that span from `/audio/frozen`. **循环** seeks back to the span start when the playhead reaches the end (with a small tolerance for `timeupdate`). The page shows the current time.
+
+The music lane uses wavesurfer.js 7.12.12 (BSD-3-Clause), vendored under `director/vendor/wavesurfer/` with the Regions and Timeline plugins and `LICENSE`. The desk serves those files from `/vendor/wavesurfer/`. There is no CDN and no npm build at runtime. Peaks are precomputed on the server, not decoded in the browser: ffmpeg writes mono 8 kHz PCM when it is on `PATH`, and a 16-bit wav falls back to the stdlib `wave` module. Buckets are about 20 per second and capped at 20,000, so a 10-minute track stays a small JSON file (12,000 peaks). `GET /api/waveform-peaks` returns them. The cache file is `{sha256}.json` outside the project (`TRAVEL_DIRECTOR_PEAKS_CACHE`, or `~/.cache/travel-director/waveform-peaks`). It is not recorded in `project_state.json` and is not a project artifact. The Regions plugin only highlights the selected span, with drag and resize off.
 
 `/export` says `导出：后续版本开放`.
 
@@ -74,7 +78,9 @@ Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`
 | `/api/regions-versions/regions-vNN` | One snapshot |
 | `/api/music-edit-regions` | Analyzer candidate JSON, or an error plus a CLI hint |
 | `/audio/frozen` | Frozen music file, `Content-Type` from the asset, `Accept-Ranges: bytes` |
+| `/api/waveform-peaks` | Display peaks for the frozen track, cached outside the project by sha256 |
+| `/vendor/wavesurfer/…` | Vendored wavesurfer.js 7.12.12 and its plugins |
 
 `/audio/frozen` answers `Range: bytes=` with `206 Partial Content`. Request targets that contain `..`, and a frozen path that resolves outside the project, are refused.
 
-Export still calls `require_confirmed_regions_version` and refuses `latest` or `draft`. The project page step 分段已确认 is complete once `confirmed_count` is at least one. This desk does not re-run analysis or build an FCPXML package. There is no waveform.
+Export still calls `require_confirmed_regions_version` and refuses `latest` or `draft`. The project page step 分段已确认 is complete once `confirmed_count` is at least one. This desk does not re-run analysis or build an FCPXML package. The shot lane does not select media.

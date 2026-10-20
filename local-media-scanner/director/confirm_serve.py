@@ -5,9 +5,10 @@ extra dependency, no authentication, and no upload. The default bind address
 is ``127.0.0.1``. ``--lan`` binds ``0.0.0.0`` for other machines on the same
 network. This is not a public internet service.
 
-``/`` explains the desk in Chinese and shows four steps. ``/music`` lists the
-open draft (created from analyzer candidates only when nothing is confirmed
-yet) and can lock it. ``/export`` says the export page is not open yet.
+``/`` explains the desk in Chinese and shows four steps. ``/music`` is the
+timeline desk for the open draft (created from analyzer candidates only when
+nothing is confirmed yet) and can lock it. ``/export`` says the export page
+is not open yet.
 
 ``POST /api/regions-draft`` accepts only an ``edit_role`` change for each
 existing region id, plus ``expected_revision``. A role change sets
@@ -50,6 +51,7 @@ from director.music_edit_regions_versions import (
     save_regions_draft,
 )
 from director.project import ProjectConflict, ProjectPaths, _sha256_file, load_project_state, open_project
+from director.waveform_peaks import load_or_build_peaks
 
 
 DEFAULT_BIND_HOST = "127.0.0.1"
@@ -347,311 +349,6 @@ _EXPORT_HTML = """<!DOCTYPE html>
 </body>
 </html>
 """
-
-_MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <title>确认台 · 音乐分段</title>
-  <style>__STYLE__</style>
-</head>
-<body>
-  <header>
-    <h1>音乐分段</h1>
-    <nav>
-      <a href="/">项目</a>
-      <a href="/music" aria-current="page">音乐分段</a>
-      <a href="/export">导出</a>
-    </nav>
-  </header>
-  <main>
-    <p class="lede">听每一段，只改角色。时间由分析定好，这里不能拖边界、拆段或删段。</p>
-    <p class="project-name" id="project-name" title="__PROJECT_PATH__">__PROJECT_NAME__</p>
-    <p class="project-path" id="project-path" title="__PROJECT_PATH__">__PROJECT_PATH__</p>
-    __TOOLBAR__
-    <section id="error" class="panel" __ERROR_HIDDEN__>__ERROR_TEXT__</section>
-    <div class="strip" id="strip">__STRIP__</div>
-    <audio id="track" src="/audio/frozen" preload="metadata"></audio>
-    <div class="actions">
-      <button type="button" id="play-span">播放本段</button>
-      <label><input type="checkbox" id="loop"> 循环</label>
-      <span id="playhead">0:00.0</span>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>时段</th>
-          <th>角色</th>
-          <th>建议镜长</th>
-          <th>snap_policy</th>
-          <th>置信度</th>
-          <th>警告</th>
-          <th>来源</th>
-        </tr>
-      </thead>
-      <tbody id="region-body">__ROWS__</tbody>
-    </table>
-    <div class="actions">
-      <button type="button" id="save"__SAVE_DISABLED__>保存草稿</button>
-      <button type="button" id="discard" class="secondary"__SAVE_DISABLED__>丢弃草稿</button>
-    </div>
-    <p id="revision"></p>
-  </main>
-  <script type="application/json" id="desk-data">__DATA__</script>
-  <script>
-    var KIND = __KIND_JSON__;
-    var SNAP = __SNAP_JSON__;
-    var track = document.getElementById("track");
-    var state = JSON.parse(document.getElementById("desk-data").textContent);
-    var selectedId = null;
-    function playbackSpanStep(current, start, end, looping) {
-      var tolerance = 0.08;
-      if (current >= end - tolerance) return looping ? "seek" : "pause";
-      if (current < start - tolerance) return "seek";
-      return "continue";
-    }
-    function formatTime(seconds) {
-      if (!isFinite(seconds) || seconds < 0) seconds = 0;
-      var whole = Math.floor(seconds);
-      var minutes = Math.floor(whole / 60);
-      var secs = whole % 60;
-      var frac = Math.floor((seconds - whole) * 10);
-      return minutes + ":" + (secs < 10 ? "0" : "") + secs + "." + frac;
-    }
-    function selectedRegion() {
-      if (!state || !state.regions) return null;
-      for (var i = 0; i < state.regions.length; i++) {
-        if (state.regions[i].region_id === selectedId) return state.regions[i];
-      }
-      return null;
-    }
-    function warningText(region) {
-      var parts = [];
-      if (region.edit_role === "unknown") parts.push("角色还没定");
-      (state.warnings || []).forEach(function (item) {
-        parts.push(item.label + " " + item.code);
-      });
-      return parts.length ? parts.join("；") : "无";
-    }
-    function showError(text) {
-      var box = document.getElementById("error");
-      box.hidden = !text;
-      box.textContent = text || "";
-    }
-    function sourceLabel(source) { return source === "user" ? "已修改" : "分析"; }
-    function cell(text) {
-      var td = document.createElement("td");
-      td.textContent = text;
-      return td;
-    }
-    function render() {
-      var body = document.getElementById("region-body");
-      var strip = document.getElementById("strip");
-      body.textContent = "";
-      strip.textContent = "";
-      if (!state || !state.regions) return;
-      var duration = state.duration_seconds || 1;
-      state.regions.forEach(function (region) {
-        var slice = document.createElement("span");
-        slice.style.width = ((region.end - region.start) / duration * 100) + "%";
-        slice.textContent = region.kind_label || KIND[region.edit_role] || region.edit_role;
-        strip.appendChild(slice);
-        var tr = document.createElement("tr");
-        tr.setAttribute("data-region-id", region.region_id);
-        if (region.edit_role === "unknown") tr.classList.add("is-unknown");
-        if (region.region_id === selectedId) tr.classList.add("is-selected");
-        tr.addEventListener("click", function (event) {
-          if (event.target.closest("select")) return;
-          selectedId = region.region_id;
-          render();
-        });
-        tr.appendChild(cell(Number(region.start).toFixed(1) + "–" + Number(region.end).toFixed(1)));
-        var kind = document.createElement("td");
-        var select = document.createElement("select");
-        Object.keys(KIND).forEach(function (role) {
-          var option = document.createElement("option");
-          option.value = role;
-          option.textContent = KIND[role];
-          option.selected = role === region.edit_role;
-          select.appendChild(option);
-        });
-        select.disabled = !!(state && state.read_only);
-        select.addEventListener("change", function () {
-          if (state && state.read_only) return;
-          region.edit_role = select.value;
-          region.kind_label = KIND[select.value];
-          postDraft();
-        });
-        kind.appendChild(select);
-        tr.appendChild(kind);
-        tr.appendChild(cell(Number(region.suggested_shot_mean_s).toFixed(1)));
-        tr.appendChild(cell((SNAP[region.snap_policy] || region.snap_policy) + " " + region.snap_policy));
-        tr.appendChild(cell(Number(region.confidence).toFixed(2)));
-        tr.appendChild(cell(warningText(region)));
-        tr.appendChild(cell(sourceLabel(region.source)));
-        body.appendChild(tr);
-      });
-      document.getElementById("revision").textContent = state.edited_at || state.revision || "";
-      renderChrome();
-    }
-    function renderChrome() {
-      var acceptance = document.getElementById("acceptance");
-      var warning = document.getElementById("unknown-warning");
-      if (!acceptance || !state) return;
-      var ok = state.acceptance && state.acceptance.ok;
-      acceptance.className = ok ? "ok" : "bad";
-      acceptance.textContent = ok ? "验收通过" : "验收未通过";
-      var ids = (state.acceptance && state.acceptance.unknown_region_ids) || [];
-      if (warning) {
-        if (ids.length) {
-          warning.hidden = false;
-          warning.textContent = "这些分段的角色还没定：" + ids.join(", ") + "。普通确认已停用。";
-        } else {
-          warning.hidden = true;
-          warning.textContent = "";
-        }
-      }
-      var meta = document.getElementById("version-meta");
-      if (meta) meta.textContent = (state.source_music_sha8 || "") + " · " + (state.confirmed_at || "尚未确认");
-      var picker = document.getElementById("version-picker");
-      if (picker && state.versions) {
-        picker.textContent = "";
-        state.versions.forEach(function (item) {
-          var option = document.createElement("option");
-          option.value = item.version_id;
-          option.textContent = item.label;
-          option.selected = item.version_id === state.version_id;
-          picker.appendChild(option);
-        });
-      }
-      var fork = document.getElementById("draft-from-confirmed");
-      if (fork) fork.hidden = !(state.read_only && !state.has_draft);
-      var save = document.getElementById("save");
-      var discard = document.getElementById("discard");
-      if (save) save.disabled = !!state.read_only;
-      if (discard) discard.disabled = !!state.read_only;
-      syncConfirm();
-    }
-    function syncConfirm() {
-      var button = document.getElementById("confirm-version");
-      if (!button) return;
-      if (!state || state.read_only) { button.disabled = true; return; }
-      var forceBox = document.getElementById("force-confirm");
-      var reasonBox = document.getElementById("force-reason");
-      var force = !!(forceBox && forceBox.checked);
-      var reason = reasonBox ? reasonBox.value.trim() : "";
-      var blocked = !(state.acceptance && state.acceptance.ok);
-      button.disabled = blocked && !(force && reason);
-    }
-    function rolePayload() {
-      return state.regions.map(function (region) {
-        return {region_id: region.region_id, edit_role: region.edit_role};
-      });
-    }
-    function postDraft() {
-      if (!state || state.read_only) return Promise.resolve();
-      return fetch("/api/regions-draft", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({expected_revision: state.revision, regions: rolePayload()})
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok) {
-            showError(data.error || "保存失败");
-            return refreshDesk();
-          }
-          state = data;
-          showError("");
-          render();
-        });
-      });
-    }
-    function refreshDesk() {
-      return fetch("/api/music-desk").then(function (response) { return response.json(); }).then(function (data) {
-        if (data.error) { showError(data.error); return; }
-        state = data;
-        showError("");
-        render();
-      });
-    }
-    function playSelected() {
-      var region = selectedRegion();
-      if (!region || !track) { showError("先点选一段"); return; }
-      showError("");
-      track.currentTime = Number(region.start) || 0;
-      var playing = track.play();
-      if (playing && playing.catch) playing.catch(function () {});
-    }
-    track.addEventListener("timeupdate", function () {
-      var region = selectedRegion();
-      if (region) {
-        var step = playbackSpanStep(
-          track.currentTime, Number(region.start), Number(region.end), document.getElementById("loop").checked
-        );
-        if (step === "seek") track.currentTime = Number(region.start) || 0;
-        else if (step === "pause") track.pause();
-      }
-      document.getElementById("playhead").textContent = formatTime(track.currentTime);
-    });
-    document.getElementById("play-span").addEventListener("click", playSelected);
-    document.getElementById("save").addEventListener("click", function () { if (state && !state.read_only) postDraft(); });
-    document.getElementById("discard").addEventListener("click", function () {
-      if (!state || !confirm("丢弃草稿？未锁定的修改会丢掉。")) return;
-      fetch("/api/regions-draft/discard", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({expected_revision: state.revision})
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok) { showError(data.error || "丢弃失败"); return; }
-          return refreshDesk();
-        });
-      });
-    });
-    var confirmButton = document.getElementById("confirm-version");
-    if (confirmButton) {
-      confirmButton.addEventListener("click", function () {
-        if (!state || state.read_only) return;
-        var force = document.getElementById("force-confirm").checked;
-        var reason = document.getElementById("force-reason").value.trim();
-        fetch("/api/regions-draft/confirm", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({expected_revision: state.revision, force: force, reason: reason})
-        }).then(function (response) {
-          return response.json().then(function (data) {
-            if (!response.ok) { showError(data.error || "确认失败"); return; }
-            state = data;
-            showError("");
-            render();
-          });
-        });
-      });
-      document.getElementById("force-confirm").addEventListener("change", syncConfirm);
-      document.getElementById("force-reason").addEventListener("input", syncConfirm);
-      document.getElementById("version-picker").addEventListener("change", function () {
-        window.location.href = "/music?version=" + encodeURIComponent(this.value);
-      });
-      document.getElementById("draft-from-confirmed").addEventListener("click", function () {
-        if (!state) return;
-        fetch("/api/regions-draft/from-confirmed", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({version_id: state.version_id})
-        }).then(function (response) {
-          return response.json().then(function (data) {
-            if (!response.ok) { showError(data.error || "另开草稿失败"); return; }
-            window.location.href = "/music?version=" + encodeURIComponent(data.version_id);
-          });
-        });
-      });
-    }
-    if (state) render();
-  </script>
-</body>
-</html>
-"""
-
 
 class FrozenMusicPathError(ProjectConflict):
     """Frozen music does not stay inside the project directory."""
@@ -1025,6 +722,12 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
             "blockers": blockers,
         },
         "versions": versions,
+        "bpm": document.regions.bpm,
+        "beats_seconds": list(document.regions.beats_seconds),
+        "downbeats_seconds": list(document.regions.downbeats_seconds),
+        "provider": document.regions.provider,
+        "schema_version": document.regions.schema_version,
+        "confidence": document.regions.confidence,
     }
 
 
@@ -1305,112 +1008,22 @@ def _draft_from_confirmed_unlocked(project: Path, body: bytes) -> ServeResponse:
     return _json_response(200, _desk_view(paths, saved))
 
 
-def _music_toolbar(view: dict | None) -> str:
-    if not view:
-        return ""
-    options = []
-    for item in view.get("versions") or []:
-        selected = " selected" if item["version_id"] == view["version_id"] else ""
-        options.append(
-            f'<option value="{html.escape(str(item["version_id"]))}"{selected}>'
-            f'{html.escape(str(item["label"]))}</option>'
-        )
-    meta = html.escape(str(view.get("source_music_sha8") or ""))
-    when = view.get("confirmed_at") or "尚未确认"
-    meta = f"{meta} · {html.escape(str(when))}"
-    acceptance = view.get("acceptance") or {}
-    ok = bool(acceptance.get("ok"))
-    unknown = list(acceptance.get("unknown_region_ids") or [])
-    if unknown:
-        warning = "这些分段的角色还没定：" + ", ".join(str(item) for item in unknown) + "。普通确认已停用。"
-        warning_attr = ""
-    else:
-        warning = ""
-        warning_attr = " hidden"
-    read_only = bool(view.get("read_only"))
-    confirm_disabled = " disabled" if read_only or not ok else ""
-    fork_hidden = "" if read_only and not view.get("has_draft") else " hidden"
-    return (
-        '<div class="actions" id="version-bar">'
-        '<label>版本 <select id="version-picker">' + "".join(options) + "</select></label>"
-        f'<span id="version-meta">{meta}</span>'
-        '<button type="button" id="compare-previous" disabled title="后续版本开放">对比上次</button>'
-        "</div>"
-        f'<p id="acceptance" class="{"ok" if ok else "bad"}">{"验收通过" if ok else "验收未通过"}</p>'
-        f'<p id="unknown-warning"{warning_attr}>{html.escape(warning)}</p>'
-        '<div class="actions">'
-        f'<button type="button" id="confirm-version"{confirm_disabled}>确认分区</button>'
-        '<label><input type="checkbox" id="force-confirm"> 强制确认</label>'
-        '<input id="force-reason" type="text" placeholder="强制确认的原因">'
-        f'<button type="button" id="draft-from-confirmed"{fork_hidden}>基于此版另开草稿</button>'
-        "</div>"
-    )
+def render_music_page(
+    project: Path,
+    version_id: str | None = None,
+    *,
+    selected: str | None = None,
+    playhead: str | None = None,
+) -> str:
+    from director.music_timeline import brief_title, render_timeline_page
 
-
-def _music_rows(view: dict | None) -> tuple[str, str]:
-    if not view:
-        return "", ""
-    duration = float(view["duration_seconds"]) or 1.0
-    select_disabled = " disabled" if view.get("read_only") else ""
-    strips: list[str] = []
-    rows: list[str] = []
-    options = "".join(
-        f'<option value="{html.escape(role)}">{html.escape(label)}</option>'
-        for role, label in KIND_LABELS.items()
-    )
-    for region in view["regions"]:
-        width = max(0.0, (float(region["end"]) - float(region["start"])) / duration * 100)
-        label = str(region.get("kind_label") or region["edit_role"])
-        strips.append(f'<span style="width:{width:.4f}%">{html.escape(label)}</span>')
-        selected = options.replace(
-            f'value="{html.escape(str(region["edit_role"]))}"',
-            f'value="{html.escape(str(region["edit_role"]))}" selected',
-            1,
-        )
-        source = "已修改" if region.get("source") == "user" else "分析"
-        snap = SNAP_LABELS.get(str(region.get("snap_policy")), str(region.get("snap_policy")))
-        warning_bits = []
-        if region.get("edit_role") == "unknown":
-            warning_bits.append("角色还没定")
-        for item in view.get("warnings") or []:
-            warning_bits.append(
-                f"{html.escape(item['label'])} <small>{html.escape(item['code'])}</small>"
-            )
-        warning = "无" if not warning_bits else " ".join(warning_bits)
-        unknown = " is-unknown" if region.get("edit_role") == "unknown" else ""
-        rows.append(
-            "<tr data-region-id=\"{rid}\" class=\"{unknown}\">"
-            "<td>{span}</td>"
-            "<td><select{select_disabled}>{options}</select></td>"
-            "<td>{shot}</td><td>{snap} <small>{snap_code}</small></td>"
-            "<td>{confidence}</td><td>{warning}</td><td>{source}</td>"
-            "</tr>".format(
-                rid=html.escape(str(region["region_id"])),
-                unknown=unknown.strip(),
-                select_disabled=select_disabled,
-                options=selected,
-                span=html.escape(f"{float(region['start']):.1f}–{float(region['end']):.1f}"),
-                shot=html.escape(f"{float(region['suggested_shot_mean_s']):.1f}"),
-                snap=html.escape(snap),
-                snap_code=html.escape(str(region.get("snap_policy"))),
-                confidence=html.escape(f"{float(region['confidence']):.2f}"),
-                warning=warning,
-                source=source,
-            )
-        )
-    return "".join(strips), "".join(rows)
-
-
-def render_music_page(project: Path, version_id: str | None = None) -> str:
     name, full = _resolved_project(project)
     paths, error = _open(project)
     view = None
     message = ""
-    hidden = "hidden"
     if error is not None:
         payload = json.loads(error.body.decode("utf-8"))
         message = str(payload.get("error") or "")
-        hidden = ""
     else:
         assert paths is not None
         with _DRAFT_LOCK:
@@ -1419,24 +1032,26 @@ def render_music_page(project: Path, version_id: str | None = None) -> str:
             assert failure is not None
             payload = json.loads(failure.body.decode("utf-8"))
             message = str(payload.get("error") or "")
-            hidden = ""
             view = None
-    strip, rows = _music_rows(view)
-    data = "null" if view is None else json.dumps(view, ensure_ascii=False).replace("<", "\\u003c")
-    page = _MUSIC_PAGE_TEMPLATE
-    page = page.replace("__STYLE__", _PAGE_STYLE)
-    page = page.replace("__PROJECT_NAME__", html.escape(name))
-    page = page.replace("__PROJECT_PATH__", html.escape(full))
-    page = page.replace("__ERROR_HIDDEN__", hidden)
-    page = page.replace("__ERROR_TEXT__", html.escape(message))
-    page = page.replace("__TOOLBAR__", _music_toolbar(view))
-    page = page.replace("__SAVE_DISABLED__", " disabled" if view and view.get("read_only") else "")
-    page = page.replace("__STRIP__", strip)
-    page = page.replace("__ROWS__", rows)
-    page = page.replace("__DATA__", data)
-    page = page.replace("__KIND_JSON__", json.dumps(KIND_LABELS, ensure_ascii=False))
-    page = page.replace("__SNAP_JSON__", json.dumps(SNAP_LABELS, ensure_ascii=False))
-    return page
+    title = name if paths is None else brief_title(paths.brief, name)
+    track_label = "未导入配乐"
+    if paths is not None and view is not None:
+        frozen = _frozen_music(paths)
+        if frozen is not None:
+            track_label = Path(frozen[1].frozen_relative_path).name
+    return render_timeline_page(
+        project_title=title,
+        project_id=name,
+        project_path=full,
+        track_label=track_label,
+        view=view,
+        message=message,
+        selected=selected,
+        playhead=playhead,
+        kind_labels=KIND_LABELS,
+        snap_labels=SNAP_LABELS,
+        warning_labels=WARNING_LABELS,
+    )
 
 
 def project_status(project: Path) -> ServeResponse:
@@ -1668,6 +1283,47 @@ def _html(page: str) -> ServeResponse:
     return ServeResponse(200, page.encode("utf-8"), "text/html; charset=utf-8")
 
 
+_WAVESURFER_DIR = Path(__file__).resolve().parent / "vendor" / "wavesurfer"
+
+
+def _waveform_peaks_response(project: Path) -> ServeResponse:
+    """Serve cached display peaks for the frozen track. Not a project artifact."""
+
+    paths, error = _open(project)
+    if error is not None or paths is None:
+        assert error is not None
+        return error
+    frozen = _frozen_music(paths)
+    if frozen is None:
+        return _error(404, "还没有固定的配乐，画不出音量条。", _music_hint(paths.root))
+    media, asset = frozen
+    try:
+        payload = load_or_build_peaks(media, asset.source_sha256)
+    except (OSError, ValueError) as exc:
+        return _error(
+            500,
+            f"音量条没能算出来：{exc}。需要 ffmpeg，或者 16-bit wav。",
+            _music_hint(paths.root),
+        )
+    return _json_response(200, payload)
+
+
+def _wavesurfer_file(relative: str) -> ServeResponse:
+    """Serve a vendored wavesurfer file. Nothing is loaded from a CDN."""
+
+    root = _WAVESURFER_DIR.resolve()
+    if not relative or relative.endswith("/"):
+        return _error(404, "unknown path", "GET /music")
+    candidate = (root / relative).resolve()
+    if not candidate.is_file() or not candidate.is_relative_to(root):
+        return _error(404, "unknown path", "GET /music")
+    if candidate.suffix.lower() == ".js":
+        content_type = "text/javascript; charset=utf-8"
+    else:
+        content_type = "text/plain; charset=utf-8"
+    return ServeResponse(200, candidate.read_bytes(), content_type)
+
+
 def handle_confirm_request(
     server: ThreadingHTTPServer,
     method: str,
@@ -1701,6 +1357,8 @@ def _dispatch_confirm_request(
     parsed = urlsplit(target)
     path = unquote(parsed.path)
     version = _query_value(parsed.query, "version")
+    selected = _query_value(parsed.query, "sel")
+    playhead = _query_value(parsed.query, "t")
     if method == "POST" and path == "/api/project":
         return _switch_project(server, body)
     if method == "POST" and path == "/api/reveal":
@@ -1718,7 +1376,12 @@ def _dispatch_confirm_request(
     if path == "/":
         return _html(render_project_page(project))
     if path == "/music":
-        return _html(render_music_page(project, version))
+        return _html(render_music_page(project, version, selected=selected, playhead=playhead))
+    if path == "/api/waveform-peaks":
+        return _waveform_peaks_response(project)
+    vendor_prefix = "/vendor/wavesurfer/"
+    if path.startswith(vendor_prefix):
+        return _wavesurfer_file(path.removeprefix(vendor_prefix))
     if path == "/export":
         return _html(_EXPORT_HTML)
     if path == "/api/music-desk":

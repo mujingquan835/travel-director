@@ -282,4 +282,5 @@ def analyze_music(path: Path, config: AudioAnalysisConfig) -> MusicStructure:
         meter_assumed=rhythm["meter_assumed"],
         analysis_warnings=list(rhythm["analysis_warnings"]),
         plp_beat_count=rhythm["plp_beat_count"],
+        downbeat_cluster_times=list(rhythm.get("downbeat_cluster_times") or []),
     )

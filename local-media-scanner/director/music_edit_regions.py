@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 from pydantic import Field
 
+from director.boundary_snap import snap_bound_list
 from director.music_edit_regions_schema import (
     BOUNDARY_TOLERANCE_SECONDS,
     MISSING_SETTLE_OUTRO,
@@ -262,7 +263,43 @@ def analyze_music_edit_regions(
         bounds.append(duration)
     bounds = [_r3(b) for b in bounds]
     bounds[-1] = _r3(duration)
-    spans = [(a, b) for a, b in zip(bounds, bounds[1:]) if b - a > tol]
+    raw_bounds = list(bounds)
+    if structure.beat_events and structure.bpm:
+        period = (
+            structure.beat_grid.period_s
+            if structure.beat_grid is not None and structure.beat_grid.period_s > 0
+            else 60.0 / structure.bpm
+        )
+        beat_times = [beat.t for beat in structure.beat_events if beat.t <= duration + 1e-6]
+        down_times = [
+            beat.t for beat in structure.beat_events if beat.is_downbeat and beat.t <= duration + 1e-6
+        ]
+        bounds = snap_bound_list(
+            raw_bounds,
+            duration,
+            down_times,
+            beat_times,
+            period,
+            structure.downbeat_confidence,
+        )
+
+        def _retarget(old: float) -> float:
+            for raw, snapped in zip(raw_bounds, bounds):
+                if abs(raw - old) <= 0.001:
+                    return snapped
+            return old
+
+        if hook_end > 0:
+            hook_end = _retarget(hook_end)
+        if carve_outro:
+            outro_start = _retarget(outro_start)
+    paired = list(zip(raw_bounds, bounds))
+    spans = []
+    raw_spans: list[tuple[float, float]] = []
+    for (raw_start, start), (raw_end, end) in zip(paired, paired[1:]):
+        if end - start > tol:
+            spans.append((start, end))
+            raw_spans.append((raw_start, raw_end))
     if unmerged:
         warnings.append(SHORT_REGION_UNMERGED)
 
@@ -358,6 +395,7 @@ def analyze_music_edit_regions(
 
     regions: list[MusicEditRegion] = []
     for index, ((start, end), role) in enumerate(zip(spans, roles)):
+        raw_start, raw_end = raw_spans[index]
         mean, shot_min, shot_max, motion, need, proxy = ROLE_DEFAULTS[role]
         if role == "peak_cut":
             mean = peak_shot_mean(structure.bpm)
@@ -393,6 +431,8 @@ def analyze_music_edit_regions(
                 content_need=need,
                 confidence=_r6(confidence),
                 evidence_basis="energy",
+                start_raw_s=_r3(raw_start) if abs(raw_start - start) >= 0.001 else None,
+                end_raw_s=_r3(raw_end) if abs(raw_end - end) >= 0.001 else None,
             )
         )
 
@@ -407,6 +447,7 @@ def analyze_music_edit_regions(
         provider=provider,
         beats_seconds=[b for b in structure.beats_seconds if b < duration],
         downbeats_seconds=[b for b in structure.downbeats_seconds if b < duration],
+        downbeat_cluster_times=list(structure.downbeat_cluster_times),
         downbeat_detector=structure.downbeat_detector,
         energy_curve=[p for p in structure.energy_curve if p.time_seconds < duration],
         regions=regions,

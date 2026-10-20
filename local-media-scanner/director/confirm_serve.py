@@ -93,7 +93,10 @@ WARNING_LABELS = {
     "meter_assumed_4_4": "拍号按 4/4 估计，曲子如果不是 4/4，强拍会偏",
     "downbeat_phase_heuristic": "强拍由起音相位估计；置信度太低时退回每四拍",
     "beat_grid_gaps": "有的拍点之间空了一截，缺口里的刀口会弱一些",
-    "boundary_snapped": "镜头刀口吸到了附近的拍上，分区本身没有移动",
+    "boundary_snapped": "分区边界已经吸到拍上，吸附前的时间记在每条边界的原始时间里。",
+    "boundary_snap_beat_low_confidence": "强拍置信度低，而且最近强拍超过半小节，这条边界改吸最近拍点",
+    "boundary_snap_beyond_bar": "最近的格点超过 1 小节，这条边界没有移动",
+    "downbeat_cluster": "有的强拍相距不足半小节，较晚的那一个已忽略",
     "slot_budget_exception": "有的镜头短于本段镜长下限，属于列出的加速或转场",
 }
 _PROGRESS_STEPS = (
@@ -678,11 +681,17 @@ def _region_view(region: MusicEditRegion) -> dict:
     return payload
 
 
-def _warning_views(codes: list[str]) -> list[dict[str, str]]:
-    return [
-        {"code": code, "label": WARNING_LABELS.get(code, "这条分析提示需要看一下")}
-        for code in codes
-    ]
+def _warning_views(codes: list[str], cluster_times: list[float] | None = None) -> list[dict[str, str]]:
+    views = []
+    for code in codes:
+        label = WARNING_LABELS.get(code, "这条分析提示需要看一下")
+        if code == "downbeat_cluster" and cluster_times:
+            shown = "、".join(f"{moment:.2f}" for moment in cluster_times[:8])
+            if len(cluster_times) > 8:
+                shown += "…"
+            label = f"{label}（{shown}）"
+        views.append({"code": code, "label": label})
+    return views
 
 
 def _version_label(status: str, version_id: str) -> str:
@@ -709,13 +718,19 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
         )
     unknown = [region.region_id for region in document.regions.regions if region.edit_role == "unknown"]
     blockers = _confirm_blockers(document.regions)
+    stored = document.regions
+    display = stored
+    if stored.beats and stored.bpm:
+        from director.shot_slots import plan_shot_slots
+
+        display = plan_shot_slots(stored)
     return {
         "revision": document.regions_sha256,
         "version_id": document.version_id,
         "edited_at": document.edited_at,
         "duration_seconds": document.regions.duration_seconds,
-        "warnings": _warning_views(list(document.regions.warnings)),
-        "regions": [_region_view(region) for region in document.regions.regions],
+        "warnings": _warning_views(list(display.warnings), list(display.downbeat_cluster_times)),
+        "regions": [_region_view(region) for region in display.regions],
         "read_only": listing_status != "draft",
         "status": listing_status,
         "source_music_sha8": document.source_music_sha8,
@@ -727,27 +742,26 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
             "blockers": blockers,
         },
         "versions": versions,
-        "bpm": document.regions.bpm,
-        "beats_seconds": list(document.regions.beats_seconds),
-        "downbeats_seconds": list(document.regions.downbeats_seconds),
-        "provider": document.regions.provider,
-        "shot_slots": [slot.model_dump(mode="json") for slot in document.regions.shot_slots],
-        "phrases": [phrase.model_dump(mode="json") for phrase in document.regions.phrases],
+        "bpm": display.bpm,
+        "beats_seconds": list(display.beats_seconds),
+        "downbeats_seconds": list(display.downbeats_seconds),
+        "downbeat_cluster_times": list(display.downbeat_cluster_times),
+        "provider": display.provider,
+        "shot_slots": [slot.model_dump(mode="json") for slot in display.shot_slots],
+        "phrases": [phrase.model_dump(mode="json") for phrase in display.phrases],
         "region_cut_anchors": [
-            anchor.model_dump(mode="json") for anchor in document.regions.region_cut_anchors
+            anchor.model_dump(mode="json") for anchor in display.region_cut_anchors
         ],
-        "breath_marks": list(document.regions.breath_marks),
+        "breath_marks": list(display.breath_marks),
         "beat_grid": (
-            document.regions.beat_grid.model_dump(mode="json")
-            if document.regions.beat_grid is not None
-            else None
+            display.beat_grid.model_dump(mode="json") if display.beat_grid is not None else None
         ),
-        "beat_backend": document.regions.beat_backend,
-        "beat_backend_note": document.regions.beat_backend_note,
-        "downbeat_confidence": document.regions.downbeat_confidence,
-        "downbeat_detector": document.regions.downbeat_detector,
-        "schema_version": document.regions.schema_version,
-        "confidence": document.regions.confidence,
+        "beat_backend": display.beat_backend,
+        "beat_backend_note": display.beat_backend_note,
+        "downbeat_confidence": display.downbeat_confidence,
+        "downbeat_detector": display.downbeat_detector,
+        "schema_version": display.schema_version,
+        "confidence": display.confidence,
     }
 
 
@@ -999,6 +1013,76 @@ def _confirm_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
     return _json_response(200, _desk_view(paths, document))
 
 
+_DRAFT_OPEN = "已经有打开的草稿。先确认或丢弃它，再基于确认版另开。"
+
+
+def _adopt_boundaries_request(project: Path, body: bytes) -> ServeResponse:
+    with _DRAFT_LOCK:
+        return _adopt_boundaries_unlocked(project, body)
+
+
+def _adopt_boundaries_unlocked(project: Path, body: bytes) -> ServeResponse:
+    """Apply pending boundary suggestions. Confirmed bytes stay untouched."""
+
+    paths, error = _open(project)
+    if error is not None or paths is None:
+        assert error is not None
+        return error
+    try:
+        payload = _json_body(body)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return _error(400, f"invalid adopt request: {exc}", "POST /api/regions-draft/adopt-boundaries")
+    if _client_write_path(payload):
+        return _error(
+            400,
+            "refusing to write a client path; drafts stay inside the project root",
+            "POST /api/regions-draft/adopt-boundaries",
+        )
+    extra = set(payload) - {"expected_revision", "version_id", "boundaries"}
+    if extra:
+        return _error(400, "只能提交要采纳的边界。", "POST /api/regions-draft/adopt-boundaries")
+    boundaries = payload.get("boundaries")
+    if boundaries == "all":
+        ids = None
+    elif isinstance(boundaries, list) and all(isinstance(item, str) and item.strip() for item in boundaries):
+        ids = {item.strip() for item in boundaries}
+    else:
+        return _error(400, "要写明采纳哪些边界：all，或分段 id 列表。", "POST /api/regions-draft/adopt-boundaries")
+    version_id = payload.get("version_id")
+    if not isinstance(version_id, str) or not version_id.strip():
+        return _error(400, "要写明基于哪一版分段采纳边界。", "POST /api/regions-draft/adopt-boundaries")
+    version_id = version_id.strip()
+    try:
+        document = load_regions_version(paths, version_id)
+    except RegionsVersionError:
+        return _error(404, f"没有这个分段版本：{version_id}", _regions_hint(paths.root))
+    if payload.get("expected_revision") != document.regions_sha256:
+        return _error(409, _STALE_REVISION, "GET /api/music-desk")
+    from director.shot_slots import apply_boundary_snaps
+
+    updated = apply_boundary_snaps(document.regions, ids)
+    unchanged = updated.model_dump() == document.regions.model_dump()
+    if document.status == "draft":
+        if unchanged:
+            return _json_response(200, _desk_view(paths, document))
+        try:
+            saved = save_regions_draft(paths, updated)
+        except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
+            return _error(400, _validation_message(exc), "POST /api/regions-draft/adopt-boundaries")
+        return _json_response(200, _desk_view(paths, saved))
+    if document.status not in {"confirmed", "history"}:
+        return _error(409, "只能在草稿里改，或基于已确认的版本另开草稿。", "GET /music")
+    if load_regions_draft(paths) is not None:
+        return _error(409, _DRAFT_OPEN, "GET /music")
+    if unchanged:
+        return _json_response(200, _desk_view(paths, document))
+    try:
+        saved = save_regions_draft(paths, updated)
+    except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
+        return _error(400, _validation_message(exc), "POST /api/regions-draft/adopt-boundaries")
+    return _json_response(200, _desk_view(paths, saved))
+
+
 def _draft_from_confirmed_request(project: Path, body: bytes) -> ServeResponse:
     with _DRAFT_LOCK:
         return _draft_from_confirmed_unlocked(project, body)
@@ -1024,7 +1108,7 @@ def _draft_from_confirmed_unlocked(project: Path, body: bytes) -> ServeResponse:
         return _error(400, "要写明基于哪一版已确认分段另开草稿。", "POST /api/regions-draft/from-confirmed")
     version_id = version_id.strip()
     if load_regions_draft(paths) is not None:
-        return _error(409, "已经有打开的草稿。先确认或丢弃它，再基于确认版另开。", "GET /music")
+        return _error(409, _DRAFT_OPEN, "GET /music")
     try:
         document = load_regions_version(paths, version_id)
     except RegionsVersionError:
@@ -1398,6 +1482,8 @@ def _dispatch_confirm_request(
         return _draft_from_confirmed_request(project, body)
     if method == "POST" and path == "/api/regions-draft/discard":
         return _discard_draft_request(project, body)
+    if method == "POST" and path == "/api/regions-draft/adopt-boundaries":
+        return _adopt_boundaries_request(project, body)
     if method not in {"GET", "HEAD"}:
         return _error(405, "method is not allowed", "GET /api/status")
     if path == "/":

@@ -103,6 +103,8 @@ class MusicEditRegion(StrictModel):
     evidence_basis: Literal["energy", "structure_model", "hybrid", "manual"]
     cut_summary_zh: str = ""
     slot_count: int = Field(default=0, ge=0)
+    start_raw_s: float | None = None
+    end_raw_s: float | None = None
 
     @model_validator(mode="after")
     def positive_length_and_shot_budget(self) -> "MusicEditRegion":
@@ -157,7 +159,10 @@ class RegionCutAnchor(StrictModel):
     boundary_s: float = Field(ge=0.0)
     snapped_s: float = Field(ge=0.0)
     offset_s: float
-    rule: Literal["downbeat", "beat", "offbeat_boundary", "edge"]
+    rule: Literal["downbeat", "beat", "offbeat_boundary", "edge", "beyond_bar"]
+    boundary_raw_s: float | None = None
+    explanation_zh: str = ""
+    pending: bool = False
 
 
 class MusicEditRegions(StrictModel):
@@ -168,6 +173,7 @@ class MusicEditRegions(StrictModel):
     provider: EditRegionProvider
     beats_seconds: list[float] = Field(default_factory=list)
     downbeats_seconds: list[float] = Field(default_factory=list)
+    downbeat_cluster_times: list[float] = Field(default_factory=list)
     downbeat_detector: DownbeatDetector
     energy_curve: list[EnergyPoint] = Field(default_factory=list)
     regions: list[MusicEditRegion]

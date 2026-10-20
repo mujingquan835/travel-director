@@ -1,14 +1,15 @@
 """Unequal shot slots from the role template, the phrase grid, and accents.
 
-Slots are a suggestion. Region start and end stay where the edit-region
-analyzer put them. Cut times snap to a downbeat or a beat only inside the
-slot list and the cut anchors.
+Slot edges are the region edges. A region boundary is either already on the
+grid, or the cut anchor explains a pending suggestion. Adopting a suggestion
+moves that shared edge, then the slots are planned again on the new edge.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from director.boundary_snap import COLLISION_GAP, BoundaryChoice, choose_boundary, filter_downbeat_times
 from director.music_edit_regions_schema import (
     MusicEditRegion,
     MusicEditRegions,
@@ -25,6 +26,9 @@ _MANAGED_WARNINGS = {
     "downbeat_phase_heuristic",
     "beat_grid_gaps",
     "boundary_snapped",
+    "boundary_snap_beat_low_confidence",
+    "boundary_snap_beyond_bar",
+    "downbeat_cluster",
     "slot_budget_exception",
 }
 _DOWNBEAT_REASONS = {
@@ -109,26 +113,6 @@ def _fit_count(prefer: int, period: float, shot_min: float, shot_max: float) -> 
     while count > 1 and count * period > shot_max + FRAME:
         count -= 1
     return count
-
-
-def _nearest(times: list[float], moment: float) -> float | None:
-    if not times:
-        return None
-    return min(times, key=lambda item: abs(item - moment))
-
-
-def _snap(moment: float, duration: float, downbeats: list[float], beats: list[float], period: float, prefer: bool) -> tuple[float, str]:
-    if moment <= 0.0005 or abs(moment - duration) <= 0.0005:
-        return _r3(moment if moment > 0 else 0.0), "edge"
-    half_bar = 2.0 * period
-    down = _nearest(downbeats, moment)
-    if down is not None and abs(down - moment) <= half_bar + 1e-6:
-        return _r3(down), "downbeat"
-    limit = period if prefer else period / 2.0
-    beat = _nearest(beats, moment)
-    if beat is not None and abs(beat - moment) <= limit + 1e-6:
-        return _r3(beat), "beat"
-    return _r3(moment), "offbeat_boundary"
 
 
 @dataclass
@@ -516,11 +500,38 @@ def _pace(length: float) -> str:
     return "medium"
 
 
+def _anchor_for(region: MusicEditRegion, choice) -> RegionCutAnchor:
+    explanation = choice.explanation_zh
+    raw = region.start_raw_s
+    if (
+        not choice.pending
+        and raw is not None
+        and abs(raw - region.start) >= 0.001
+    ):
+        kind = {"downbeat": "强拍", "beat": "拍点"}.get(choice.rule, "格点")
+        explanation = f"已从 {raw:.2f}s 吸到 {region.start:.2f}s（{kind}）。"
+    elif not choice.pending and choice.rule in {"downbeat", "beat", "edge"}:
+        explanation = ""
+    stored_raw = raw if raw is not None and abs(raw - region.start) >= 0.001 else None
+    if choice.pending and stored_raw is None:
+        stored_raw = _r3(region.start)
+    return RegionCutAnchor(
+        region_id=region.region_id,
+        boundary_s=_r3(region.start),
+        snapped_s=_r3(choice.time if choice.rule != "beyond_bar" else region.start),
+        offset_s=_r3(0.0 if choice.rule == "beyond_bar" else choice.offset_s),
+        rule=choice.rule,  # type: ignore[arg-type]
+        boundary_raw_s=stored_raw,
+        explanation_zh=explanation,
+        pending=choice.pending,
+    )
+
+
 def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
     """Fill shot slots from beats already stored on ``document``.
 
-    No beats, or no tempo: the document is returned unchanged. Region times
-    are never edited.
+    No beats, or no tempo: the document is returned unchanged. Slot edges
+    stay on the region edges. Suggestions live on the cut anchors.
     """
 
     if not document.beats or not document.bpm:
@@ -529,41 +540,57 @@ def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
     coverage = document.beat_grid.coverage if document.beat_grid is not None else 1.0
     beat_times = [beat.t for beat in document.beats]
     down_times = [beat.t for beat in document.beats if beat.is_downbeat]
+    _kept, dropped = filter_downbeat_times(down_times, period)
+    cluster = list(document.downbeat_cluster_times)
+    for moment in dropped:
+        if all(abs(moment - item) > 1e-3 for item in cluster):
+            cluster.append(round(moment, 6))
+    beats = list(document.beats)
+    if dropped:
+        beats = [
+            beat.model_copy(update={"is_downbeat": False})
+            if beat.is_downbeat and any(abs(beat.t - moment) <= 1e-3 for moment in dropped)
+            else beat
+            for beat in document.beats
+        ]
+        down_times = [beat.t for beat in beats if beat.is_downbeat]
     duration = _r3(document.duration_seconds)
-    snapped = [0.0]
-    rules = ["edge"]
-    for index, region in enumerate(document.regions[:-1]):
-        nxt = document.regions[index + 1]
-        prefer = region.edit_role == "hook" or nxt.edit_role in {"settle_outro", "breath"}
-        moment, rule = _snap(region.end, duration, down_times, beat_times, period, prefer)
-        if moment <= snapped[-1] + 0.05 or moment >= nxt.end - 0.05:
-            moment, rule = _r3(region.end), "offbeat_boundary"
-        snapped.append(moment)
-        rules.append(rule)
-    snapped.append(duration)
-    rules.append("edge")
-    for index in range(1, len(snapped)):
-        if snapped[index] <= snapped[index - 1]:
-            snapped[index] = _r3(min(duration, snapped[index - 1] + 0.05))
-            rules[index] = "offbeat_boundary"
-    snapped[-1] = duration
 
     anchors: list[RegionCutAnchor] = []
+    choice_warnings: list[str] = []
     drafts: list[_Draft] = []
     for index, region in enumerate(document.regions):
-        anchors.append(
-            RegionCutAnchor(
-                region_id=region.region_id,
-                boundary_s=_r3(region.start),
-                snapped_s=snapped[index],
-                offset_s=_r3(snapped[index] - region.start),
-                rule=rules[index],  # type: ignore[arg-type]
-            )
+        choice = choose_boundary(
+            region.start,
+            duration,
+            down_times,
+            beat_times,
+            period,
+            document.downbeat_confidence,
+            cluster,
         )
+        if index > 0:
+            previous = document.regions[index - 1]
+            blocked = (
+                choice.time <= previous.start + COLLISION_GAP
+                or choice.time >= region.end - COLLISION_GAP
+            )
+            if blocked and choice.rule not in {"edge", "beyond_bar"}:
+                choice = BoundaryChoice(
+                    _r3(region.start),
+                    "offbeat_boundary",
+                    0.0,
+                    "吸到附近的格点会把相邻分段压没，这条边界不移动。",
+                    None,
+                    False,
+                )
+        if choice.warning:
+            choice_warnings.append(choice.warning)
+        anchors.append(_anchor_for(region, choice))
         nxt = document.regions[index + 1] if index + 1 < len(document.regions) else None
-        span = _beats_in(document.beats, snapped[index], snapped[index + 1])
+        span = _beats_in(beats, region.start, region.end)
         pieces = _pattern(region.edit_role, span, period, region, nxt)
-        region_drafts = _materialize(region, snapped[index], snapped[index + 1], document.beats, pieces)
+        region_drafts = _materialize(region, region.start, region.end, beats, pieces)
         region_drafts = _absorb_short_tail(region_drafts, region, nxt, period)
         for draft in region_drafts:
             draft.budget_exception = _exception(draft, region, nxt, period)
@@ -588,10 +615,10 @@ def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
     for index, region in enumerate(document.regions):
         nxt = document.regions[index + 1] if index + 1 < len(document.regions) else None
         if region.edit_role == "peak_cut" and (nxt is None or nxt.edit_role != "peak_cut"):
-            marks.append(snapped[index + 1])
+            marks.append(region.end)
         if region.edit_role == "breath":
-            marks.append(snapped[index])
-        inside = [beat for beat in document.beats if region.start - 0.02 <= beat.t < region.end]
+            marks.append(region.start)
+        inside = [beat for beat in beats if region.start - 0.02 <= beat.t < region.end]
         quiet = [beat for beat in inside if beat.energy < region.mean_energy * 0.6]
         run: list[BeatEvent] = []
         for beat in inside:
@@ -619,7 +646,7 @@ def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
     for region in document.regions:
         for index, draft in enumerate(per_region.get(region.region_id, []), start=1):
             length = draft.end - draft.start
-            evidence = _evidence(draft, document.beats, document.onsets, document.phrases, energy_times)
+            evidence = _evidence(draft, beats, document.onsets, document.phrases, energy_times)
             if draft.reason == "HIT_HOLD" and draft.accent_at_start and draft.start_beat not in evidence.beat_ids:
                 evidence.beat_ids.insert(0, draft.start_beat)  # type: ignore[arg-type]
             slots.append(
@@ -660,8 +687,19 @@ def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
         warnings.append("downbeat_phase_heuristic")
     if document.beat_grid is not None and document.beat_grid.gaps:
         warnings.append("beat_grid_gaps")
-    if any(abs(anchor.offset_s) >= 0.001 and anchor.rule != "edge" for anchor in anchors):
+    moved = any(
+        (region.start_raw_s is not None and abs(region.start_raw_s - region.start) >= 0.001)
+        or (region.end_raw_s is not None and abs(region.end_raw_s - region.end) >= 0.001)
+        for region in document.regions
+    )
+    if moved:
         warnings.append("boundary_snapped")
+    if "boundary_snap_beat_low_confidence" in choice_warnings:
+        warnings.append("boundary_snap_beat_low_confidence")
+    if any(anchor.rule == "beyond_bar" for anchor in anchors):
+        warnings.append("boundary_snap_beyond_bar")
+    if cluster:
+        warnings.append("downbeat_cluster")
     if any(slot.budget_exception for slot in slots):
         warnings.append("slot_budget_exception")
     return document.model_copy(
@@ -672,5 +710,57 @@ def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
             "breath_marks": deduped,
             "warnings": warnings,
             "meter_assumed": 4,
+            "beats": beats,
+            "downbeats_seconds": [beat.t for beat in beats if beat.is_downbeat],
+            "downbeat_cluster_times": [round(moment, 6) for moment in cluster],
         }
     )
+
+
+def apply_boundary_snaps(document: MusicEditRegions, ids: set[str] | None) -> MusicEditRegions:
+    """Move pending region starts. ``ids`` None adopts every movable suggestion.
+
+    The boundary id is the region whose start moves. ``beyond_bar`` stays put.
+    The previous region's end moves with that start. Confirmed files are not
+    touched here; the caller decides whether to save a draft.
+    """
+
+    if not document.beats or not document.bpm:
+        return document
+    planned = plan_shot_slots(document)
+    by_id = {region.region_id: region for region in document.regions}
+    chosen: list[RegionCutAnchor] = []
+    seen: set[str] = set()
+    for anchor in planned.region_cut_anchors:
+        region = by_id.get(anchor.region_id)
+        if region is None or abs(anchor.boundary_s - region.start) > 0.02:
+            continue
+        if anchor.region_id in seen:
+            continue
+        seen.add(anchor.region_id)
+        if anchor.rule not in {"downbeat", "beat"} or not anchor.pending:
+            continue
+        if abs(anchor.offset_s) < 0.02:
+            continue
+        if ids is not None and anchor.region_id not in ids:
+            continue
+        chosen.append(anchor)
+    if not chosen:
+        return document
+    regions = list(document.regions)
+    index_of = {region.region_id: index for index, region in enumerate(regions)}
+    for anchor in chosen:
+        index = index_of[anchor.region_id]
+        if index == 0:
+            continue
+        target = _r3(anchor.snapped_s)
+        previous = regions[index - 1]
+        current = regions[index]
+        if target <= previous.start + COLLISION_GAP or target >= current.end - COLLISION_GAP:
+            continue
+        previous_raw = previous.end_raw_s if previous.end_raw_s is not None else _r3(previous.end)
+        current_raw = current.start_raw_s if current.start_raw_s is not None else _r3(current.start)
+        regions[index - 1] = previous.model_copy(update={"end": target, "end_raw_s": previous_raw})
+        regions[index] = current.model_copy(update={"start": target, "start_raw_s": current_raw})
+    updated = document.model_copy(update={"regions": regions})
+    return plan_shot_slots(updated)

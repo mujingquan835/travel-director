@@ -217,6 +217,10 @@ outro 窗 = 末尾 `max(8s, 0.12 * duration)`。
 
 分析器在有真实 onset 时把 `onset_rate` 写成起音次数 / 区长，并不再写 `onset_rate_from_beat_grid_proxy`。拍点来自 librosa `beat_track(trim=False)`，并对照 `beat.plp` 的峰数。强拍默认用低频 onset 相位（`onset_phase_heuristic`）；置信度低于 0.10 时退回 `every_fourth_beat`，并写 `downbeat_phase_heuristic`。拍号按 4/4，警告 `meter_assumed_4_4`。
 
-`shot_slots[]` 按角色模板、乐句和重音排不等长槽。每个槽有 `reason_code`、一句中文 `reason_zh`、建议镜头类型（远/细/动/脸/空/转/?）和证据引用。刀口可以吸到强拍或拍点，吸附量写在 `region_cut_anchors`。分区的 `start` / `end` 不动，确认台也不能拖。导出仍按已确认的分区，不按这些刀口。
+`shot_slots[]` 按角色模板、乐句和重音排不等长槽。每个槽有 `reason_code`、一句中文 `reason_zh`、建议镜头类型（远/细/动/脸/空/转/?）和证据引用。槽的起止就是分区的 `start` / `end`，段界上只有一条时间。
+
+新分析会先把内部分区边界吸到格点上，再按吸过的区间定角色。最近强拍在半小节（2 拍）以内就吸强拍；强拍置信度低于 0.10 且最近强拍超过半小节时，改吸 1 小节以内的最近拍点，并写 `boundary_snap_beat_low_confidence`。超过 1 小节不移动，记 `boundary_snap_beyond_bar`。相距不足半小节的强拍丢掉较晚的那个（`downbeat_cluster`），半小节或更远的保留。吸过的原始时间在 `start_raw_s` / `end_raw_s`。
+
+已经确认或已经存下的草稿不会被静默改写。确认台按当前边界重算建议，芯片写明距离和半小节阈值。采纳进新草稿；已确认文件只读。若已有打开的草稿，再从确认版采纳会 409。导出用已确认分区的 `start` / `end`；采纳或分析吸过之后，这些边界就是刀口。镜头类型仍是建议，不能拖。
 
 可选依赖 `beat`（torch + beat-this，MIT）用 `File2Beats(..., dbn=False)` 出拍点和强拍。没装、没有本地权重，或运行失败时回退 librosa，并在 `beat_backend` / `beat_backend_note` 里写明。`auto` 不会为了分析去下载权重。显式 `--beat-backend beat_this` 第一次会下载 small0（约 8MB）或 final0（约 78MB）到 torch hub 缓存。不引入 madmom、Essentia、aubio、MERT、MuQ。

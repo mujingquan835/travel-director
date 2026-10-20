@@ -14,6 +14,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 
+from director.boundary_snap import filter_downbeat_times
 from director.schema import (
     BeatEvent,
     BeatGap,
@@ -328,6 +329,7 @@ def build_rhythm(
         "plp_beat_count": plp_beats,
         "beats_seconds": times,
         "downbeats_seconds": times[::4],
+        "downbeat_cluster_times": [],
     }
     if bpm is None or bpm <= 0 or len(times) < 4:
         return empty
@@ -358,6 +360,14 @@ def build_rhythm(
         model_downbeats=model_downbeats,
         low_values=low_strength,
     )
+    period = 60.0 / float(bpm)
+    flagged = [times[index] for index, flag in enumerate(flags) if flag]
+    _kept_downs, dropped_downs = filter_downbeat_times(flagged, period)
+    dropped_mark = {round(moment, 6) for moment in dropped_downs}
+    if dropped_mark:
+        for index, moment in enumerate(times):
+            if flags[index] and round(moment, 6) in dropped_mark:
+                flags[index] = False
     threshold = float(np.percentile(np.asarray(raw_strength, dtype=np.float64), 85))
     accents: list[bool] = []
     for index, value in enumerate(raw_strength):
@@ -393,7 +403,6 @@ def build_rhythm(
         for event in events
     ]
 
-    period = 60.0 / bpm
     gaps = [
         BeatGap(start=round(left, 3), end=round(right, 3))
         for left, right in zip(times, times[1:])
@@ -406,6 +415,8 @@ def build_rhythm(
         warnings.append("downbeat_phase_heuristic")
     if gaps:
         warnings.append("beat_grid_gaps")
+    if dropped_downs:
+        warnings.append("downbeat_cluster")
 
     peak = float(np.max(onset_envelope)) if len(onset_envelope) else 0.0
     onsets: list[OnsetEvent] = []
@@ -430,4 +441,5 @@ def build_rhythm(
         "plp_beat_count": plp_beats,
         "beats_seconds": [event.t for event in events],
         "downbeats_seconds": [event.t for event in events if event.is_downbeat],
+        "downbeat_cluster_times": [round(moment, 6) for moment in dropped_downs],
     }

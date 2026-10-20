@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import html
 import json
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 ROLE_COLORS = {
@@ -154,7 +155,9 @@ body.has-slots .r-ruler .lane{height:24px}
 body.has-slots .r-wave .lane{height:64px}
 body.has-slots #wave{top:4px;height:56px}
 body.has-slots .r-beat .lane{height:16px}
-body.has-slots .r-reg .lane{height:46px}
+body.has-slots .r-reg .lane{height:64px}
+body.has-slots .r-reg .blk{top:2px;bottom:20px;padding:2px 6px}
+body.has-slots .r-reg .blk .nm{font-size:12px}
 body.has-slots .r-phrase .lane{height:22px}
 body.has-slots .r-shot .lane{height:72px}
 body.has-slots .r-how .lane{height:34px}
@@ -173,7 +176,11 @@ body.has-slots .insp{margin-top:8px}
 .exc{position:absolute;left:4px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#d07a2a}
 .accent-mark{position:absolute;top:0;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #c0453a;transform:translateX(-4px)}
 .breath-mark{position:absolute;top:0;transform:translateX(-6px);color:#3d6f9a;font-size:11px;font-weight:700}
-.orig-bound{position:absolute;top:0;bottom:0;border-left:1px dashed #8d9396}
+.snapchip{position:absolute;bottom:1px;z-index:4;transform:translateX(-50%);background:#fff8e8;border:1px solid #c9a15b;border-radius:4px;font-size:10px;line-height:1.15;padding:1px 3px;color:#5a4a2a;white-space:nowrap;pointer-events:auto}
+.snapchip button{margin-left:3px;height:16px;padding:0 4px;font-size:10px;border:1px solid #c9a15b;border-radius:3px;background:#fff;cursor:pointer}
+.snapchip button:disabled{cursor:not-allowed;opacity:.55}
+#adopt-all{height:20px;margin-top:2px;padding:0 6px;font-size:11px}
+#snap-notes{margin:0;padding-left:16px;font-size:12px;line-height:1.45;color:var(--ink2)}
 .density{position:absolute;top:18px;bottom:10px;border-radius:3px;background:#c7b2b6;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center}
 .zoom{flex:none;margin:8px 24px 0;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 12px 10px}
 .zoom h3{margin:0 0 6px;font-size:13px;font-weight:600}
@@ -460,13 +467,6 @@ def _planned_shots_html(view: dict, duration: float) -> str:
         else:
             parts.append(_planned_slot_div(slot, duration))
     flush()
-    for anchor in view.get("region_cut_anchors") or []:
-        if abs(float(anchor.get("offset_s") or 0)) < 0.02:
-            continue
-        if anchor.get("rule") == "edge":
-            continue
-        moment = float(anchor["boundary_s"])
-        parts.append(f'<div class="orig-bound" style="left:{moment / duration * 100:.3f}%"></div>')
     for slot in slots:
         if slot.get("accent_at_start"):
             moment = float(slot["start"])
@@ -550,10 +550,97 @@ def _zoom_html(view: dict, region: dict, duration: float) -> str:
     return (
         f'<section class="zoom" id="zoom"><h3>放大 · {html.escape(str(region["region_id"]))} {label}'
         f' · {_mmss(origin)[:7]}–{_mmss(limit)[:7]}</h3>'
-        '<p class="note">镜头轨只是建议，不改分区、不能拖动。导出仍按已确认的分区。下方虚线是旧的按均长平分。</p>'
+        '<p class="note">镜头轨只是建议，不能拖动。导出按已确认的分区边界；分析或采纳之后，分区和刀口是同一条时间。下方虚线是旧的按均长平分。</p>'
         f'<div class="zlane" id="zoom-lane">{"".join(ticks)}{shot_html}</div>'
         f'<div class="zold" title="旧：按均长平分">{"".join(old)}</div></section>'
     )
+
+
+def _offset_text(value: float) -> str:
+    rounded = Decimal(str(round(float(value), 6))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    text = f"{abs(rounded):.2f}"
+    if value < 0:
+        return f"-{text}"
+    return f"+{text}"
+
+
+def _boundary_anchors(view: dict) -> list[dict]:
+    regions = {str(region["region_id"]): region for region in view.get("regions") or []}
+    chosen: list[dict] = []
+    seen: set[str] = set()
+    for anchor in view.get("region_cut_anchors") or []:
+        region_id = str(anchor.get("region_id") or "")
+        region = regions.get(region_id)
+        if region is None or region_id in seen:
+            continue
+        if abs(float(anchor.get("boundary_s") or 0) - float(region["start"])) > 0.02:
+            continue
+        seen.add(region_id)
+        chosen.append(anchor)
+    return chosen
+
+
+def _snap_chips_html(view: dict, duration: float) -> str:
+    if duration <= 0:
+        return ""
+    blocked = bool(view.get("read_only") and view.get("has_draft"))
+    blocked_title = "已经有打开的草稿。先确认或丢弃它，再基于确认版另开。"
+    parts = []
+    for anchor in _boundary_anchors(view):
+        if not anchor.get("pending"):
+            continue
+        moment = float(anchor["boundary_s"])
+        rule = str(anchor.get("rule") or "")
+        title = str(anchor.get("explanation_zh") or "")
+        if blocked:
+            title = blocked_title
+        if rule == "beyond_bar":
+            label = "超过1小节，不移动"
+            button = ""
+        elif rule in {"downbeat", "beat"}:
+            snapped = float(anchor.get("snapped_s") or moment)
+            offset = float(anchor.get("offset_s") or 0)
+            label = f"建议 {snapped:.2f}s {_offset_text(offset)}s"
+            disabled = " disabled" if blocked else ""
+            button = (
+                f'<button type="button" data-adopt="{html.escape(str(anchor["region_id"]))}"'
+                f'{disabled}>采纳</button>'
+            )
+        else:
+            continue
+        parts.append(
+            f'<div class="snapchip" style="left:{moment / duration * 100:.3f}%" '
+            f'title="{html.escape(title)}">{html.escape(label)}{button}</div>'
+        )
+    return "".join(parts)
+
+
+def _adopt_all_html(view: dict) -> str:
+    adoptable = [
+        anchor
+        for anchor in _boundary_anchors(view)
+        if anchor.get("pending") and anchor.get("rule") in {"downbeat", "beat"}
+    ]
+    if not adoptable:
+        return ""
+    blocked = bool(view.get("read_only") and view.get("has_draft"))
+    disabled = " disabled" if blocked else ""
+    title = "已经有打开的草稿。先确认或丢弃它，再基于确认版另开。" if blocked else "把还能动的边界都吸到建议的格点上"
+    return f'<button type="button" id="adopt-all"{disabled} title="{html.escape(title)}">全部采纳</button>'
+
+
+def _snap_notes_html(view: dict) -> str:
+    items = []
+    for anchor in _boundary_anchors(view):
+        text = str(anchor.get("explanation_zh") or "").strip()
+        if not text:
+            continue
+        if not anchor.get("pending") and anchor.get("boundary_raw_s") is None:
+            continue
+        items.append(f"<li>{html.escape(str(anchor['region_id']))} {html.escape(text)}</li>")
+    if not items:
+        return ""
+    return '<div class="sub">边界吸附</div><ul id="snap-notes">' + "".join(items) + "</ul>"
 
 
 def _slot_panel(view: dict, region: dict) -> str:
@@ -589,8 +676,9 @@ def _slot_panel(view: dict, region: dict) -> str:
     return (
         '<div id="slot-detail"><div class="sub">选中镜头</div>'
         + body
-        + '<p class="note">镜头轨只是建议，不改分区、不能拖动。导出仍按已确认的分区。</p></div>'
-        '<div class="sub">各段怎么剪</div><ul id="how-list">'
+        + '<p class="note">镜头轨只是建议，不能拖动。导出按已确认的分区边界；分析或采纳之后，分区和刀口是同一条时间。</p></div>'
+        + _snap_notes_html(view)
+        + '<div class="sub">各段怎么剪</div><ul id="how-list">'
         + "".join(lines)
         + f'</ul><p class="typelegend">{legend}</p>'
     )
@@ -836,7 +924,7 @@ def render_timeline_page(
   <div class="row r-ruler"><div class="rh"><small>时间 (mm:ss)</small></div><div class="lane"><div id="ruler"></div></div></div>
   <div class="row r-wave" id="track-wave"><div class="rh"><b>音乐轨</b><small>{html.escape(track_label)}</small></div><div class="lane"><div id="wave"></div></div></div>
   <div class="row r-beat"><div class="rh" style="padding:2px 12px"><small>节拍 · 重拍加粗</small></div><div class="lane" id="track-beats">{_beats_html(view, duration) if view else ""}</div></div>
-  <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small></div><div class="lane" id="track-regions">{_blocks_html(view, duration, chosen, kind_labels) if view else ""}</div></div>
+  <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small>{_adopt_all_html(view) if view else ""}</div><div class="lane" id="track-regions">{(_blocks_html(view, duration, chosen, kind_labels) + _snap_chips_html(view, duration)) if view else ""}</div></div>
   {phrase_row}
   <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
   {how_row}
@@ -1225,9 +1313,47 @@ var playSpan = document.getElementById("play-span");
 if (playSpan) playSpan.addEventListener("click", playSelected);
 var transportPlay = document.getElementById("transport-play");
 if (transportPlay) transportPlay.addEventListener("click", playSelected);
+function adoptBlocked() {{
+  return !!(state && state.read_only && state.has_draft);
+}}
+function adoptBoundaries(which) {{
+  if (!state) return;
+  if (adoptBlocked()) {{
+    showError("已经有打开的草稿。先确认或丢弃它，再基于确认版另开。");
+    return;
+  }}
+  fetch("/api/regions-draft/adopt-boundaries", {{
+    method: "POST",
+    headers: {{"Content-Type": "application/json"}},
+    body: JSON.stringify({{
+      expected_revision: state.revision,
+      version_id: state.version_id,
+      boundaries: which
+    }})
+  }}).then(function (response) {{
+    return response.json().then(function (data) {{
+      if (!response.ok) {{
+        showError(data.error || "采纳失败");
+        return;
+      }}
+      var sel = selectedId ? ("&sel=" + encodeURIComponent(selectedId)) : "";
+      window.location.href = "/music?version=" + encodeURIComponent(data.version_id) + sel;
+    }});
+  }});
+}}
 var regionLane = document.getElementById("track-regions");
 if (regionLane) {{
   regionLane.addEventListener("click", function (event) {{
+    var adopt = event.target.closest ? event.target.closest("[data-adopt]") : null;
+    if (adopt) {{
+      event.stopPropagation();
+      adoptBoundaries([adopt.getAttribute("data-adopt")]);
+      return;
+    }}
+    if (event.target.closest && event.target.closest(".snapchip")) {{
+      event.stopPropagation();
+      return;
+    }}
     var block = event.target.closest ? event.target.closest(".blk") : null;
     if (!block) return;
     var nextId = block.getAttribute("data-region-id");
@@ -1272,6 +1398,8 @@ if (roleSelect) {{
     postDraft();
   }});
 }}
+var adoptAll = document.getElementById("adopt-all");
+if (adoptAll) adoptAll.addEventListener("click", function () {{ adoptBoundaries("all"); }});
 var saveButton = document.getElementById("save");
 if (saveButton) saveButton.addEventListener("click", function () {{ if (state && !state.read_only) postDraft(); }});
 var discardButton = document.getElementById("discard");

@@ -327,6 +327,7 @@ class MusicStructure(StrictModel):
     bpm: float | None = Field(default=None, gt=0.0)
     beats_seconds: list[float] = Field(default_factory=list)
     downbeats_seconds: list[float] = Field(default_factory=list)
+    downbeat_cluster_times: list[float] = Field(default_factory=list)
     energy_curve: list[EnergyPoint] = Field(default_factory=list)
     sections: list[MusicStructureSection] = Field(default_factory=list)
     ending: MusicEnding

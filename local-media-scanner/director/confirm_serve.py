@@ -6,15 +6,18 @@ is ``127.0.0.1``. ``--lan`` binds ``0.0.0.0`` for other machines on the same
 network. This is not a public internet service.
 
 ``/`` explains the desk in Chinese and shows four steps. ``/music`` lists the
-open draft (created from analyzer candidates when none is open) and writes
-that draft. ``/export`` says the export page is not open yet.
+open draft (created from analyzer candidates only when nothing is confirmed
+yet) and can lock it. ``/export`` says the export page is not open yet.
 
 ``POST /api/regions-draft`` accepts only an ``edit_role`` change for each
 existing region id, plus ``expected_revision``. A role change sets
 ``evidence_basis`` to ``manual``. ``edited_at`` stays on the draft document
 (``RegionsVersionDocument``), not on the analyzer region schema. Times, adds,
-and deletes are refused. ``POST /api/regions-draft/discard`` drops the open
-draft. This module does not confirm a version, re-run analysis, or export.
+and deletes are refused. A confirmed version is read-only. ``POST
+/api/regions-draft/confirm`` locks the open draft. ``POST
+/api/regions-draft/from-confirmed`` copies a locked snapshot into a new draft.
+Exceptions while rendering a page or API become a Chinese error body. This
+module does not re-run analysis or export.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from pydantic import ValidationError
 
@@ -38,6 +41,8 @@ from director.audio_import import ImportedMusicAsset
 from director.music_edit_regions_schema import MusicEditRegion, MusicEditRegions
 from director.music_edit_regions_versions import (
     RegionsVersionError,
+    _confirm_blockers,
+    confirm_regions_draft,
     discard_regions_draft,
     list_regions_versions,
     load_regions_draft,
@@ -95,13 +100,13 @@ _PROGRESS_STEPS = (
         "id": "analysis",
         "title": "音乐分段分析",
         "meaning": "程序已经把曲子切成几段，供你试听和修改。",
-        "instruction": "去音乐分段页听每一段，按需要改起点、终点和种类。",
+        "instruction": "去音乐分段页听每一段，按需要改角色。",
     },
     {
         "id": "confirmed",
         "title": "分段已确认",
         "meaning": "已经有锁定的分段版本，导出时会用这一版。",
-        "instruction": "分段改好后需要锁定确认版。确认锁定会在后续版本开放，当前可先保存草稿。",
+        "instruction": "打开音乐分段，听完后点确认分区。角色还没定或验收未通过时，普通确认会停用。",
     },
     {
         "id": "export",
@@ -145,7 +150,12 @@ _PAGE_STYLE = """
     tr.is-unknown { background: #fff1eb; }
     tr.is-selected { box-shadow: inset 3px 0 0 #243024; background: #fff8e8; }
     small { color: #6b6256; }
-    #playhead { font-variant-numeric: tabular-nums; }
+    #playhead, #version-meta { font-variant-numeric: tabular-nums; }
+    #acceptance { margin: 0.6rem 0; padding: 0.45rem 0.7rem; border-radius: 6px; }
+    #acceptance.ok { background: #e5f6e8; color: #14532d; }
+    #acceptance.bad { background: #fee2e2; color: #9a3412; }
+    #unknown-warning { color: #9a3412; }
+    button:disabled, select:disabled { opacity: 0.55; cursor: not-allowed; }
     @media (max-width: 720px) { .steps { grid-template-columns: 1fr 1fr; } }
 """
 
@@ -358,6 +368,7 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
     <p class="lede">听每一段，只改角色。时间由分析定好，这里不能拖边界、拆段或删段。</p>
     <p class="project-name" id="project-name" title="__PROJECT_PATH__">__PROJECT_NAME__</p>
     <p class="project-path" id="project-path" title="__PROJECT_PATH__">__PROJECT_PATH__</p>
+    __TOOLBAR__
     <section id="error" class="panel" __ERROR_HIDDEN__>__ERROR_TEXT__</section>
     <div class="strip" id="strip">__STRIP__</div>
     <audio id="track" src="/audio/frozen" preload="metadata"></audio>
@@ -381,8 +392,8 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
       <tbody id="region-body">__ROWS__</tbody>
     </table>
     <div class="actions">
-      <button type="button" id="save">保存草稿</button>
-      <button type="button" id="discard" class="secondary">丢弃草稿</button>
+      <button type="button" id="save"__SAVE_DISABLED__>保存草稿</button>
+      <button type="button" id="discard" class="secondary"__SAVE_DISABLED__>丢弃草稿</button>
     </div>
     <p id="revision"></p>
   </main>
@@ -464,7 +475,9 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
           option.selected = role === region.edit_role;
           select.appendChild(option);
         });
+        select.disabled = !!(state && state.read_only);
         select.addEventListener("change", function () {
+          if (state && state.read_only) return;
           region.edit_role = select.value;
           region.kind_label = KIND[select.value];
           postDraft();
@@ -479,6 +492,56 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
         body.appendChild(tr);
       });
       document.getElementById("revision").textContent = state.edited_at || state.revision || "";
+      renderChrome();
+    }
+    function renderChrome() {
+      var acceptance = document.getElementById("acceptance");
+      var warning = document.getElementById("unknown-warning");
+      if (!acceptance || !state) return;
+      var ok = state.acceptance && state.acceptance.ok;
+      acceptance.className = ok ? "ok" : "bad";
+      acceptance.textContent = ok ? "验收通过" : "验收未通过";
+      var ids = (state.acceptance && state.acceptance.unknown_region_ids) || [];
+      if (warning) {
+        if (ids.length) {
+          warning.hidden = false;
+          warning.textContent = "这些分段的角色还没定：" + ids.join(", ") + "。普通确认已停用。";
+        } else {
+          warning.hidden = true;
+          warning.textContent = "";
+        }
+      }
+      var meta = document.getElementById("version-meta");
+      if (meta) meta.textContent = (state.source_music_sha8 || "") + " · " + (state.confirmed_at || "尚未确认");
+      var picker = document.getElementById("version-picker");
+      if (picker && state.versions) {
+        picker.textContent = "";
+        state.versions.forEach(function (item) {
+          var option = document.createElement("option");
+          option.value = item.version_id;
+          option.textContent = item.label;
+          option.selected = item.version_id === state.version_id;
+          picker.appendChild(option);
+        });
+      }
+      var fork = document.getElementById("draft-from-confirmed");
+      if (fork) fork.hidden = !(state.read_only && !state.has_draft);
+      var save = document.getElementById("save");
+      var discard = document.getElementById("discard");
+      if (save) save.disabled = !!state.read_only;
+      if (discard) discard.disabled = !!state.read_only;
+      syncConfirm();
+    }
+    function syncConfirm() {
+      var button = document.getElementById("confirm-version");
+      if (!button) return;
+      if (!state || state.read_only) { button.disabled = true; return; }
+      var forceBox = document.getElementById("force-confirm");
+      var reasonBox = document.getElementById("force-reason");
+      var force = !!(forceBox && forceBox.checked);
+      var reason = reasonBox ? reasonBox.value.trim() : "";
+      var blocked = !(state.acceptance && state.acceptance.ok);
+      button.disabled = blocked && !(force && reason);
     }
     function rolePayload() {
       return state.regions.map(function (region) {
@@ -486,6 +549,7 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
       });
     }
     function postDraft() {
+      if (!state || state.read_only) return Promise.resolve();
       return fetch("/api/regions-draft", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -530,7 +594,7 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
       document.getElementById("playhead").textContent = formatTime(track.currentTime);
     });
     document.getElementById("play-span").addEventListener("click", playSelected);
-    document.getElementById("save").addEventListener("click", function () { if (state) postDraft(); });
+    document.getElementById("save").addEventListener("click", function () { if (state && !state.read_only) postDraft(); });
     document.getElementById("discard").addEventListener("click", function () {
       if (!state || !confirm("丢弃草稿？未锁定的修改会丢掉。")) return;
       fetch("/api/regions-draft/discard", {
@@ -544,6 +608,44 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
         });
       });
     });
+    var confirmButton = document.getElementById("confirm-version");
+    if (confirmButton) {
+      confirmButton.addEventListener("click", function () {
+        if (!state || state.read_only) return;
+        var force = document.getElementById("force-confirm").checked;
+        var reason = document.getElementById("force-reason").value.trim();
+        fetch("/api/regions-draft/confirm", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({expected_revision: state.revision, force: force, reason: reason})
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) { showError(data.error || "确认失败"); return; }
+            state = data;
+            showError("");
+            render();
+          });
+        });
+      });
+      document.getElementById("force-confirm").addEventListener("change", syncConfirm);
+      document.getElementById("force-reason").addEventListener("input", syncConfirm);
+      document.getElementById("version-picker").addEventListener("change", function () {
+        window.location.href = "/music?version=" + encodeURIComponent(this.value);
+      });
+      document.getElementById("draft-from-confirmed").addEventListener("click", function () {
+        if (!state) return;
+        fetch("/api/regions-draft/from-confirmed", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({version_id: state.version_id})
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) { showError(data.error || "另开草稿失败"); return; }
+            window.location.href = "/music?version=" + encodeURIComponent(data.version_id);
+          });
+        });
+      });
+    }
     if (state) render();
   </script>
 </body>
@@ -771,13 +873,73 @@ def _validation_message(exc: Exception) -> str:
     if isinstance(exc, ValidationError):
         parts = []
         for item in exc.errors():
+            loc = ".".join(str(part) for part in item.get("loc") or () if str(part) != "")
             message = str(item.get("msg", ""))
             if message.startswith("Value error, "):
                 message = message.removeprefix("Value error, ")
-            if message:
+            if loc and message:
+                parts.append(f"{loc}: {message}")
+            elif message:
                 parts.append(message)
         return "; ".join(parts) or "invalid regions"
     return str(exc)
+
+
+def _classify_failure(exc: Exception) -> tuple[int, str]:
+    """Map a render failure to a status and a Chinese explanation."""
+
+    if isinstance(exc, ValidationError):
+        detail = _validation_message(exc)
+        blob = f"{detail} {exc}"
+        if "json_invalid" in blob or "Invalid JSON" in blob:
+            return 400, f"分段文件不是合法的 JSON。{detail}"
+        return 400, f"分段文件有无法识别的字段或格式。{detail}"
+    if isinstance(exc, ProjectConflict):
+        text = str(exc)
+        if "drifted" in text:
+            key = text.split(":", 1)[-1].strip()
+            return 409, f"分段版本文件的校验和变了：{key}。文件和记录对不上。"
+        return 409, f"项目文件冲突：{text}"
+    return 500, f"页面渲染失败（{type(exc).__name__}）：{exc}"
+
+
+def _error_page(status: int, message: str, hint: str) -> ServeResponse:
+    page = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>确认台 · 出错了</title>
+  <style>{_PAGE_STYLE}</style>
+</head>
+<body>
+  <main>
+    <h1>这一页打不开</h1>
+    <section id="error" class="panel">{html.escape(message)}</section>
+    <p>可以在终端运行：</p>
+    <code id="hint">{html.escape(hint)}</code>
+    <p><a href="/">返回项目</a></p>
+  </main>
+</body>
+</html>
+"""
+    return ServeResponse(status, page.encode("utf-8"), "text/html; charset=utf-8")
+
+
+def _failure_response(target: str, exc: Exception, project: Path) -> ServeResponse:
+    status, message = _classify_failure(exc)
+    hint = _regions_hint(project)
+    path = unquote(urlsplit(target).path)
+    if path.startswith("/api") or path.startswith("/audio"):
+        return _error(status, message, hint)
+    return _error_page(status, message, hint)
+
+
+def _query_value(query: str, name: str) -> str | None:
+    values = parse_qs(query, keep_blank_values=False).get(name)
+    if not values:
+        return None
+    value = values[0].strip()
+    return value or None
 
 
 def playback_span_step(
@@ -821,7 +983,30 @@ def _warning_views(codes: list[str]) -> list[dict[str, str]]:
     ]
 
 
-def _desk_view(document) -> dict:
+def _version_label(status: str, version_id: str) -> str:
+    serial = version_id.removeprefix("regions-")
+    if status == "draft":
+        return f"草稿 {serial}"
+    if status == "history":
+        return f"历史确认 {serial}"
+    return f"已确认 {serial}"
+
+
+def _desk_view(paths: ProjectPaths, document) -> dict:
+    listings = list_regions_versions(paths)
+    listing_status = "draft" if document.status == "draft" else "confirmed"
+    versions = []
+    for item in listings:
+        if item.version_id == document.version_id:
+            listing_status = item.status
+        versions.append(
+            {
+                **item.model_dump(mode="json"),
+                "label": _version_label(item.status, item.version_id),
+            }
+        )
+    unknown = [region.region_id for region in document.regions.regions if region.edit_role == "unknown"]
+    blockers = _confirm_blockers(document.regions)
     return {
         "revision": document.regions_sha256,
         "version_id": document.version_id,
@@ -829,6 +1014,17 @@ def _desk_view(document) -> dict:
         "duration_seconds": document.regions.duration_seconds,
         "warnings": _warning_views(list(document.regions.warnings)),
         "regions": [_region_view(region) for region in document.regions.regions],
+        "read_only": listing_status != "draft",
+        "status": listing_status,
+        "source_music_sha8": document.source_music_sha8,
+        "confirmed_at": document.confirmed_at,
+        "has_draft": any(item.status == "draft" for item in listings),
+        "acceptance": {
+            "ok": not blockers,
+            "unknown_region_ids": unknown,
+            "blockers": blockers,
+        },
+        "versions": versions,
     }
 
 
@@ -882,16 +1078,53 @@ def _client_write_path(payload: dict) -> bool:
     return any(isinstance(payload.get(key), str) and str(payload.get(key)).strip() for key in _CLIENT_PATH_KEYS)
 
 
-def _music_desk_response(project: Path) -> ServeResponse:
+def _select_desk_unlocked(
+    paths: ProjectPaths, version_id: str | None
+) -> tuple[dict | None, ServeResponse | None]:
+    """Pick the draft, or the latest confirmed snapshot once a lock exists.
+
+    A draft is created from analyzer candidates only when the project has no
+    confirmed version yet. Opening a locked version never rewrites it.
+    """
+
+    listings = list_regions_versions(paths)
+    requested = (version_id or "").strip()
+    draft_listing = next((item for item in listings if item.status == "draft"), None)
+    latest = next((item for item in listings if item.status == "confirmed"), None)
+    if requested == "draft":
+        if draft_listing is None:
+            return None, _error(404, "没有打开的草稿。", _regions_hint(paths.root))
+        document = load_regions_version(paths, draft_listing.version_id)
+        return _desk_view(paths, document), None
+    if requested:
+        match = next((item for item in listings if item.version_id == requested), None)
+        if match is None:
+            return None, _error(404, f"没有这个分段版本：{requested}", _regions_hint(paths.root))
+        document = load_regions_version(paths, requested)
+        return _desk_view(paths, document), None
+    if draft_listing is not None:
+        document = load_regions_version(paths, draft_listing.version_id)
+        return _desk_view(paths, document), None
+    if latest is not None:
+        document = load_regions_version(paths, latest.version_id)
+        return _desk_view(paths, document), None
+    draft, failure = _ensure_draft_unlocked(paths)
+    if failure is not None or draft is None:
+        return None, failure
+    return _desk_view(paths, draft), None
+
+
+def _music_desk_response(project: Path, version_id: str | None = None) -> ServeResponse:
     paths, error = _open(project)
     if error is not None or paths is None:
         assert error is not None
         return error
-    draft, failure = _ensure_draft(paths)
-    if failure is not None or draft is None:
+    with _DRAFT_LOCK:
+        view, failure = _select_desk_unlocked(paths, version_id)
+    if failure is not None or view is None:
         assert failure is not None
         return failure
-    return _json_response(200, _desk_view(draft))
+    return _json_response(200, view)
 
 
 def _save_draft_request(project: Path, body: bytes) -> ServeResponse:
@@ -914,14 +1147,24 @@ def _save_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
             "refusing to write a client path; drafts stay inside the project root",
             "POST /api/regions-draft",
         )
-    extra = set(payload) - {"expected_revision", "regions"}
+    extra = set(payload) - {"expected_revision", "regions", "version_id"}
     if extra:
         return _error(400, _ROLE_ONLY, "POST /api/regions-draft")
     regions_payload = payload.get("regions")
     if not isinstance(regions_payload, list):
         return _error(400, _ROLE_ONLY, "POST /api/regions-draft")
     expected = payload.get("expected_revision")
+    requested_version = payload.get("version_id")
+    confirmed_ids = [
+        item.version_id
+        for item in list_regions_versions(paths)
+        if item.status in {"confirmed", "history"}
+    ]
+    if isinstance(requested_version, str) and requested_version in confirmed_ids:
+        return _error(409, "已确认的版本不能修改。", "GET /music")
     draft = load_regions_draft(paths)
+    if draft is None and confirmed_ids:
+        return _error(409, "已确认的版本不能修改。", "GET /music")
     if draft is None:
         base = _load_candidate_regions(paths)
         if base is None:
@@ -937,7 +1180,7 @@ def _save_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
         saved = save_regions_draft(paths, updated)
     except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
         return _error(400, _validation_message(exc), "POST /api/regions-draft")
-    return _json_response(200, _desk_view(saved))
+    return _json_response(200, _desk_view(paths, saved))
 
 
 def _discard_draft_request(project: Path, body: bytes) -> ServeResponse:
@@ -972,10 +1215,143 @@ def _discard_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
     )
 
 
+def _confirm_error(exc: RegionsVersionError) -> tuple[int, str]:
+    text = str(exc)
+    if "nothing to confirm" in text:
+        return 400, "没有可确认的草稿。"
+    if "force-confirm requires" in text:
+        return 400, "强制确认需要填写原因。"
+    if "reason is only accepted" in text:
+        return 400, "原因只在强制确认时才记录。请打开强制确认。"
+    if text.startswith("confirm refused:"):
+        detail = text.removeprefix("confirm refused:").strip()
+        marker = "unknown regions:"
+        if marker in detail:
+            ids = detail.split(marker, 1)[1].split(";")[0].strip()
+            return 400, f"这些分段的角色还没定：{ids}。普通确认已停用。"
+        return 400, f"验收未通过：{detail}。普通确认已停用，可打开强制确认并填写原因。"
+    return 400, f"确认失败：{text}"
+
+
+def _confirm_draft_request(project: Path, body: bytes) -> ServeResponse:
+    with _DRAFT_LOCK:
+        return _confirm_draft_unlocked(project, body)
+
+
+def _confirm_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
+    paths, error = _open(project)
+    if error is not None or paths is None:
+        assert error is not None
+        return error
+    try:
+        payload = _json_body(body)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return _error(400, f"invalid confirm request: {exc}", "POST /api/regions-draft/confirm")
+    if _client_write_path(payload):
+        return _error(
+            400,
+            "refusing to write a client path; drafts stay inside the project root",
+            "POST /api/regions-draft/confirm",
+        )
+    draft = load_regions_draft(paths)
+    if draft is None:
+        return _error(400, "没有可确认的草稿。", _regions_hint(paths.root))
+    if payload.get("expected_revision") != draft.regions_sha256:
+        return _error(409, _STALE_REVISION, "GET /api/music-desk")
+    force = bool(payload.get("force"))
+    reason = payload.get("reason")
+    try:
+        confirm_regions_draft(paths, force=force, reason=reason if isinstance(reason, str) else None)
+    except RegionsVersionError as exc:
+        status, message = _confirm_error(exc)
+        return _error(status, message, _regions_hint(paths.root))
+    document = load_regions_version(paths, draft.version_id)
+    return _json_response(200, _desk_view(paths, document))
+
+
+def _draft_from_confirmed_request(project: Path, body: bytes) -> ServeResponse:
+    with _DRAFT_LOCK:
+        return _draft_from_confirmed_unlocked(project, body)
+
+
+def _draft_from_confirmed_unlocked(project: Path, body: bytes) -> ServeResponse:
+    paths, error = _open(project)
+    if error is not None or paths is None:
+        assert error is not None
+        return error
+    try:
+        payload = _json_body(body)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return _error(400, f"invalid draft request: {exc}", "POST /api/regions-draft/from-confirmed")
+    if _client_write_path(payload):
+        return _error(
+            400,
+            "refusing to write a client path; drafts stay inside the project root",
+            "POST /api/regions-draft/from-confirmed",
+        )
+    version_id = payload.get("version_id")
+    if not isinstance(version_id, str) or not version_id.strip():
+        return _error(400, "要写明基于哪一版已确认分段另开草稿。", "POST /api/regions-draft/from-confirmed")
+    version_id = version_id.strip()
+    if load_regions_draft(paths) is not None:
+        return _error(409, "已经有打开的草稿。先确认或丢弃它，再基于确认版另开。", "GET /music")
+    try:
+        document = load_regions_version(paths, version_id)
+    except RegionsVersionError:
+        return _error(404, f"没有这个分段版本：{version_id}", _regions_hint(paths.root))
+    if document.status != "confirmed":
+        return _error(409, "只能基于已确认的版本另开草稿。", "GET /music")
+    saved = save_regions_draft(paths, document.regions)
+    return _json_response(200, _desk_view(paths, saved))
+
+
+def _music_toolbar(view: dict | None) -> str:
+    if not view:
+        return ""
+    options = []
+    for item in view.get("versions") or []:
+        selected = " selected" if item["version_id"] == view["version_id"] else ""
+        options.append(
+            f'<option value="{html.escape(str(item["version_id"]))}"{selected}>'
+            f'{html.escape(str(item["label"]))}</option>'
+        )
+    meta = html.escape(str(view.get("source_music_sha8") or ""))
+    when = view.get("confirmed_at") or "尚未确认"
+    meta = f"{meta} · {html.escape(str(when))}"
+    acceptance = view.get("acceptance") or {}
+    ok = bool(acceptance.get("ok"))
+    unknown = list(acceptance.get("unknown_region_ids") or [])
+    if unknown:
+        warning = "这些分段的角色还没定：" + ", ".join(str(item) for item in unknown) + "。普通确认已停用。"
+        warning_attr = ""
+    else:
+        warning = ""
+        warning_attr = " hidden"
+    read_only = bool(view.get("read_only"))
+    confirm_disabled = " disabled" if read_only or not ok else ""
+    fork_hidden = "" if read_only and not view.get("has_draft") else " hidden"
+    return (
+        '<div class="actions" id="version-bar">'
+        '<label>版本 <select id="version-picker">' + "".join(options) + "</select></label>"
+        f'<span id="version-meta">{meta}</span>'
+        '<button type="button" id="compare-previous" disabled title="后续版本开放">对比上次</button>'
+        "</div>"
+        f'<p id="acceptance" class="{"ok" if ok else "bad"}">{"验收通过" if ok else "验收未通过"}</p>'
+        f'<p id="unknown-warning"{warning_attr}>{html.escape(warning)}</p>'
+        '<div class="actions">'
+        f'<button type="button" id="confirm-version"{confirm_disabled}>确认分区</button>'
+        '<label><input type="checkbox" id="force-confirm"> 强制确认</label>'
+        '<input id="force-reason" type="text" placeholder="强制确认的原因">'
+        f'<button type="button" id="draft-from-confirmed"{fork_hidden}>基于此版另开草稿</button>'
+        "</div>"
+    )
+
+
 def _music_rows(view: dict | None) -> tuple[str, str]:
     if not view:
         return "", ""
     duration = float(view["duration_seconds"]) or 1.0
+    select_disabled = " disabled" if view.get("read_only") else ""
     strips: list[str] = []
     rows: list[str] = []
     options = "".join(
@@ -1005,12 +1381,13 @@ def _music_rows(view: dict | None) -> tuple[str, str]:
         rows.append(
             "<tr data-region-id=\"{rid}\" class=\"{unknown}\">"
             "<td>{span}</td>"
-            "<td><select>{options}</select></td>"
+            "<td><select{select_disabled}>{options}</select></td>"
             "<td>{shot}</td><td>{snap} <small>{snap_code}</small></td>"
             "<td>{confidence}</td><td>{warning}</td><td>{source}</td>"
             "</tr>".format(
                 rid=html.escape(str(region["region_id"])),
                 unknown=unknown.strip(),
+                select_disabled=select_disabled,
                 options=selected,
                 span=html.escape(f"{float(region['start']):.1f}–{float(region['end']):.1f}"),
                 shot=html.escape(f"{float(region['suggested_shot_mean_s']):.1f}"),
@@ -1024,7 +1401,7 @@ def _music_rows(view: dict | None) -> tuple[str, str]:
     return "".join(strips), "".join(rows)
 
 
-def render_music_page(project: Path) -> str:
+def render_music_page(project: Path, version_id: str | None = None) -> str:
     name, full = _resolved_project(project)
     paths, error = _open(project)
     view = None
@@ -1036,14 +1413,14 @@ def render_music_page(project: Path) -> str:
         hidden = ""
     else:
         assert paths is not None
-        draft, failure = _ensure_draft(paths)
-        if failure is not None or draft is None:
+        with _DRAFT_LOCK:
+            view, failure = _select_desk_unlocked(paths, version_id)
+        if failure is not None or view is None:
             assert failure is not None
             payload = json.loads(failure.body.decode("utf-8"))
             message = str(payload.get("error") or "")
             hidden = ""
-        else:
-            view = _desk_view(draft)
+            view = None
     strip, rows = _music_rows(view)
     data = "null" if view is None else json.dumps(view, ensure_ascii=False).replace("<", "\\u003c")
     page = _MUSIC_PAGE_TEMPLATE
@@ -1052,6 +1429,8 @@ def render_music_page(project: Path) -> str:
     page = page.replace("__PROJECT_PATH__", html.escape(full))
     page = page.replace("__ERROR_HIDDEN__", hidden)
     page = page.replace("__ERROR_TEXT__", html.escape(message))
+    page = page.replace("__TOOLBAR__", _music_toolbar(view))
+    page = page.replace("__SAVE_DISABLED__", " disabled" if view and view.get("read_only") else "")
     page = page.replace("__STRIP__", strip)
     page = page.replace("__ROWS__", rows)
     page = page.replace("__DATA__", data)
@@ -1296,19 +1675,42 @@ def handle_confirm_request(
     headers: Mapping[str, str] | None = None,
     body: bytes = b"",
 ) -> ServeResponse:
-    """Answer one confirm-desk request. ``target`` is the raw request path."""
+    """Answer one confirm-desk request. ``target`` is the raw request path.
 
+    Any exception becomes a Chinese HTML page or JSON body. The socket always
+    gets a response.
+    """
+
+    project = Path(getattr(server, "project_root", "."))
+    try:
+        return _dispatch_confirm_request(server, method, target, headers, body)
+    except Exception as exc:
+        return _failure_response(target, exc, project)
+
+
+def _dispatch_confirm_request(
+    server: ThreadingHTTPServer,
+    method: str,
+    target: str,
+    headers: Mapping[str, str] | None = None,
+    body: bytes = b"",
+) -> ServeResponse:
     project = Path(server.project_root)  # type: ignore[attr-defined]
     if _traversal_requested(target):
         return _error(400, "path traversal refused", "GET /audio/frozen")
     parsed = urlsplit(target)
     path = unquote(parsed.path)
+    version = _query_value(parsed.query, "version")
     if method == "POST" and path == "/api/project":
         return _switch_project(server, body)
     if method == "POST" and path == "/api/reveal":
         return _reveal_project(server, body)
     if method == "POST" and path == "/api/regions-draft":
         return _save_draft_request(project, body)
+    if method == "POST" and path == "/api/regions-draft/confirm":
+        return _confirm_draft_request(project, body)
+    if method == "POST" and path == "/api/regions-draft/from-confirmed":
+        return _draft_from_confirmed_request(project, body)
     if method == "POST" and path == "/api/regions-draft/discard":
         return _discard_draft_request(project, body)
     if method not in {"GET", "HEAD"}:
@@ -1316,11 +1718,11 @@ def handle_confirm_request(
     if path == "/":
         return _html(render_project_page(project))
     if path == "/music":
-        return _html(render_music_page(project))
+        return _html(render_music_page(project, version))
     if path == "/export":
         return _html(_EXPORT_HTML)
     if path == "/api/music-desk":
-        return _music_desk_response(project)
+        return _music_desk_response(project, version)
     if path == "/api/status":
         return project_status(project)
     if path == "/api/recent":
@@ -1372,9 +1774,13 @@ class _ConfirmDeskHandler(BaseHTTPRequestHandler):
                 return
             if length:
                 body = self.rfile.read(length)
-        response = handle_confirm_request(
-            self.server, method, self.path, dict(self.headers.items()), body
-        )
+        try:
+            response = handle_confirm_request(
+                self.server, method, self.path, dict(self.headers.items()), body
+            )
+        except Exception as exc:
+            root = Path(getattr(self.server, "project_root", "."))
+            response = _failure_response(self.path, exc, root)
         self._write(method, response)
 
     def _write(self, method: str, response: ServeResponse) -> None:

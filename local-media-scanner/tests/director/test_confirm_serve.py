@@ -1,7 +1,7 @@
-"""Local confirm desk: project page, music draft edits, and frozen audio.
+"""Local confirm desk: project page, music draft edits, confirm/lock, and audio.
 
-The server is a stdlib ThreadingHTTPServer bound to one project. Slice 4 writes
-the regions draft only. It does not confirm, re-run analysis, or export FCPXML.
+The server is a stdlib ThreadingHTTPServer bound to one project. Slice 6 locks
+a draft into a confirmed version. It does not re-run analysis or export FCPXML.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import re
 import time
 from pathlib import Path
 
@@ -654,7 +655,7 @@ def test_music_page_renders_role_rows_warnings_and_loop(desk) -> None:
     assert "expected_revision" in text
     assert "加一段" not in text
     assert 'type="number"' not in text
-    assert "enabled" not in text
+    assert '"enabled"' not in text
     assert "锁定版本" not in text
     assert "waveform" not in text.lower()
     assert paths.root.name in text
@@ -722,3 +723,366 @@ def test_project_page_chinese_steps_next_step_and_unique_hints(desk) -> None:
     assert payload["progress"]["next"] is None
     assert payload["progress"]["steps"][3]["state"] == "完成"
     assert all(step["state"] == "完成" for step in payload["progress"]["steps"])
+
+
+def _versions_dir(paths: Path):
+    return paths.root / "music_edit_regions_versions"
+
+
+def _retarget_hash(paths, path: Path, state_key: str) -> None:
+    from director.project import _sha256_file, _write_state, load_project_state
+
+    state = load_project_state(paths)
+    state.completed_artifact_hashes[state_key] = _sha256_file(path)
+    _write_state(paths, state)
+
+
+def _open_analyzer_draft(paths, server, document=None):
+    document = _record_regions(paths, document)
+    status, opened = _json(_port(server), "/api/music-desk")
+    assert status == 200, opened
+    return document, opened
+
+
+def _assert_explained_failure(status: int, headers: dict, body: bytes, *, code: int) -> str:
+    assert status == code, body
+    assert body
+    assert "html" in headers.get("content-type", "") or "json" in headers.get("content-type", "")
+    text = body.decode("utf-8")
+    assert "travel-director" in text
+    assert any("\u4e00" <= char <= "\u9fff" for char in text)
+    return text
+
+
+def test_invalid_draft_json_returns_chinese_error_page_and_json(desk) -> None:
+    paths, server = desk
+    _open_analyzer_draft(paths, server)
+    draft = _versions_dir(paths) / "draft.json"
+    draft.write_text("{", encoding="utf-8")
+    _retarget_hash(paths, draft, "music_edit_regions_version_draft")
+    port = _port(server)
+
+    status, headers, body = _request(port, "/music")
+    text = _assert_explained_failure(status, headers, body, code=400)
+    assert "JSON" in text
+    assert 'id="error"' in text
+
+    status, headers, body = _request(port, "/api/music-desk")
+    text = _assert_explained_failure(status, headers, body, code=400)
+    assert "JSON" in text
+    payload = json.loads(body.decode("utf-8"))
+    assert payload["hint"].startswith("travel-director ")
+
+
+def test_index_hash_drift_returns_chinese_conflict(desk) -> None:
+    paths, server = desk
+    _open_analyzer_draft(paths, server)
+    index = _versions_dir(paths) / "index.json"
+    index.write_text(index.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    port = _port(server)
+
+    status, headers, body = _request(port, "/music")
+    text = _assert_explained_failure(status, headers, body, code=409)
+    assert "music_edit_regions_versions_index" in text
+    assert "校验和" in text
+
+    status, headers, body = _request(port, "/api/status")
+    text = _assert_explained_failure(status, headers, body, code=409)
+    assert "music_edit_regions_versions_index" in text
+    assert "校验和" in json.loads(body.decode("utf-8"))["error"]
+
+
+def test_extra_enabled_field_returns_chinese_validation_error(desk) -> None:
+    paths, server = desk
+    _open_analyzer_draft(paths, server)
+    draft = _versions_dir(paths) / "draft.json"
+    payload = json.loads(draft.read_text(encoding="utf-8"))
+    payload["regions"]["regions"][0]["enabled"] = False
+    draft.write_text(json.dumps(payload), encoding="utf-8")
+    _retarget_hash(paths, draft, "music_edit_regions_version_draft")
+    port = _port(server)
+
+    status, headers, body = _request(port, "/music")
+    text = _assert_explained_failure(status, headers, body, code=400)
+    assert "enabled" in text
+    assert "字段" in text
+
+    status, headers, body = _request(port, "/api/music-desk")
+    text = _assert_explained_failure(status, headers, body, code=400)
+    assert "enabled" in text
+    payload = json.loads(body.decode("utf-8"))
+    assert "travel-director" in payload["hint"]
+
+
+def test_confirm_passes_validator_locks_version_and_updates_project_step(desk) -> None:
+    from director.music_edit_regions_versions import (
+        RegionsConfirmGateError,
+        list_regions_receipts,
+        load_regions_draft,
+        load_regions_version,
+        require_confirmed_regions_version,
+    )
+
+    paths, server = desk
+    _open_analyzer_draft(paths, server)
+    port = _port(server)
+    _status, opened = _json(port, "/api/music-desk")
+    assert opened["acceptance"]["ok"] is True
+    assert opened["read_only"] is False
+    assert opened["source_music_sha8"] == "aaaaaaaa"
+
+    page_status, _headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+    assert page_status == 200
+    assert 'id="acceptance"' in text and "验收通过" in text
+    assert "确认分区" in text
+    confirm_tag = re.search(r'<button[^>]*id="confirm-version"[^>]*>', text)
+    assert confirm_tag is not None and "disabled" not in confirm_tag.group(0)
+    assert 'id="force-confirm"' in text
+    assert re.search(r'id="force-confirm"[^>]*checked', text) is None
+    assert "对比上次" in text and 'title="后续版本开放"' in text
+    assert 'id="version-picker"' in text and "草稿" in text
+
+    stale, stale_body = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": "0" * 64, "force": False, "reason": ""},
+    )
+    assert stale == 409
+    assert "revision" in stale_body["error"]
+    assert load_regions_draft(paths) is not None
+
+    code, locked = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": opened["revision"], "force": False, "reason": ""},
+    )
+    assert code == 200, locked
+    assert locked["read_only"] is True
+    assert locked["status"] == "confirmed"
+    assert locked["version_id"] == "regions-v01"
+    assert locked["confirmed_at"]
+    assert load_regions_draft(paths) is None
+
+    stored = load_regions_version(paths, "regions-v01")
+    assert stored.status == "confirmed"
+    assert stored.confirmed_by == "user"
+    receipts = [item for item in list_regions_receipts(paths) if item.action == "confirm"]
+    assert len(receipts) == 1
+    assert receipts[0].override is False
+    assert receipts[0].reason is None
+
+    assert require_confirmed_regions_version(paths, "regions-v01").version_id == "regions-v01"
+    with pytest.raises(RegionsConfirmGateError):
+        require_confirmed_regions_version(paths, "latest")
+    with pytest.raises(RegionsConfirmGateError):
+        require_confirmed_regions_version(paths, "draft")
+
+    status_code, payload = _json(port, "/api/status")
+    assert status_code == 200
+    assert payload["regions_versions"]["confirmed_count"] == 1
+    assert payload["progress"]["steps"][2]["title"] == "分段已确认"
+    assert payload["progress"]["steps"][2]["state"] == "完成"
+
+    page_status, _headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+    assert page_status == 200
+    assert "已确认 v01" in text
+    assert "aaaaaaaa" in text
+    assert locked["confirmed_at"] in text
+    assert "基于此版另开草稿" in text
+    assert "<select disabled>" in text
+    assert not (_versions_dir(paths) / "draft.json").exists()
+
+    code, listing = _json(port, "/api/regions-versions")
+    assert code == 200
+    assert listing["versions"][0]["status"] == "confirmed"
+    assert listing["versions"][0]["source_music_sha8"] == "aaaaaaaa"
+    assert listing["versions"][0]["confirmed_at"] == locked["confirmed_at"]
+
+
+def test_unknown_blocks_confirm_until_force_records_reason(desk) -> None:
+    from director.music_edit_regions_versions import (
+        list_regions_receipts,
+        load_regions_draft,
+        load_regions_version,
+    )
+
+    paths, server = desk
+    document = _document()
+    regions = [
+        region.model_copy(update={"edit_role": "unknown"}) if region.region_id == "r2" else region
+        for region in document.regions
+    ]
+    document = document.model_copy(update={"regions": regions})
+    _open_analyzer_draft(paths, server, document)
+    port = _port(server)
+    _status, opened = _json(port, "/api/music-desk")
+    assert opened["acceptance"]["ok"] is False
+    assert opened["acceptance"]["unknown_region_ids"] == ["r2"]
+
+    _page_status, _headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+    assert "验收未通过" in text
+    assert 'id="unknown-warning"' in text
+    assert "这些分段的角色还没定" in text and "r2" in text
+    confirm_tag = re.search(r'<button[^>]*id="confirm-version"[^>]*>', text)
+    assert confirm_tag is not None and "disabled" in confirm_tag.group(0)
+
+    code, body = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": opened["revision"], "force": False, "reason": ""},
+    )
+    assert code == 400
+    assert "r2" in body["error"]
+    assert "普通确认" in body["error"]
+    assert load_regions_draft(paths) is not None
+
+    code, body = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": opened["revision"], "force": True, "reason": "   "},
+    )
+    assert code == 400
+    assert "原因" in body["error"]
+    assert load_regions_draft(paths) is not None
+
+    code, body = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": opened["revision"], "force": False, "reason": "听过了"},
+    )
+    assert code == 400
+    assert load_regions_draft(paths) is not None
+
+    code, locked = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {
+            "expected_revision": opened["revision"],
+            "force": True,
+            "reason": "听过了，先按未定角色锁定",
+        },
+    )
+    assert code == 200, locked
+    assert locked["read_only"] is True
+    stored = load_regions_version(paths, locked["version_id"])
+    assert stored.confirmed_by == "user"
+    receipts = [item for item in list_regions_receipts(paths) if item.action == "confirm"]
+    assert receipts[-1].override is True
+    assert receipts[-1].reason == "听过了，先按未定角色锁定"
+
+
+def test_confirmed_write_is_409_and_new_draft_copies_without_mutating(desk) -> None:
+    from director.music_edit_regions_versions import load_regions_draft
+
+    paths, server = desk
+    document, opened = _open_analyzer_draft(paths, server)
+    port = _port(server)
+    code, locked = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": opened["revision"], "force": False, "reason": ""},
+    )
+    assert code == 200, locked
+    confirmed = _versions_dir(paths) / "confirmed" / "regions-v01.json"
+    before = confirmed.read_bytes()
+
+    code, body = _post_json(
+        port,
+        "/api/regions-draft",
+        {"expected_revision": locked["revision"], "regions": _role_payload(document)},
+    )
+    assert code == 409
+    assert "已确认" in body["error"]
+    assert "不能修改" in body["error"]
+    assert confirmed.read_bytes() == before
+    assert load_regions_draft(paths) is None
+
+    code, viewed = _json(port, "/api/music-desk?version=regions-v01")
+    assert code == 200
+    assert viewed["read_only"] is True
+    assert viewed["version_id"] == "regions-v01"
+    assert viewed["status"] == "confirmed"
+
+    code, copied = _post_json(
+        port, "/api/regions-draft/from-confirmed", {"version_id": "regions-v01"}
+    )
+    assert code == 200, copied
+    assert copied["read_only"] is False
+    assert copied["status"] == "draft"
+    assert copied["version_id"] == "regions-v02"
+    assert [item["edit_role"] for item in copied["regions"]] == [
+        region.edit_role for region in document.regions
+    ]
+    assert confirmed.read_bytes() == before
+    draft = load_regions_draft(paths)
+    assert draft is not None
+    assert draft.parent_version_id == "regions-v01"
+    assert draft.regions_sha256 != "" 
+
+    code, again = _post_json(
+        port, "/api/regions-draft/from-confirmed", {"version_id": "regions-v01"}
+    )
+    assert code == 409
+    assert "草稿" in again["error"]
+    assert confirmed.read_bytes() == before
+
+    _page_status, _headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+    assert "草稿" in text
+    assert "已确认 v01" in text
+    assert "<select disabled>" not in text
+
+
+def test_version_picker_lists_history_confirmed_and_bound_track(desk) -> None:
+    paths, server = desk
+    document, opened = _open_analyzer_draft(paths, server)
+    port = _port(server)
+    code, _locked = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": opened["revision"], "force": False, "reason": ""},
+    )
+    assert code == 200
+    code, copied = _post_json(
+        port, "/api/regions-draft/from-confirmed", {"version_id": "regions-v01"}
+    )
+    assert code == 200, copied
+    roles = _role_payload(document)
+    roles[1]["edit_role"] = "build"
+    code, saved = _post_json(
+        port,
+        "/api/regions-draft",
+        {"expected_revision": copied["revision"], "regions": roles},
+    )
+    assert code == 200, saved
+    code, second = _post_json(
+        port,
+        "/api/regions-draft/confirm",
+        {"expected_revision": saved["revision"], "force": False, "reason": ""},
+    )
+    assert code == 200, second
+    assert second["version_id"] == "regions-v02"
+
+    code, listing = _json(port, "/api/regions-versions")
+    statuses = {item["version_id"]: item["status"] for item in listing["versions"]}
+    assert statuses == {"regions-v01": "history", "regions-v02": "confirmed"}
+    assert {item["source_music_sha8"] for item in listing["versions"]} == {"aaaaaaaa"}
+
+    _page_status, _headers, page = _request(port, "/music")
+    text = page.decode("utf-8")
+    assert "已确认 v02" in text
+    assert "历史确认 v01" in text
+    assert "aaaaaaaa" in text
+    assert second["confirmed_at"] in text
+    assert "<select disabled>" in text
+    assert "基于此版另开草稿" in text
+
+    _page_status, _headers, older = _request(port, "/music?version=regions-v01")
+    older_text = older.decode("utf-8")
+    assert "历史确认 v01" in text or "历史确认 v01" in older_text
+    assert "<select disabled>" in older_text
+    selected = re.search(r'<option[^>]*value="regions-v01"[^>]*>', older_text)
+    assert selected is not None and "selected" in selected.group(0)

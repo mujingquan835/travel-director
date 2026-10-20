@@ -29,7 +29,15 @@ A bad path stays on the page as text, with the same copyable `travel-director �
 
 ## Music page `/music`
 
-Opening the page loads analyzer candidates and the open draft. If there is no draft, one is created from `music_edit_regions.json` through `save_regions_draft`. Milestone A does not edit boundaries or add, split, or delete regions.
+Opening the page loads the open draft. If there is no draft and nothing has been confirmed yet, one is created from `music_edit_regions.json` through `save_regions_draft`. After a version is confirmed, the page shows that locked snapshot and does not create a draft until you ask. Milestone A does not edit boundaries or add, split, or delete regions.
+
+The top bar has a version menu (草稿, 已确认 vNN, 历史确认), the bound track's first 8 hash characters, and the confirm time. **确认分区** runs the existing validator. On success it writes a confirmed snapshot and a receipt with `confirmed_by=user`, then the version is locked. There is no unconfirm.
+
+A red/green bar shows 验收未通过 or 验收通过. If any region is `unknown`, the page lists those rows and the normal confirm button stays disabled. **强制确认** is off until you check it and type a non-empty reason; the confirm receipt then stores `override` and that reason. The same override covers a validator failure.
+
+A confirmed or history version is read-only: role dropdowns are disabled, and `POST /api/regions-draft` answers `409`. **基于此版另开草稿** copies that snapshot into a new draft and leaves the confirmed file unchanged. **对比上次** is disabled, with the tooltip 后续版本开放.
+
+A broken draft or a drifted artifact hash does not drop the connection. The page or JSON API returns HTTP 4xx/5xx, a Chinese explanation, and a `travel-director` command.
 
 Each row shows:
 
@@ -44,7 +52,7 @@ Each row shows:
 
 **保存草稿** sends the current roles. **丢弃草稿** asks for confirmation, then `POST /api/regions-draft/discard`.
 
-Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`. **循环** seeks back to the span start when the playhead reaches the end (with a small tolerance for `timeupdate`). The page shows the current time. Confirm/lock is not on this page. There is no waveform.
+Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`. **循环** seeks back to the span start when the playhead reaches the end (with a small tolerance for `timeupdate`). The page shows the current time. There is no waveform.
 
 `/export` says `导出：后续版本开放`.
 
@@ -54,10 +62,12 @@ Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`
 | --- | --- |
 | `/api/status` | Frozen music, regions file, version counts, FCPXML package and receipt, deduped `hints`, and `progress` |
 | `/api/recent` | Recent project paths |
-| `/api/music-desk` | Open draft, creating it from candidates when missing |
+| `/api/music-desk` | Open draft, or the selected `?version=`. Creates a candidate draft only when nothing is confirmed |
 | `POST /api/project` | Switch the project this process is showing |
 | `POST /api/reveal` | Open the resolved project root in the file manager |
-| `POST /api/regions-draft` | Change `edit_role` only, when `expected_revision` matches |
+| `POST /api/regions-draft` | Change `edit_role` only, when `expected_revision` matches. Confirmed versions are `409` |
+| `POST /api/regions-draft/confirm` | Lock the open draft. `force` plus a non-empty `reason` records an override |
+| `POST /api/regions-draft/from-confirmed` | Copy a confirmed snapshot into a new draft |
 | `POST /api/regions-draft/discard` | Delete the open draft when `expected_revision` matches |
 | `/api/regions-versions` | Draft / confirmed / history listings |
 | `/api/regions-versions/draft` | Open draft document |
@@ -67,4 +77,4 @@ Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`
 
 `/audio/frozen` answers `Range: bytes=` with `206 Partial Content`. Request targets that contain `..`, and a frozen path that resolves outside the project, are refused.
 
-This desk does not confirm a regions version, re-run analysis, or export FCPXML.
+Export still calls `require_confirmed_regions_version` and refuses `latest` or `draft`. The project page step 分段已确认 is complete once `confirmed_count` is at least one. This desk does not re-run analysis or build an FCPXML package. There is no waveform.

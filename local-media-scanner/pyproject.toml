@@ -27,6 +27,11 @@ dev = [
   "pytest>=8.3,<10",
   "pytest-cov>=6,<8",
 ]
+beat = [
+  "torch>=2.7,<3",
+  "torchaudio>=2.7,<3",
+  "beat-this>=1.0,<2",
+]
 
 [project.scripts]
 travel-scanner = "scanner.cli:app"

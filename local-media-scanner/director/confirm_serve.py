@@ -90,6 +90,11 @@ WARNING_LABELS = {
     "short_region_unmerged": "有很短的一段没能并进旁边",
     "target_window_clipped": "目标时长被整曲长度截断了",
     "missing_settle_outro": "结尾没有收尾段",
+    "meter_assumed_4_4": "拍号按 4/4 估计，曲子如果不是 4/4，强拍会偏",
+    "downbeat_phase_heuristic": "强拍由起音相位估计；置信度太低时退回每四拍",
+    "beat_grid_gaps": "有的拍点之间空了一截，缺口里的刀口会弱一些",
+    "boundary_snapped": "镜头刀口吸到了附近的拍上，分区本身没有移动",
+    "slot_budget_exception": "有的镜头短于本段镜长下限，属于列出的加速或转场",
 }
 _PROGRESS_STEPS = (
     {
@@ -726,6 +731,21 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
         "beats_seconds": list(document.regions.beats_seconds),
         "downbeats_seconds": list(document.regions.downbeats_seconds),
         "provider": document.regions.provider,
+        "shot_slots": [slot.model_dump(mode="json") for slot in document.regions.shot_slots],
+        "phrases": [phrase.model_dump(mode="json") for phrase in document.regions.phrases],
+        "region_cut_anchors": [
+            anchor.model_dump(mode="json") for anchor in document.regions.region_cut_anchors
+        ],
+        "breath_marks": list(document.regions.breath_marks),
+        "beat_grid": (
+            document.regions.beat_grid.model_dump(mode="json")
+            if document.regions.beat_grid is not None
+            else None
+        ),
+        "beat_backend": document.regions.beat_backend,
+        "beat_backend_note": document.regions.beat_backend_note,
+        "downbeat_confidence": document.regions.downbeat_confidence,
+        "downbeat_detector": document.regions.downbeat_detector,
         "schema_version": document.regions.schema_version,
         "confidence": document.regions.confidence,
     }
@@ -769,12 +789,19 @@ def _apply_role_edits(base: MusicEditRegions, payload: list) -> MusicEditRegions
     if set(chosen) != set(current):
         raise ValueError(_ROLE_ONLY)
     updated: list[MusicEditRegion] = []
+    changed = False
     for region in base.regions:
         role = chosen[region.region_id]
         if role != region.edit_role:
+            changed = True
             region = region.model_copy(update={"edit_role": role, "evidence_basis": "manual"})
         updated.append(region)
-    return base.model_copy(update={"regions": updated})
+    document = base.model_copy(update={"regions": updated})
+    if changed and document.beats:
+        from director.shot_slots import plan_shot_slots
+
+        document = plan_shot_slots(document)
+    return document
 
 
 def _client_write_path(payload: dict) -> bool:

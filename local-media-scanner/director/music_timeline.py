@@ -1,9 +1,11 @@
 """Timeline page for ``/music``.
 
 The layout follows the approved static mock: transport, ruler, music lane,
-beat ticks, colored region blocks, and a placeholder shot lane. Blocks are
-HTML positioned by time. They are not draggable. Role changes go through the
-existing draft API. Confirmed versions render a disabled role control.
+beat ticks, colored region blocks, and a shot lane. Blocks are HTML positioned
+by time. They are not draggable. When the analyzer stored shot slots, the shot
+lane uses those lengths and a zoom of the selected region. Otherwise the lane
+stays the empty equal-slot placeholder. Role changes go through the existing
+draft API. Confirmed versions render a disabled role control.
 
 Peaks are fetched from ``/api/`` + ``wave`` + ``form-peaks`` and drawn by the
 vendored wavesurfer build. The page does not decode the file itself.
@@ -40,16 +42,16 @@ html,body{margin:0;background:var(--bg);color:var(--ink);
 body{height:100vh;overflow:hidden;display:flex;flex-direction:column}
 button,select,input{font-family:inherit;font-size:13px;color:var(--ink)}
 a{color:var(--accent);text-decoration:none}
-.btn{height:30px;padding:0 12px;border:1px solid #d6d3c9;background:#fffefb;border-radius:6px;cursor:pointer}
+.btn{height:30px;padding:0 10px;border:1px solid #d6d3c9;background:#fffefb;border-radius:6px;cursor:pointer}
 .btn.primary{background:#3f5a63;border-color:#3f5a63;color:#f7f6f1}
 .btn.ghost{background:transparent}
 .btn.danger{color:var(--danger)}
 .btn.on{background:#e6ece9;border-color:#a9bab4}
 .btn:disabled,.btn[disabled]{opacity:.45;cursor:default}
-.top{flex:none;display:flex;align-items:center;gap:10px 14px;padding:8px 24px;min-height:56px;
+.top{flex:none;display:flex;align-items:center;gap:6px 8px;padding:6px 16px;min-height:52px;
   border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 .logo{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#dcdcd2 70%);border:1px solid #cfccc1;flex:none}
-.brand{min-width:140px}
+.brand{min-width:0;max-width:280px}
 .pname{font-size:16px;font-weight:600;letter-spacing:.5px;line-height:1.2}
 .psub{color:var(--mute);font-size:12px}
 .ver{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid #d6d3c9;border-radius:6px;background:#fffefb}
@@ -60,7 +62,7 @@ a{color:var(--accent);text-decoration:none}
 #acceptance.bad{background:var(--warnbg);color:var(--warn);border:1px solid #e8d4ae}
 #unknown-warning{flex-basis:100%;margin:0;padding:4px 10px;border-radius:6px;background:var(--warnbg);color:#7a5520;border:1px solid #ecdcbb}
 #unknown-warning[hidden]{display:none}
-#force-reason{height:30px;border:1px solid #cfccc1;border-radius:5px;background:#fffefb;padding:0 8px;width:180px}
+#force-reason{height:30px;border:1px solid #cfccc1;border-radius:5px;background:#fffefb;padding:0 8px;width:132px}
 .transport{height:42px;flex:none;display:flex;align-items:center;gap:12px;padding:0 24px;color:var(--ink2);font-size:12px}
 .tc{font-family:"DejaVu Sans Mono",monospace;font-size:14px;color:var(--ink)}
 .tc small{color:var(--mute);font-size:12px}
@@ -145,6 +147,45 @@ details#region-list{margin-top:4px}
 details#region-list summary{cursor:pointer;color:var(--mute);font-size:12px}
 details#region-list ul{margin:6px 0 0;padding-left:18px;color:var(--ink2);font-size:12px}
 audio{position:absolute;width:0;height:0;opacity:0}
+body.has-slots{--hdr:108px}
+body.has-slots .transport{height:36px}
+body.has-slots .r-mark .lane{height:16px}
+body.has-slots .r-ruler .lane{height:24px}
+body.has-slots .r-wave .lane{height:64px}
+body.has-slots #wave{top:4px;height:56px}
+body.has-slots .r-beat .lane{height:16px}
+body.has-slots .r-reg .lane{height:46px}
+body.has-slots .r-phrase .lane{height:22px}
+body.has-slots .r-shot .lane{height:72px}
+body.has-slots .r-how .lane{height:34px}
+body.has-slots .insp{margin-top:8px}
+#beat-backend-note{flex:none;margin:0 24px 6px;padding:4px 10px;background:#f6ecd9;border:1px solid #e8d4ae;border-radius:6px;color:#7a5520;font-size:12px;line-height:1.45}
+.phr{position:absolute;top:3px;bottom:3px;border:1px solid #c5c9c6;border-bottom:none;border-radius:5px 5px 0 0;color:#6a7378;font-size:11px;padding:0 4px;overflow:hidden;white-space:nowrap}
+.how{position:absolute;top:2px;bottom:2px;padding:1px 4px;overflow:hidden;color:#3c4448;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sl{position:absolute;top:4px;bottom:8px;border-radius:3px;overflow:hidden;color:#2e3336;font-size:11px;line-height:1.15;padding:2px 3px 0 5px;cursor:pointer;border:1px solid rgba(0,0,0,.12)}
+.sl.fast{top:14px;color:#fff}
+.sl.faint,.zshot.faint{border-style:dashed}
+.sl.pending{color:#5a4a2a;background:repeating-linear-gradient(-45deg,#efe4cc 0 4px,#e2d3b1 4px 8px)}
+.sl.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:2}
+.sl .cutedge{position:absolute;left:0;top:0;bottom:0;width:2px;background:#2e3336}
+.sl b{font-weight:650}
+.sl em{display:block;font-style:normal;font-size:10px;opacity:.85}
+.exc{position:absolute;left:4px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#d07a2a}
+.accent-mark{position:absolute;top:0;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #c0453a;transform:translateX(-4px)}
+.breath-mark{position:absolute;top:0;transform:translateX(-6px);color:#3d6f9a;font-size:11px;font-weight:700}
+.orig-bound{position:absolute;top:0;bottom:0;border-left:1px dashed #8d9396}
+.density{position:absolute;top:18px;bottom:10px;border-radius:3px;background:#c7b2b6;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center}
+.zoom{flex:none;margin:8px 24px 0;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 12px 10px}
+.zoom h3{margin:0 0 6px;font-size:13px;font-weight:600}
+.zoom .note{margin:0 0 6px}
+.zlane{position:relative;height:78px;margin:0 0 6px;background:#f3f2ec;border-radius:4px}
+.zold{position:relative;height:18px;margin-top:4px}
+.zshot,.osl{position:absolute;top:8px;bottom:6px;border-radius:3px;overflow:hidden;font-size:12px;line-height:1.2;padding:2px 4px;border:1px solid rgba(0,0,0,.12);color:#2e3336}
+.zshot.fast{color:#fff}
+.osl{top:1px;bottom:1px;background:#eceae4;color:#8a9094;font-size:10px;border-style:dashed}
+#slot-detail p{margin:0 0 4px;font-size:12px;line-height:1.4}
+#how-list{margin:0;padding-left:16px;font-size:12px;line-height:1.4;color:var(--ink2)}
+.typelegend{font-size:11px;color:var(--mute);line-height:1.4}
 """
 
 
@@ -320,6 +361,241 @@ def _shots_html(view: dict, duration: float, selected: str) -> str:
     return "".join(parts)
 
 
+def _rgba(hex_color: str, alpha: float) -> str:
+    text = hex_color.lstrip("#")
+    if len(text) != 6:
+        return f"rgba(127,158,156,{alpha})"
+    red, green, blue = int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+    return f"rgba({red},{green},{blue},{alpha})"
+
+
+def _pace_alpha(pace: str) -> float:
+    if pace == "hold":
+        return 0.28
+    if pace == "fast":
+        return 0.92
+    return 0.55
+
+
+def _planned_slot_div(slot: dict, duration: float, *, zoom: tuple[float, float] | None = None) -> str:
+    start = float(slot["start"])
+    end = float(slot["end"])
+    if zoom is None:
+        left = start / duration * 100
+        width = (end - start) / duration * 100
+        pixels = (end - start) / duration * 1200
+        css = "sl"
+    else:
+        origin, span = zoom
+        left = (start - origin) / span * 100
+        width = (end - start) / span * 100
+        pixels = (end - start) / span * 1200
+        css = "zshot"
+    role = str(slot.get("role") or "")
+    pace = str(slot.get("pace") or "medium")
+    classes = [css, "fast" if pace == "fast" else "hold" if pace == "hold" else "med"]
+    if float(slot.get("confidence") or 1) < 0.5:
+        classes.append("faint")
+    if slot.get("shot_type") == "?":
+        classes.append("pending")
+        style = f"left:{left:.3f}%;width:{max(width, 0.2):.3f}%"
+    else:
+        color = ROLE_COLORS.get(role, "#7f9e9c")
+        style = (
+            f"left:{left:.3f}%;width:{max(width, 0.2):.3f}%;"
+            f"background:{_rgba(color, _pace_alpha(pace))}"
+        )
+    label = ""
+    if pixels >= 13:
+        label = f"<b>{html.escape(str(slot.get('shot_type') or ''))}</b>"
+    if pixels >= 40:
+        label += f"<em>{end - start:.2f}s</em>"
+    extra = '<i class="exc"></i>' if slot.get("budget_exception") else ""
+    edge = '<i class="cutedge"></i>' if css == "sl" else ""
+    title = html.escape(str(slot.get("reason_zh") or ""))
+    return (
+        f'<div class="{" ".join(classes)}" data-slot-id="{html.escape(str(slot["slot_id"]))}" '
+        f'data-region-id="{html.escape(str(slot["region_id"]))}" style="{style}" title="{title}">'
+        f"{edge}{label}{extra}</div>"
+    )
+
+
+def _with_role(view: dict, slot: dict) -> dict:
+    payload = dict(slot)
+    for region in view.get("regions") or []:
+        if str(region["region_id"]) == str(slot["region_id"]):
+            payload["role"] = region.get("edit_role")
+            break
+    return payload
+
+
+def _planned_shots_html(view: dict, duration: float) -> str:
+    slots = [_with_role(view, slot) for slot in view.get("shot_slots") or []]
+    threshold = 3 * duration / 1200 if duration >= 180 else 0.0
+    parts: list[str] = []
+    bucket: list[dict] = []
+
+    def flush() -> None:
+        if not bucket:
+            return
+        if len(bucket) == 1 or threshold <= 0:
+            parts.append(_planned_slot_div(bucket[0], duration))
+        else:
+            start = float(bucket[0]["start"])
+            end = float(bucket[-1]["end"])
+            parts.append(
+                f'<div class="density" data-region-id="{html.escape(str(bucket[0]["region_id"]))}" '
+                f'style="{_span_style(start, end, duration)}" title="这里镜头太密，打开放大看">密</div>'
+            )
+        bucket.clear()
+
+    for slot in slots:
+        tiny = threshold > 0 and float(slot["end"]) - float(slot["start"]) < threshold
+        if tiny and (not bucket or bucket[-1]["region_id"] == slot["region_id"]):
+            bucket.append(slot)
+            continue
+        flush()
+        if tiny:
+            bucket.append(slot)
+        else:
+            parts.append(_planned_slot_div(slot, duration))
+    flush()
+    for anchor in view.get("region_cut_anchors") or []:
+        if abs(float(anchor.get("offset_s") or 0)) < 0.02:
+            continue
+        if anchor.get("rule") == "edge":
+            continue
+        moment = float(anchor["boundary_s"])
+        parts.append(f'<div class="orig-bound" style="left:{moment / duration * 100:.3f}%"></div>')
+    for slot in slots:
+        if slot.get("accent_at_start"):
+            moment = float(slot["start"])
+            parts.append(f'<div class="accent-mark" style="left:{moment / duration * 100:.3f}%"></div>')
+    for moment in view.get("breath_marks") or []:
+        parts.append(f'<div class="breath-mark" style="left:{float(moment) / duration * 100:.3f}%">≈</div>')
+    return "".join(parts)
+
+
+def _phrases_html(view: dict, duration: float) -> str:
+    parts = []
+    for index, phrase in enumerate(view.get("phrases") or [], start=1):
+        start = float(phrase["start"])
+        end = float(phrase["end"])
+        fraction = (end - start) / duration if duration else 0.0
+        if fraction >= 0.055:
+            label = f"句 {index}"
+        elif fraction >= 0.028:
+            label = str(index)
+        else:
+            label = ""
+        parts.append(
+            f'<div class="phr" style="{_span_style(start, end, duration)}" '
+            f'title="句 {index}">{html.escape(label)}</div>'
+        )
+    return "".join(parts)
+
+
+def _how_html(view: dict, duration: float) -> str:
+    parts = []
+    for region in view.get("regions") or []:
+        start = float(region["start"])
+        end = float(region["end"])
+        summary = str(region.get("cut_summary_zh") or "")
+        fraction = (end - start) / duration
+        shown = region["region_id"] if fraction < 0.08 or not summary else summary
+        parts.append(
+            f'<div class="how" style="{_span_style(start, end, duration)}" '
+            f'title="{html.escape(summary)}">{html.escape(str(shown))}</div>'
+        )
+    return "".join(parts)
+
+
+def _zoom_html(view: dict, region: dict, duration: float) -> str:
+    period = 0.5
+    grid = view.get("beat_grid") or {}
+    if grid.get("period_s"):
+        period = float(grid["period_s"])
+    bar = 4 * period
+    origin = max(0.0, float(region["start"]) - bar)
+    limit = min(duration, float(region["end"]) + bar)
+    span = max(0.001, limit - origin)
+    slots = [
+        _with_role(view, slot)
+        for slot in view.get("shot_slots") or []
+        if float(slot["end"]) > origin and float(slot["start"]) < limit
+    ]
+    downs = [float(item) for item in view.get("downbeats_seconds") or []]
+    ticks = []
+    for moment in downs:
+        if origin - 1e-6 <= moment <= limit + 1e-6:
+            index = downs.index(moment) + 1
+            ticks.append(
+                f'<div class="beat db" style="left:{(moment - origin) / span * 100:.3f}%" title="强拍 {index}"></div>'
+            )
+    shot_html = "".join(_planned_slot_div(slot, duration, zoom=(origin, span)) for slot in slots)
+    count = _slot_count(region)
+    old = []
+    start = float(region["start"])
+    end = float(region["end"])
+    for index in range(count):
+        piece_start = start + (end - start) * index / count
+        piece_end = start + (end - start) * (index + 1) / count
+        if piece_end <= origin or piece_start >= limit:
+            continue
+        old.append(
+            f'<div class="osl" style="left:{(piece_start - origin) / span * 100:.3f}%;'
+            f'width:{(piece_end - piece_start) / span * 100:.3f}%">旧</div>'
+        )
+    label = html.escape(str(region.get("kind_label") or region["region_id"]))
+    return (
+        f'<section class="zoom" id="zoom"><h3>放大 · {html.escape(str(region["region_id"]))} {label}'
+        f' · {_mmss(origin)[:7]}–{_mmss(limit)[:7]}</h3>'
+        '<p class="note">镜头轨只是建议，不改分区、不能拖动。导出仍按已确认的分区。下方虚线是旧的按均长平分。</p>'
+        f'<div class="zlane" id="zoom-lane">{"".join(ticks)}{shot_html}</div>'
+        f'<div class="zold" title="旧：按均长平分">{"".join(old)}</div></section>'
+    )
+
+
+def _slot_panel(view: dict, region: dict) -> str:
+    slots = [slot for slot in view.get("shot_slots") or [] if slot["region_id"] == region["region_id"]]
+    slot = slots[0] if slots else None
+    if slot is None:
+        body = "<p>这一段还没有镜头建议。</p>"
+    else:
+        length = float(slot["end"]) - float(slot["start"])
+        evidence = slot.get("evidence") or {}
+        budget = slot.get("budget_exception") or "在镜长范围内"
+        body = (
+            f'<p id="slot-when">{html.escape(_mmss(float(slot["start"])))} – '
+            f'{html.escape(_mmss(float(slot["end"])))} · {int(slot.get("beats") or 0)} 拍 · {length:.3f}s</p>'
+            f'<p id="slot-why"><b>为什么切</b> {html.escape(str(slot.get("reason_zh") or ""))}</p>'
+            f'<p id="slot-type">建议镜头 {html.escape(str(slot.get("shot_type") or ""))} · '
+            f'{html.escape(str(slot.get("reason_code") or ""))}</p>'
+            f'<p id="slot-budget">预算 {html.escape(str(budget))}</p>'
+            f'<p id="slot-evidence">证据 拍 {html.escape(str(evidence.get("beat_ids") or []))}'
+            f' · 强拍 {html.escape(str(evidence.get("downbeat_ids") or []))}'
+            f' · 乐句 {html.escape(str(evidence.get("phrase_id") or "—"))}'
+            f' · 起音 {html.escape(str(evidence.get("onset_ids") or []))}'
+            f' · 区段 {html.escape(str(evidence.get("region_id") or ""))}'
+            f' · 置信度 {float(slot.get("confidence") or 0):.2f}</p>'
+        )
+    lines = []
+    for item in view.get("regions") or []:
+        summary = str(item.get("cut_summary_zh") or "")
+        if not summary:
+            continue
+        lines.append(f"<li>{html.escape(str(item['region_id']))} {html.escape(summary)}</li>")
+    legend = "远 远景立地 · 细 细节 · 动 运动/甩镜 · 脸 人脸/反应 · 空 空镜长停 · 转 转场 · ? 待定"
+    return (
+        '<div id="slot-detail"><div class="sub">选中镜头</div>'
+        + body
+        + '<p class="note">镜头轨只是建议，不改分区、不能拖动。导出仍按已确认的分区。</p></div>'
+        '<div class="sub">各段怎么剪</div><ul id="how-list">'
+        + "".join(lines)
+        + f'</ul><p class="typelegend">{legend}</p>'
+    )
+
+
 def _legend(kind_labels: dict[str, str]) -> str:
     parts = []
     for role, label in kind_labels.items():
@@ -401,6 +677,13 @@ def _inspector_html(
     slope_text = f"{slope:+.3f}"
     source = "已修改" if region.get("source") == "user" else "分析"
     hint = '<span class="note" id="role-hint" style="color:#b07a2a">请选择</span>' if role == "unknown" else '<span class="note" id="role-hint" hidden>请选择</span>'
+    summary = str(region.get("cut_summary_zh") or "")
+    if summary:
+        slot_line = summary
+    else:
+        slot_line = (
+            f"本段约 {count} 个镜头槽（{length:.1f}s ÷ {float(region['suggested_shot_mean_s']):g}s）"
+        )
     return f"""
 <div class="col">
   <div class="ih"><span class="sw" id="insp-sw" style="background:{swatch}"></span><b id="insp-role-label">{html.escape(label)}</b><span class="rid" id="insp-rid">{html.escape(str(region["region_id"]))} · {html.escape(role)}</span><span class="sp"></span><span class="note">选中区段</span></div>
@@ -411,7 +694,7 @@ def _inspector_html(
 </div>
 <div class="col">
   <div class="f"><label>建议镜长</label><div class="v" id="insp-shot">均值 <b>{float(region["suggested_shot_mean_s"]):g}s</b> · 范围 {float(region["shot_min_s"]):g}–{float(region["shot_max_s"]):g}s</div></div>
-  <div class="f"><label></label><div class="note" id="insp-slots">本段约 {count} 个镜头槽（{length:.1f}s ÷ {float(region["suggested_shot_mean_s"]):g}s）</div></div>
+  <div class="f"><label></label><div class="note" id="insp-slots">{html.escape(slot_line)}</div></div>
   <div class="f"><label>卡点规则</label><div class="v" id="insp-snap">{html.escape(snap)}（{html.escape(str(region.get("snap_policy")))}） <small>snap_policy</small></div></div>
   <div class="f"><label>置信度</label><div class="ro"><div class="cbar{low}" id="insp-cbar"><i id="insp-cbar-i" style="width:{confidence * 100:.0f}%"></i></div><span id="insp-conf">{confidence * 100:.0f}%</span></div></div>
   <div class="sub">分析依据</div>
@@ -482,6 +765,37 @@ def render_timeline_page(
         if view and current is not None
         else _empty_inspector()
     )
+    has_slots = bool(view and view.get("shot_slots"))
+    note = str((view or {}).get("beat_backend_note") or "")
+    note_html = (
+        f'<p id="beat-backend-note" title="{html.escape(note)}">{html.escape(note)}</p>'
+        if note
+        else ""
+    )
+    if has_slots and view is not None and current is not None:
+        phrase_row = (
+            '<div class="row r-phrase" id="track-phrases"><div class="rh"><b>乐句</b>'
+            f'<small>4 小节</small></div><div class="lane">{_phrases_html(view, duration)}</div></div>'
+        )
+        how_row = (
+            '<div class="row r-how" id="track-how"><div class="rh"><b>本段怎么剪</b></div>'
+            f'<div class="lane">{_how_html(view, duration)}</div></div>'
+        )
+        shot_small = "建议 · 按拍，不能拖"
+        shot_body = _planned_shots_html(view, duration)
+        zoom_html = _zoom_html(view, current, duration)
+        inspector = inspector.replace(
+            '<div class="sub">警告</div>',
+            _slot_panel(view, current) + '<div class="sub">警告</div>',
+            1,
+        )
+    else:
+        phrase_row = ""
+        how_row = ""
+        shot_small = "（预留·未启用）"
+        shot_body = _shots_html(view, duration, chosen) if view else ""
+        zoom_html = ""
+    body_class = ' class="has-slots"' if has_slots else ""
     chrome = _version_chrome(view) if view else (
         '<div class="sp"></div>'
         '<button type="button" class="btn ghost" id="save" disabled>保存草稿</button>'
@@ -498,7 +812,7 @@ def render_timeline_page(
 <script src="/vendor/wavesurfer/plugins/timeline.min.js"></script>
 <style>{_PAGE_CSS}</style>
 </head>
-<body data-ready="0" data-selected="{html.escape(chosen)}" data-time="{moment:.3f}">
+<body{body_class} data-ready="0" data-selected="{html.escape(chosen)}" data-time="{moment:.3f}">
 <div class="top">
   <div class="logo"></div>
   <div class="brand">
@@ -516,18 +830,22 @@ def render_timeline_page(
   <div class="sp"></div>
   <div class="legend">{_legend(kind_labels)}</div>
 </div>
+{note_html}
 <div class="tl" id="tl">
   <div class="row r-mark"><div class="rh" style="padding:2px 12px"><small>循环 / 播放头</small></div><div class="lane"></div></div>
   <div class="row r-ruler"><div class="rh"><small>时间 (mm:ss)</small></div><div class="lane"><div id="ruler"></div></div></div>
   <div class="row r-wave" id="track-wave"><div class="rh"><b>音乐轨</b><small>{html.escape(track_label)}</small></div><div class="lane"><div id="wave"></div></div></div>
   <div class="row r-beat"><div class="rh" style="padding:2px 12px"><small>节拍 · 重拍加粗</small></div><div class="lane" id="track-beats">{_beats_html(view, duration) if view else ""}</div></div>
   <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small></div><div class="lane" id="track-regions">{_blocks_html(view, duration, chosen, kind_labels) if view else ""}</div></div>
-  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>（预留·未启用）</small></div><div class="lane" id="shots">{_shots_html(view, duration, chosen) if view else ""}</div></div>
+  {phrase_row}
+  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
+  {how_row}
   <div class="ov" id="ov">
     <div class="loopband" id="loopband" style="{loop_style}"><div class="brk l"></div><div class="brk r"></div><div class="loopcap" id="loopcap">{html.escape(loop_text)}</div></div>
     <div class="ph" id="ph" style="left:{moment / duration * 100:.3f}%"><div class="phcap" id="phcap">{_mmss(moment)[:7]}</div></div>
   </div>
 </div>
+{zoom_html}
 <div class="insp" id="insp">{inspector}</div>
 <audio id="track" src="/audio/frozen" preload="metadata"></audio>
 <script type="application/json" id="desk-data">{data}</script>
@@ -542,6 +860,16 @@ var COLORS = JSON.parse(document.getElementById("color-data").textContent);
 var track = document.getElementById("track");
 var state = JSON.parse(document.getElementById("desk-data").textContent);
 var selectedId = document.body.getAttribute("data-selected") || null;
+var selectedSlotId = null;
+try {{
+  var slotParam = new URLSearchParams(window.location.search).get("slot");
+  if (slotParam) selectedSlotId = slotParam;
+}} catch (err) {{}}
+function deskUrl(regionId, slotId) {{
+  var version = state && state.version_id ? ("version=" + encodeURIComponent(state.version_id) + "&") : "";
+  var slot = slotId ? ("&slot=" + encodeURIComponent(slotId)) : "";
+  return "/music?" + version + "sel=" + encodeURIComponent(regionId) + slot;
+}}
 function playbackSpanStep(current, start, end, looping) {{
   var tolerance = 0.08;
   if (current >= end - tolerance) return looping ? "seek" : "pause";
@@ -601,6 +929,7 @@ function paint() {{
     node.classList.toggle("sel", node.getAttribute("data-region-id") === selectedId);
   }});
   fillInspector();
+  fillSlot();
   moveLoop();
   markSpan();
   renderChrome();
@@ -633,7 +962,10 @@ function fillInspector() {{
   var shot = document.getElementById("insp-shot");
   if (shot) shot.innerHTML = "均值 <b>" + region.suggested_shot_mean_s + "s</b> · 范围 " + region.shot_min_s + "–" + region.shot_max_s + "s";
   var slots = document.getElementById("insp-slots");
-  if (slots) slots.textContent = "本段约 " + slotCount(region) + " 个镜头槽（" + (Number(region.end) - Number(region.start)).toFixed(1) + "s ÷ " + region.suggested_shot_mean_s + "s）";
+  if (slots) {{
+    if (region.cut_summary_zh) slots.textContent = region.cut_summary_zh;
+    else slots.textContent = "本段约 " + slotCount(region) + " 个镜头槽（" + (Number(region.end) - Number(region.start)).toFixed(1) + "s ÷ " + region.suggested_shot_mean_s + "s）";
+  }}
   var snap = document.getElementById("insp-snap");
   if (snap) snap.innerHTML = (SNAP[region.snap_policy] || region.snap_policy) + "（" + region.snap_policy + "） <small>snap_policy</small>";
   var conf = Number(region.confidence) || 0;
@@ -668,6 +1000,41 @@ function fillInspector() {{
       none.textContent = "无";
       warns.appendChild(none);
     }}
+  }}
+}}
+function activeSlot() {{
+  var region = selectedRegion();
+  if (!region || !state || !state.shot_slots) return null;
+  var rows = state.shot_slots.filter(function (slot) {{ return slot.region_id === region.region_id; }});
+  if (!rows.length) return null;
+  for (var i = 0; i < rows.length; i++) {{
+    if (rows[i].slot_id === selectedSlotId) return rows[i];
+  }}
+  return rows[0];
+}}
+function fillSlot() {{
+  var slot = activeSlot();
+  document.querySelectorAll(".sl,.zshot").forEach(function (node) {{
+    node.classList.toggle("on", !!(slot && node.getAttribute("data-slot-id") === slot.slot_id));
+  }});
+  if (!slot) return;
+  var when = document.getElementById("slot-when");
+  var why = document.getElementById("slot-why");
+  var kind = document.getElementById("slot-type");
+  var budget = document.getElementById("slot-budget");
+  var evidence = document.getElementById("slot-evidence");
+  var info = slot.evidence || {{}};
+  if (when) when.textContent = formatClock(Number(slot.start)) + " – " + formatClock(Number(slot.end)) + " · " + (slot.beats || 0) + " 拍";
+  if (why) why.textContent = "为什么切 " + (slot.reason_zh || "");
+  if (kind) kind.textContent = "建议镜头 " + (slot.shot_type || "") + " · " + (slot.reason_code || "");
+  if (budget) budget.textContent = "预算 " + (slot.budget_exception || "在镜长范围内");
+  if (evidence) {{
+    evidence.textContent = "证据 拍 " + JSON.stringify(info.beat_ids || [])
+      + " · 强拍 " + JSON.stringify(info.downbeat_ids || [])
+      + " · 乐句 " + (info.phrase_id || "—")
+      + " · 起音 " + JSON.stringify(info.onset_ids || [])
+      + " · 区段 " + (info.region_id || "")
+      + " · 置信度 " + Number(slot.confidence || 0).toFixed(2);
   }}
 }}
 function warnBox(text, info) {{
@@ -761,6 +1128,11 @@ function postDraft() {{
         showError(data.error || "保存失败");
         return refreshDesk();
       }}
+      if (data.shot_slots && data.shot_slots.length && data.version_id) {{
+        var sel = selectedId ? ("&sel=" + encodeURIComponent(selectedId)) : "";
+        window.location.href = "/music?version=" + encodeURIComponent(data.version_id) + sel;
+        return;
+      }}
       state = data;
       showError("");
       paint();
@@ -802,9 +1174,10 @@ function bootWave() {{
     return response.json();
   }}).then(function (payload) {{
     var regionsPlugin = WaveSurfer.Regions.create();
+    var waveHeight = document.body.classList.contains("has-slots") ? 56 : 108;
     var ws = WaveSurfer.create({{
       container: "#wave",
-      height: 108,
+      height: waveHeight,
       waveColor: "#a9b0b3",
       progressColor: "#56646b",
       cursorWidth: 0,
@@ -820,7 +1193,7 @@ function bootWave() {{
         regionsPlugin,
         WaveSurfer.Timeline.create({{
           container: "#ruler",
-          height: 30,
+          height: document.body.classList.contains("has-slots") ? 22 : 30,
           timeInterval: 5,
           primaryLabelInterval: 5,
           style: {{color: "#7d8387", fontSize: "11px"}}
@@ -857,11 +1230,38 @@ if (regionLane) {{
   regionLane.addEventListener("click", function (event) {{
     var block = event.target.closest ? event.target.closest(".blk") : null;
     if (!block) return;
-    selectedId = block.getAttribute("data-region-id");
+    var nextId = block.getAttribute("data-region-id");
+    if (document.body.classList.contains("has-slots") && nextId && nextId !== selectedId) {{
+      window.location.href = deskUrl(nextId, "");
+      return;
+    }}
+    selectedId = nextId;
+    selectedSlotId = null;
     document.body.setAttribute("data-selected", selectedId);
     paint();
   }});
 }}
+function pickSlot(event) {{
+  var node = event.target.closest ? event.target.closest("[data-slot-id]") : null;
+  if (!node) return;
+  event.stopPropagation();
+  var regionId = node.getAttribute("data-region-id");
+  var slotId = node.getAttribute("data-slot-id");
+  if (document.body.classList.contains("has-slots") && regionId && regionId !== selectedId) {{
+    window.location.href = deskUrl(regionId, slotId);
+    return;
+  }}
+  selectedSlotId = slotId;
+  if (regionId) {{
+    selectedId = regionId;
+    document.body.setAttribute("data-selected", selectedId);
+  }}
+  paint();
+}}
+var shotLane = document.getElementById("shots");
+if (shotLane) shotLane.addEventListener("click", pickSlot);
+var zoomLane = document.getElementById("zoom");
+if (zoomLane) zoomLane.addEventListener("click", pickSlot);
 var roleSelect = document.getElementById("role");
 if (roleSelect) {{
   roleSelect.addEventListener("change", function () {{

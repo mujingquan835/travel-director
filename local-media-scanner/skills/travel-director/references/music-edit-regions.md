@@ -211,4 +211,12 @@ outro 窗 = 末尾 `max(8s, 0.12 * duration)`。
 - `onset_rate`：M0 用 beat 网格密度（区内 beat 数 / 区长）作代理，`warnings` 恒含 `onset_rate_from_beat_grid_proxy`；真 onset 留给 M1。分位比较带 5% 相对容差。
 - **CHANGE (peak_cut / beat-proxy)**：在 `onset_rate_from_beat_grid_proxy` 期间，中段（非 hook/outro）`Ē` 相对 `E_p80` 带与 onset 相同的 5% 相对容差即可单独标 `peak_cut`（不要求 beat 密度达 P70 或正进入斜率）；另将「非 hook/outro 中均能最高且 ≥ E_med」的主导高能段标为 `peak_cut`，避免点位 `E_p80` 被 outro 抬高时平坦高能中段被错标 `narrative_hold`。
 - `peak_cut` 镜长均值 `max(0.5, 60/bpm)` 夹在 `[0.5, 1.4]` 内以满足不变量 4；`unknown` 的 `snap_policy` 取 `free`。
-- `musical_label` 恒为 null，`downbeat_detector` 恒为 `every_fourth_beat`，`evidence_basis` 恒为 `energy`。全部区域只是未经听审的候选。
+- `musical_label` 恒为 null。没有逐拍 onset 的结构（手写测试曲线）仍用 `downbeat_detector=every_fourth_beat`，并保留 `onset_rate_from_beat_grid_proxy`。`evidence_basis` 在分析器产物里为 `energy`，角色被改过则为 `manual`。全部区域只是未经听审的候选。
+
+## 14. 镜头槽（建议，不改分区）
+
+分析器在有真实 onset 时把 `onset_rate` 写成起音次数 / 区长，并不再写 `onset_rate_from_beat_grid_proxy`。拍点来自 librosa `beat_track(trim=False)`，并对照 `beat.plp` 的峰数。强拍默认用低频 onset 相位（`onset_phase_heuristic`）；置信度低于 0.10 时退回 `every_fourth_beat`，并写 `downbeat_phase_heuristic`。拍号按 4/4，警告 `meter_assumed_4_4`。
+
+`shot_slots[]` 按角色模板、乐句和重音排不等长槽。每个槽有 `reason_code`、一句中文 `reason_zh`、建议镜头类型（远/细/动/脸/空/转/?）和证据引用。刀口可以吸到强拍或拍点，吸附量写在 `region_cut_anchors`。分区的 `start` / `end` 不动，确认台也不能拖。导出仍按已确认的分区，不按这些刀口。
+
+可选依赖 `beat`（torch + beat-this，MIT）用 `File2Beats(..., dbn=False)` 出拍点和强拍。没装、没有本地权重，或运行失败时回退 librosa，并在 `beat_backend` / `beat_backend_note` 里写明。`auto` 不会为了分析去下载权重。显式 `--beat-backend beat_this` 第一次会下载 small0（约 8MB）或 final0（约 78MB）到 torch hub 缓存。不引入 madmom、Essentia、aubio、MERT、MuQ。

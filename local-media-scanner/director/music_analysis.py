@@ -25,6 +25,7 @@ class AudioAnalysisConfig(BaseModel):
     energy_window_seconds: float = Field(default=1.0, gt=0.0, le=5.0)
     min_section_seconds: float = Field(default=2.0, ge=1.0, le=10.0)
     breath_energy_ratio: float = Field(default=0.45, gt=0.0, lt=1.0)
+    beat_backend: str = Field(default="auto", pattern=r"^(auto|librosa|beat_this)$")
 
 
 def _sha256_file(path: Path) -> str:
@@ -183,26 +184,55 @@ def analyze_music(path: Path, config: AudioAnalysisConfig) -> MusicStructure:
     if len(audio) == 0:
         raise ValueError("audio contains no decoded samples")
     duration = float(librosa.get_duration(y=audio, sr=sample_rate))
+    from director.beat_grid import (
+        build_rhythm,
+        plp_beat_count,
+        run_beat_this,
+        select_backend,
+        track_beats,
+    )
+
     onset_envelope = librosa.onset.onset_strength(
         y=audio,
         sr=sample_rate,
         hop_length=config.hop_length,
     )
-    tempo, beat_frames = librosa.beat.beat_track(
-        onset_envelope=onset_envelope,
-        sr=sample_rate,
-        hop_length=config.hop_length,
+    # trim=False keeps leading and trailing beats. The default trim=True drops
+    # beats while the onset score stays under half the beat-envelope RMS, which
+    # is how a 123 BPM minute can come back with only ~90 beats.
+    tempo, beat_times = track_beats(
+        onset_envelope,
+        sample_rate,
+        config.hop_length,
+        trim=False,
     )
-    beat_times = librosa.frames_to_time(
-        beat_frames,
-        sr=sample_rate,
-        hop_length=config.hop_length,
-    )
+    backend, note = select_backend(config.beat_backend)
+    model_downbeats: list[float] | None = None
+    if backend == "beat_this":
+        try:
+            model_beats, model_downbeats = run_beat_this(audio_path)
+        except Exception as exc:
+            backend = "librosa"
+            detail = str(exc).splitlines()[0][:120]
+            note = f"拍点后端：librosa。beat_this 运行失败（{detail}），已回退。" + note
+            model_downbeats = None
+        else:
+            if len(model_beats) >= 4:
+                beat_times = np.asarray(model_beats, dtype=np.float64)
+                if len(beat_times) >= 2:
+                    interval = float(np.median(np.diff(beat_times)))
+                    if interval > 0:
+                        tempo = 60.0 / interval
+            else:
+                backend = "librosa"
+                note = "拍点后端：librosa。beat_this 没有返回足够的拍点，已回退。"
+                model_downbeats = None
     onset_times = librosa.onset.onset_detect(
         onset_envelope=onset_envelope,
         sr=sample_rate,
         hop_length=config.hop_length,
         units="time",
+        backtrack=True,
     )
     energy, energy_points = _energy_curve(
         audio,
@@ -210,19 +240,46 @@ def analyze_music(path: Path, config: AudioAnalysisConfig) -> MusicStructure:
         config.energy_window_seconds,
     )
     measured_bpm = float(np.asarray(tempo).reshape(-1)[0]) if np.size(tempo) else None
-    expected_beats = duration * measured_bpm / 60.0 if measured_bpm else 0.0
-    beat_coverage = min(1.0, len(beat_times) / expected_beats) if expected_beats else 0.0
+    if measured_bpm is not None and measured_bpm <= 0:
+        measured_bpm = None
+    rhythm = build_rhythm(
+        audio=audio,
+        sample_rate=sample_rate,
+        hop_length=config.hop_length,
+        duration=duration,
+        bpm=measured_bpm,
+        beat_times=np.asarray(beat_times, dtype=np.float64),
+        onset_envelope=onset_envelope,
+        onset_times=np.asarray(onset_times, dtype=np.float64),
+        model_downbeats=model_downbeats,
+        backend=backend,
+        note=note,
+        plp_beats=plp_beat_count(onset_envelope, sample_rate, config.hop_length),
+    )
+    coverage = 0.0
+    grid = rhythm["beat_grid"]
+    if grid is not None:
+        coverage = float(grid.coverage)
 
     return MusicStructure(
         source_sha256=_sha256_file(audio_path),
         duration_seconds=round(duration, 6),
         bpm=round(measured_bpm, 6) if measured_bpm else None,
-        beats_seconds=[round(float(value), 6) for value in beat_times],
-        downbeats_seconds=[
-            round(float(value), 6) for value in beat_times[::4]
-        ],
+        beats_seconds=list(rhythm["beats_seconds"]),
+        downbeats_seconds=list(rhythm["downbeats_seconds"]),
         energy_curve=energy_points,
         sections=_build_sections(energy, duration, config),
-        ending=_ending(audio, sample_rate, onset_times, duration),
-        confidence=float(np.clip(0.4 + 0.6 * beat_coverage, 0.0, 1.0)),
+        ending=_ending(audio, sample_rate, np.asarray(onset_times, dtype=np.float64), duration),
+        confidence=float(np.clip(0.4 + 0.6 * coverage, 0.0, 1.0)),
+        beat_backend=str(rhythm["beat_backend"]),
+        beat_backend_note=str(rhythm["beat_backend_note"]),
+        onsets=list(rhythm["onsets"]),
+        beat_events=list(rhythm["beat_events"]),
+        beat_grid=rhythm["beat_grid"],
+        phrases=list(rhythm["phrases"]),
+        downbeat_detector=rhythm["downbeat_detector"],
+        downbeat_confidence=rhythm["downbeat_confidence"],
+        meter_assumed=rhythm["meter_assumed"],
+        analysis_warnings=list(rhythm["analysis_warnings"]),
+        plp_beat_count=rhythm["plp_beat_count"],
     )

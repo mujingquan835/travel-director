@@ -519,12 +519,17 @@ def blueprint_command(
 def analyze_music_command(
     audio: Path = typer.Option(..., "--audio", exists=True, dir_okay=False),
     output: Path = typer.Option(..., "--output", dir_okay=False),
+    beat_backend: str = typer.Option(
+        "auto",
+        "--beat-backend",
+        help="auto, librosa, or beat_this. auto does not download weights.",
+    ),
 ) -> None:
     """Measure beats, energy, sections, and ending from a local audio file."""
 
     from director.music_analysis import AudioAnalysisConfig, analyze_music
 
-    structure = analyze_music(audio, AudioAnalysisConfig())
+    structure = analyze_music(audio, AudioAnalysisConfig(beat_backend=beat_backend))
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(structure.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(str(output))

@@ -226,7 +226,12 @@ def analyze_music_edit_regions(
             f"provider {config.provider} is not available in M0; use heuristic_v1"
         )
     duration, ending, warnings = _clip_structure(structure, config)
-    warnings.append(BEAT_GRID_PROXY_WARNING)
+    real_onsets = bool(structure.onsets)
+    if not real_onsets:
+        warnings.append(BEAT_GRID_PROXY_WARNING)
+    for code in structure.analysis_warnings:
+        if code not in warnings:
+            warnings.append(code)
     signal = _Signal(structure, duration)
     window = config.energy_window_seconds
     tol = BOUNDARY_TOLERANCE_SECONDS
@@ -265,7 +270,13 @@ def analyze_music_edit_regions(
     energy_values = signal.values.tolist()
     e_med = float(np.median(signal.values)) if energy_values else 0.0
     e_p80 = _percentile(energy_values, config.peak_energy_percentile)
-    rates = [signal.beat_rate(a, b) for a, b in spans]
+    if real_onsets:
+        rates = []
+        for start, end in spans:
+            onset_count = sum(1 for onset in structure.onsets if start <= onset.t < end)
+            rates.append(onset_count / (end - start))
+    else:
+        rates = [signal.beat_rate(a, b) for a, b in spans]
     rate_p70 = _percentile(rates, config.peak_onset_percentile)
     rate_p50 = _percentile(rates, config.narrative_onset_percentile)
     rate_slack = 1.0 + config.onset_rate_tolerance
@@ -369,7 +380,15 @@ def analyze_music_edit_regions(
                 suggested_shot_mean_s=_r3(mean),
                 shot_min_s=shot_min,
                 shot_max_s=shot_max,
-                snap_policy="beat" if role in BEAT_SNAP_ROLES else "free",
+                snap_policy=(
+                    "downbeat"
+                    if role in BEAT_SNAP_ROLES
+                    and structure.downbeat_detector == "beat_this"
+                    and (structure.downbeat_confidence or 0.0) >= 0.7
+                    else "beat"
+                    if role in BEAT_SNAP_ROLES
+                    else "free"
+                ),
                 desired_motion=motion,
                 content_need=need,
                 confidence=_r6(confidence),
@@ -378,20 +397,37 @@ def analyze_music_edit_regions(
         )
 
     weighted = sum(r.confidence * (r.end - r.start) for r in regions) / duration
-    return MusicEditRegions(
+    provider = config.provider
+    if structure.beat_backend == "beat_this" and provider == "heuristic_v1":
+        provider = "beat_this+heuristic"
+    document = MusicEditRegions(
         source_sha256=structure.source_sha256,
         duration_seconds=_r3(duration),
         bpm=structure.bpm,
-        provider=config.provider,
+        provider=provider,
         beats_seconds=[b for b in structure.beats_seconds if b < duration],
         downbeats_seconds=[b for b in structure.downbeats_seconds if b < duration],
-        downbeat_detector="every_fourth_beat",
+        downbeat_detector=structure.downbeat_detector,
         energy_curve=[p for p in structure.energy_curve if p.time_seconds < duration],
         regions=regions,
         ending=ending,
         confidence=_r6(min(structure.confidence, weighted)),
         warnings=warnings,
+        beat_backend=structure.beat_backend,
+        beat_backend_note=structure.beat_backend_note,
+        onsets=[onset for onset in structure.onsets if onset.t < duration],
+        beats=[beat for beat in structure.beat_events if beat.t < duration],
+        beat_grid=structure.beat_grid,
+        phrases=[phrase for phrase in structure.phrases if phrase.start < duration],
+        downbeat_confidence=structure.downbeat_confidence,
+        meter_assumed=structure.meter_assumed,
+        plp_beat_count=structure.plp_beat_count,
     )
+    if document.beats:
+        from director.shot_slots import plan_shot_slots
+
+        document = plan_shot_slots(document)
+    return document
 
 
 def load_music_edit_regions(paths: Any) -> MusicEditRegions | None:

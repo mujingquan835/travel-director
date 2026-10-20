@@ -439,11 +439,26 @@ def _record_regions(paths, document=None):
     return document
 
 
-def _region_payloads(document):
-    return [region.model_dump(mode="json") for region in document.regions]
+def _role_payload(document):
+    return [{"region_id": region.region_id, "edit_role": region.edit_role} for region in document.regions]
 
 
-def test_draft_edit_accepts_valid_changes_and_rejects_invalid_and_stale(desk) -> None:
+def test_region_schema_round_trip_has_no_enabled_field() -> None:
+    from pydantic import ValidationError
+
+    from director.music_edit_regions_schema import MusicEditRegion, MusicEditRegions
+
+    document = _document()
+    dumped = document.model_dump(mode="json")
+    assert "enabled" not in dumped["regions"][0]
+    assert MusicEditRegions.model_validate(dumped).model_dump(mode="json") == dumped
+    with pytest.raises(ValidationError):
+        MusicEditRegion.model_validate({**dumped["regions"][0], "enabled": False})
+
+
+def test_role_edit_sets_manual_and_edited_at_and_rejects_other_edits(desk) -> None:
+    from datetime import datetime
+
     from director.music_edit_regions_versions import load_regions_draft
 
     paths, server = desk
@@ -452,90 +467,65 @@ def test_draft_edit_accepts_valid_changes_and_rejects_invalid_and_stale(desk) ->
 
     status, opened = _json(port, "/api/music-desk")
     assert status == 200
-    assert opened["revision"]
     assert [item["region_id"] for item in opened["regions"]] == ["r1", "r2", "r3"]
     assert opened["regions"][0]["kind_label"] == "前奏"
     assert opened["regions"][0]["source"] == "analyzer"
-    assert opened["regions"][0]["enabled"] is True
+    assert "enabled" not in opened["regions"][0]
     revision = opened["revision"]
-    assert load_regions_draft(paths) is not None
 
-    edited = _region_payloads(document)
-    edited[1]["edit_role"] = "peak_cut"
-    edited[1]["musical_proxy"] = "climax"
-    edited[1]["enabled"] = False
-    edited[1]["evidence_basis"] = "manual"
-    edited[0]["end"] = 12.0
-    edited[1]["start"] = 12.0
+    roles = _role_payload(document)
+    roles[1]["edit_role"] = "peak_cut"
     status, saved = _post_json(
-        port, "/api/regions-draft", {"expected_revision": revision, "regions": edited}
+        port, "/api/regions-draft", {"expected_revision": revision, "regions": roles}
     )
     assert status == 200, saved
     assert saved["revision"] != revision
-    assert saved["regions"][0]["end"] == 12.0
     assert saved["regions"][1]["edit_role"] == "peak_cut"
     assert saved["regions"][1]["kind_label"] == "高潮"
-    assert saved["regions"][1]["enabled"] is False
+    assert saved["regions"][1]["evidence_basis"] == "manual"
     assert saved["regions"][1]["source"] == "user"
+    assert saved["regions"][0]["evidence_basis"] == "energy"
+    assert saved["regions"][1]["start"] == 10.0
+    assert saved["regions"][1]["end"] == 22.0
+    assert saved["regions"][1]["musical_proxy"] == "rise"
+    assert "enabled" not in saved["regions"][1]
+    datetime.fromisoformat(saved["edited_at"])
     kept = load_regions_draft(paths)
     assert kept is not None
-    assert kept.regions.regions[1].enabled is False
+    assert kept.edited_at == saved["edited_at"]
+    assert kept.regions.regions[1].evidence_basis == "manual"
+    assert kept.regions.regions[0].evidence_basis == "energy"
 
     stale, stale_body = _post_json(
-        port, "/api/regions-draft", {"expected_revision": revision, "regions": edited}
+        port, "/api/regions-draft", {"expected_revision": revision, "regions": roles}
     )
     assert stale == 409
     assert "revision" in stale_body["error"]
 
-    invalid = _region_payloads(saved_document(saved))
-    invalid[0]["end"] = invalid[0]["start"]
+    timed = _role_payload(document)
+    timed[1]["edit_role"] = "peak_cut"
+    timed[0]["end"] = 12.0
     code, body = _post_json(
-        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": invalid}
+        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": timed}
     )
     assert code == 400
-    assert "start" in body["error"]
+    assert "时间" in body["error"] or "角色" in body["error"]
     assert load_regions_draft(paths).regions_sha256 == saved["revision"]
 
-    outside = _region_payloads(saved_document(saved))
-    outside[0]["end"] = 100.0
-    outside[1]["start"] = 100.0
+    added = _role_payload(document) + [{"region_id": "r9", "edit_role": "hook"}]
+    added[1]["edit_role"] = "peak_cut"
     code, body = _post_json(
-        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": outside}
+        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": added}
     )
     assert code == 400
-    assert "duration" in body["error"]
+    assert "删除" in body["error"] or "增加" in body["error"] or "角色" in body["error"]
 
-    nan_regions = _region_payloads(saved_document(saved))
-    nan_regions[0]["start"] = float("nan")
+    shortened = [item for item in roles if item["region_id"] != "r3"]
     code, body = _post_json(
-        port,
-        "/api/regions-draft",
-        {"expected_revision": saved["revision"], "regions": nan_regions},
+        port, "/api/regions-draft", {"expected_revision": saved["revision"], "regions": shortened}
     )
     assert code == 400
-    assert "finite" in body["error"]
-    assert load_regions_draft(paths).regions_sha256 == saved["revision"]
-
-
-def saved_document(view: dict):
-    """Rebuild a MusicEditRegions-like object is unnecessary; copy view regions."""
-
-    from director.music_edit_regions_schema import MusicEditRegions
-
-    payload = {
-        "source_sha256": "a" * 64,
-        "duration_seconds": view["duration_seconds"],
-        "bpm": 120.0,
-        "provider": "heuristic_v1",
-        "downbeat_detector": "every_fourth_beat",
-        "regions": [
-            {key: value for key, value in region.items() if key not in {"kind_label", "source"}}
-            for region in view["regions"]
-        ],
-        "ending": {"last_onset_seconds": 28.0, "behavior": "decay"},
-        "confidence": 0.5,
-    }
-    return MusicEditRegions.model_validate(payload)
+    assert load_regions_draft(paths).regions.regions[1].edit_role == "peak_cut"
 
 
 def test_discard_draft_removes_it_and_stale_discard_is_refused(desk) -> None:
@@ -545,9 +535,8 @@ def test_discard_draft_removes_it_and_stale_discard_is_refused(desk) -> None:
     document = _record_regions(paths)
     port = _port(server)
     _status, opened = _json(port, "/api/music-desk")
-    edited = _region_payloads(document)
+    edited = _role_payload(document)
     edited[1]["edit_role"] = "build"
-    edited[1]["evidence_basis"] = "manual"
     status, saved = _post_json(
         port,
         "/api/regions-draft",
@@ -586,7 +575,7 @@ def test_draft_write_refuses_traversal_and_replaces_atomically(desk, tmp_path: P
         {
             "expected_revision": None,
             "path": "../secret",
-            "regions": _region_payloads(document),
+            "regions": _role_payload(document),
         },
     )
     assert status == 400
@@ -608,7 +597,7 @@ def test_draft_write_refuses_traversal_and_replaces_atomically(desk, tmp_path: P
     code, saved = _post_json(
         port,
         "/api/regions-draft",
-        {"expected_revision": None, "regions": _region_payloads(document)},
+        {"expected_revision": None, "regions": _role_payload(document)},
     )
     assert code == 200, saved
     draft = paths.root / "music_edit_regions_versions" / "draft.json"
@@ -620,9 +609,19 @@ def test_draft_write_refuses_traversal_and_replaces_atomically(desk, tmp_path: P
     )
 
 
-def test_music_page_renders_regions_and_edit_controls(desk) -> None:
+def test_music_page_renders_role_rows_warnings_and_loop(desk) -> None:
+    from director.confirm_serve import playback_span_step
+
     paths, server = desk
-    _record_regions(paths)
+    document = _document()
+    regions = [
+        region.model_copy(update={"edit_role": "unknown"}) if region.region_id == "r2" else region
+        for region in document.regions
+    ]
+    document = document.model_copy(
+        update={"regions": regions, "warnings": ["onset_rate_from_beat_grid_proxy"]}
+    )
+    _record_regions(paths, document)
     port = _port(server)
     status, _headers, page = _request(port, "/music")
     text = page.decode("utf-8")
@@ -632,6 +631,20 @@ def test_music_page_renders_regions_and_edit_controls(desk) -> None:
     assert "前奏" in text
     assert "高潮" in text
     assert "可卡点" in text
+    assert "建议镜长" in text
+    assert "snap_policy" in text
+    assert "置信度" in text
+    assert "警告" in text
+    assert "时段" in text
+    assert "0.0" in text and "10.0" in text
+    assert "onset_rate_from_beat_grid_proxy" in text
+    assert "节奏密度来自节拍网格" in text
+    assert "is-unknown" in text
+    assert "播放本段" in text
+    assert "循环" in text
+    assert 'id="loop"' in text
+    assert 'id="playhead"' in text
+    assert "playbackSpanStep" in text
     assert "保存草稿" in text
     assert "丢弃草稿" in text
     assert "分析" in text
@@ -639,9 +652,16 @@ def test_music_page_renders_regions_and_edit_controls(desk) -> None:
     assert "currentTime" in text
     assert "confirm(" in text
     assert "expected_revision" in text
+    assert "加一段" not in text
+    assert 'type="number"' not in text
+    assert "enabled" not in text
     assert "锁定版本" not in text
     assert "waveform" not in text.lower()
     assert paths.root.name in text
+    assert playback_span_step(9.96, 0.0, 10.0, True) == "seek"
+    assert playback_span_step(9.96, 0.0, 10.0, False) == "pause"
+    assert playback_span_step(3.0, 0.0, 10.0, True) == "continue"
+    assert playback_span_step(-0.2, 0.0, 10.0, False) == "seek"
 
 
 def test_project_page_chinese_steps_next_step_and_unique_hints(desk) -> None:

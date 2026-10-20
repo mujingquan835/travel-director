@@ -9,18 +9,18 @@ network. This is not a public internet service.
 open draft (created from analyzer candidates when none is open) and writes
 that draft. ``/export`` says the export page is not open yet.
 
-``POST /api/regions-draft`` replaces the draft when ``expected_revision``
-matches. Writes go through the Slice 1 store, which renames a temp file into
-the project. A client-supplied path is refused. ``POST /api/regions-draft/discard``
-drops the open draft. This module does not confirm a version, re-run analysis,
-or export.
+``POST /api/regions-draft`` accepts only an ``edit_role`` change for each
+existing region id, plus ``expected_revision``. A role change sets
+``evidence_basis`` to ``manual``. ``edited_at`` stays on the draft document
+(``RegionsVersionDocument``), not on the analyzer region schema. Times, adds,
+and deletes are refused. ``POST /api/regions-draft/discard`` drops the open
+draft. This module does not confirm a version, re-run analysis, or export.
 """
 
 from __future__ import annotations
 
 import html
 import json
-import math
 import os
 import re
 import subprocess
@@ -56,11 +56,11 @@ _MAX_BODY_BYTES = 65536
 
 _RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
 _VERSION_ID_RE = re.compile(r"^regions-v[0-9]{2,}$")
-_BOUNDARY_TOLERANCE = 0.001
 _DRAFT_LOCK = threading.Lock()
 _STALE_REVISION = "stale draft revision; refresh and edit again"
-_VIEW_KEYS = frozenset({"kind_label", "source"})
+_ROLE_ONLY = "只能修改每段的角色。不能改时间，也不能增加或删除分段。"
 _CLIENT_PATH_KEYS = ("path", "destination", "output", "target")
+_PLAYBACK_TOLERANCE = 0.08
 
 KIND_LABELS = {
     "hook": "可卡点",
@@ -72,15 +72,17 @@ KIND_LABELS = {
     "settle_outro": "收尾",
     "unknown": "未定",
 }
-_PROXY_FOR_ROLE = {
-    "hook": "intro",
-    "establish": "intro",
-    "narrative_hold": "rise",
-    "build": "rise",
-    "peak_cut": "climax",
-    "breath": "breath",
-    "settle_outro": "outro",
-    "unknown": "unknown",
+SNAP_LABELS = {
+    "downbeat": "对齐强拍",
+    "beat": "对齐拍点",
+    "free": "自由",
+}
+WARNING_LABELS = {
+    "onset_rate_from_beat_grid_proxy": "节奏密度来自节拍网格，不是真正的起音",
+    "hook_window_soft": "开场窗口只是宽松估计",
+    "short_region_unmerged": "有很短的一段没能并进旁边",
+    "target_window_clipped": "目标时长被整曲长度截断了",
+    "missing_settle_outro": "结尾没有收尾段",
 }
 _PROGRESS_STEPS = (
     {
@@ -119,7 +121,7 @@ _PAGE_STYLE = """
     .lede { font-size: 1.05rem; line-height: 1.5; }
     form, .panel, .steps li, #next-step { background: #fffdf8; border: 1px solid #e4dccb; border-radius: 8px; padding: 0.9rem 1rem; }
     label { display: block; font-size: 0.85rem; margin-bottom: 0.35rem; }
-    input[type="text"], input[type="number"], select { width: 100%; box-sizing: border-box; padding: 0.35rem 0.45rem; font: inherit; }
+    input[type="text"], select { width: 100%; box-sizing: border-box; padding: 0.35rem 0.45rem; font: inherit; }
     .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
     button { font: inherit; background: #243024; color: #f7f4ee; border: 0; border-radius: 6px; padding: 0.4rem 0.75rem; cursor: pointer; }
     button.secondary { background: #6b4423; }
@@ -140,6 +142,10 @@ _PAGE_STYLE = """
     th, td { text-align: left; padding: 0.35rem; border-bottom: 1px solid #e4dccb; vertical-align: middle; }
     .strip { display: flex; height: 2rem; margin: 0.4rem 0 0.8rem; border-radius: 6px; overflow: hidden; }
     .strip span { display: flex; align-items: center; justify-content: center; background: #efe6d6; border-right: 1px solid #fffdf8; font-size: 0.75rem; overflow: hidden; }
+    tr.is-unknown { background: #fff1eb; }
+    tr.is-selected { box-shadow: inset 3px 0 0 #243024; background: #fff8e8; }
+    small { color: #6b6256; }
+    #playhead { font-variant-numeric: tabular-nums; }
     @media (max-width: 720px) { .steps { grid-template-columns: 1fr 1fr; } }
 """
 
@@ -349,20 +355,32 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
     </nav>
   </header>
   <main>
-    <p class="lede">听每一段，改起点、终点和种类。这里只保存草稿。</p>
+    <p class="lede">听每一段，只改角色。时间由分析定好，这里不能拖边界、拆段或删段。</p>
     <p class="project-name" id="project-name" title="__PROJECT_PATH__">__PROJECT_NAME__</p>
     <p class="project-path" id="project-path" title="__PROJECT_PATH__">__PROJECT_PATH__</p>
     <section id="error" class="panel" __ERROR_HIDDEN__>__ERROR_TEXT__</section>
     <div class="strip" id="strip">__STRIP__</div>
     <audio id="track" src="/audio/frozen" preload="metadata"></audio>
+    <div class="actions">
+      <button type="button" id="play-span">播放本段</button>
+      <label><input type="checkbox" id="loop"> 循环</label>
+      <span id="playhead">0:00.0</span>
+    </div>
     <table>
       <thead>
-        <tr><th>种类</th><th>开始</th><th>结束</th><th>把握</th><th>来源</th><th>启用</th><th></th></tr>
+        <tr>
+          <th>时段</th>
+          <th>角色</th>
+          <th>建议镜长</th>
+          <th>snap_policy</th>
+          <th>置信度</th>
+          <th>警告</th>
+          <th>来源</th>
+        </tr>
       </thead>
       <tbody id="region-body">__ROWS__</tbody>
     </table>
     <div class="actions">
-      <button type="button" id="add-region">加一段</button>
       <button type="button" id="save">保存草稿</button>
       <button type="button" id="discard" class="secondary">丢弃草稿</button>
     </div>
@@ -371,15 +389,50 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
   <script type="application/json" id="desk-data">__DATA__</script>
   <script>
     var KIND = __KIND_JSON__;
-    var PROXY = __PROXY_JSON__;
+    var SNAP = __SNAP_JSON__;
     var track = document.getElementById("track");
     var state = JSON.parse(document.getElementById("desk-data").textContent);
+    var selectedId = null;
+    function playbackSpanStep(current, start, end, looping) {
+      var tolerance = 0.08;
+      if (current >= end - tolerance) return looping ? "seek" : "pause";
+      if (current < start - tolerance) return "seek";
+      return "continue";
+    }
+    function formatTime(seconds) {
+      if (!isFinite(seconds) || seconds < 0) seconds = 0;
+      var whole = Math.floor(seconds);
+      var minutes = Math.floor(whole / 60);
+      var secs = whole % 60;
+      var frac = Math.floor((seconds - whole) * 10);
+      return minutes + ":" + (secs < 10 ? "0" : "") + secs + "." + frac;
+    }
+    function selectedRegion() {
+      if (!state || !state.regions) return null;
+      for (var i = 0; i < state.regions.length; i++) {
+        if (state.regions[i].region_id === selectedId) return state.regions[i];
+      }
+      return null;
+    }
+    function warningText(region) {
+      var parts = [];
+      if (region.edit_role === "unknown") parts.push("角色还没定");
+      (state.warnings || []).forEach(function (item) {
+        parts.push(item.label + " " + item.code);
+      });
+      return parts.length ? parts.join("；") : "无";
+    }
     function showError(text) {
       var box = document.getElementById("error");
       box.hidden = !text;
       box.textContent = text || "";
     }
     function sourceLabel(source) { return source === "user" ? "已修改" : "分析"; }
+    function cell(text) {
+      var td = document.createElement("td");
+      td.textContent = text;
+      return td;
+    }
     function render() {
       var body = document.getElementById("region-body");
       var strip = document.getElementById("strip");
@@ -387,13 +440,21 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
       strip.textContent = "";
       if (!state || !state.regions) return;
       var duration = state.duration_seconds || 1;
-      state.regions.forEach(function (region, index) {
+      state.regions.forEach(function (region) {
         var slice = document.createElement("span");
         slice.style.width = ((region.end - region.start) / duration * 100) + "%";
         slice.textContent = region.kind_label || KIND[region.edit_role] || region.edit_role;
         strip.appendChild(slice);
         var tr = document.createElement("tr");
-        tr.addEventListener("click", function (event) { playRegion(region, event); });
+        tr.setAttribute("data-region-id", region.region_id);
+        if (region.edit_role === "unknown") tr.classList.add("is-unknown");
+        if (region.region_id === selectedId) tr.classList.add("is-selected");
+        tr.addEventListener("click", function (event) {
+          if (event.target.closest("select")) return;
+          selectedId = region.region_id;
+          render();
+        });
+        tr.appendChild(cell(Number(region.start).toFixed(1) + "–" + Number(region.end).toFixed(1)));
         var kind = document.createElement("td");
         var select = document.createElement("select");
         Object.keys(KIND).forEach(function (role) {
@@ -405,99 +466,30 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
         });
         select.addEventListener("change", function () {
           region.edit_role = select.value;
-          region.musical_proxy = PROXY[select.value] || region.musical_proxy;
           region.kind_label = KIND[select.value];
-          region.evidence_basis = "manual";
-          region.source = "user";
           postDraft();
         });
         kind.appendChild(select);
         tr.appendChild(kind);
-        ["start", "end"].forEach(function (field) {
-          var cell = document.createElement("td");
-          var input = document.createElement("input");
-          input.type = "number";
-          input.step = "0.01";
-          input.value = String(region[field]);
-          input.addEventListener("change", function () {
-            var value = Number(input.value);
-            if (!Number.isFinite(value)) { showError("时间要是有限数字"); return; }
-            applyBound(index, field, value);
-            postDraft();
-          });
-          cell.appendChild(input);
-          tr.appendChild(cell);
-        });
-        var confidence = document.createElement("td");
-        confidence.textContent = Number(region.confidence).toFixed(2);
-        tr.appendChild(confidence);
-        var source = document.createElement("td");
-        source.textContent = sourceLabel(region.source);
-        tr.appendChild(source);
-        var enabled = document.createElement("td");
-        var checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = region.enabled !== false;
-        checkbox.addEventListener("change", function () {
-          region.enabled = checkbox.checked;
-          region.evidence_basis = "manual";
-          region.source = "user";
-          postDraft();
-        });
-        enabled.appendChild(checkbox);
-        tr.appendChild(enabled);
-        var actions = document.createElement("td");
-        var play = document.createElement("button");
-        play.type = "button";
-        play.textContent = "试听";
-        play.addEventListener("click", function (event) { playRegion(region, event); });
-        var remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "secondary";
-        remove.textContent = "删除";
-        remove.addEventListener("click", function () { deleteRegion(index); });
-        actions.appendChild(play);
-        actions.appendChild(remove);
-        tr.appendChild(actions);
+        tr.appendChild(cell(Number(region.suggested_shot_mean_s).toFixed(1)));
+        tr.appendChild(cell((SNAP[region.snap_policy] || region.snap_policy) + " " + region.snap_policy));
+        tr.appendChild(cell(Number(region.confidence).toFixed(2)));
+        tr.appendChild(cell(warningText(region)));
+        tr.appendChild(cell(sourceLabel(region.source)));
         body.appendChild(tr);
       });
-      document.getElementById("revision").textContent = state.revision || "";
+      document.getElementById("revision").textContent = state.edited_at || state.revision || "";
     }
-    function applyBound(index, field, value) {
-      var regions = state.regions;
-      var region = regions[index];
-      if (field === "start") {
-        if (index === 0) value = 0;
-        region.start = value;
-        if (index > 0) regions[index - 1].end = value;
-      } else {
-        if (index === regions.length - 1) value = state.duration_seconds;
-        region.end = value;
-        if (index + 1 < regions.length) regions[index + 1].start = value;
-      }
-      region.evidence_basis = "manual";
-      region.source = "user";
-    }
-    function playRegion(region, event) {
-      if (event && event.target && event.target.closest("input, select, button") && event.target.textContent !== "试听") return;
-      if (!track) return;
-      track.currentTime = Number(region.start) || 0;
-      var end = Number(region.end);
-      var stop = function () {
-        if (track.currentTime >= end - 0.05) {
-          track.pause();
-          track.removeEventListener("timeupdate", stop);
-        }
-      };
-      track.addEventListener("timeupdate", stop);
-      var playing = track.play();
-      if (playing && playing.catch) playing.catch(function () {});
+    function rolePayload() {
+      return state.regions.map(function (region) {
+        return {region_id: region.region_id, edit_role: region.edit_role};
+      });
     }
     function postDraft() {
       return fetch("/api/regions-draft", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({expected_revision: state.revision, regions: state.regions})
+        body: JSON.stringify({expected_revision: state.revision, regions: rolePayload()})
       }).then(function (response) {
         return response.json().then(function (data) {
           if (!response.ok) {
@@ -518,35 +510,26 @@ _MUSIC_PAGE_TEMPLATE = """<!DOCTYPE html>
         render();
       });
     }
-    function deleteRegion(index) {
-      if (!state || state.regions.length < 2) { showError("至少保留一段"); return; }
-      var region = state.regions[index];
-      if (index > 0) {
-        state.regions[index - 1].end = region.end;
-        state.regions[index - 1].evidence_basis = "manual";
-      } else {
-        state.regions[1].start = region.start;
-        state.regions[1].evidence_basis = "manual";
-      }
-      state.regions.splice(index, 1);
-      postDraft();
+    function playSelected() {
+      var region = selectedRegion();
+      if (!region || !track) { showError("先点选一段"); return; }
+      showError("");
+      track.currentTime = Number(region.start) || 0;
+      var playing = track.play();
+      if (playing && playing.catch) playing.catch(function () {});
     }
-    document.getElementById("add-region").addEventListener("click", function () {
-      if (!state || !state.regions.length) return;
-      var region = state.regions[0];
-      var mid = (Number(region.start) + Number(region.end)) / 2;
-      if (!(mid > region.start && mid < region.end)) { showError("这段太短，不能再拆"); return; }
-      var copy = JSON.parse(JSON.stringify(region));
-      copy.region_id = "user-" + Date.now();
-      copy.start = mid;
-      copy.evidence_basis = "manual";
-      copy.source = "user";
-      region.end = mid;
-      region.evidence_basis = "manual";
-      region.source = "user";
-      state.regions.splice(1, 0, copy);
-      postDraft();
+    track.addEventListener("timeupdate", function () {
+      var region = selectedRegion();
+      if (region) {
+        var step = playbackSpanStep(
+          track.currentTime, Number(region.start), Number(region.end), document.getElementById("loop").checked
+        );
+        if (step === "seek") track.currentTime = Number(region.start) || 0;
+        else if (step === "pause") track.pause();
+      }
+      document.getElementById("playhead").textContent = formatTime(track.currentTime);
     });
+    document.getElementById("play-span").addEventListener("click", playSelected);
     document.getElementById("save").addEventListener("click", function () { if (state) postDraft(); });
     document.getElementById("discard").addEventListener("click", function () {
       if (!state || !confirm("丢弃草稿？未锁定的修改会丢掉。")) return;
@@ -797,20 +780,25 @@ def _validation_message(exc: Exception) -> str:
     return str(exc)
 
 
-def _check_bounds(region_id: str, start: object, end: object, duration: float) -> None:
-    if (
-        isinstance(start, bool)
-        or isinstance(end, bool)
-        or not isinstance(start, (int, float))
-        or not isinstance(end, (int, float))
-    ):
-        raise ValueError(f"region {region_id} bounds must be finite numbers")
-    if math.isnan(start) or math.isnan(end) or math.isinf(start) or math.isinf(end):
-        raise ValueError(f"region {region_id} bounds must be finite numbers")
-    if not start < end:
-        raise ValueError(f"region {region_id} start must be less than end")
-    if start < -_BOUNDARY_TOLERANCE or end > duration + _BOUNDARY_TOLERANCE:
-        raise ValueError(f"region {region_id} must stay inside the track duration")
+def playback_span_step(
+    current: float,
+    start: float,
+    end: float,
+    looping: bool,
+    tolerance: float = _PLAYBACK_TOLERANCE,
+) -> str:
+    """What the playhead should do for one selected span.
+
+    ``seek`` jumps to the span start. ``pause`` stops when looping is off and
+    the playhead has reached the end. ``continue`` leaves playback alone.
+    ``tolerance`` covers ``timeupdate`` arriving slightly after the end.
+    """
+
+    if current >= end - tolerance:
+        return "seek" if looping else "pause"
+    if current < start - tolerance:
+        return "seek"
+    return "continue"
 
 
 def _load_candidate_regions(paths: ProjectPaths) -> MusicEditRegions | None:
@@ -826,11 +814,20 @@ def _region_view(region: MusicEditRegion) -> dict:
     return payload
 
 
+def _warning_views(codes: list[str]) -> list[dict[str, str]]:
+    return [
+        {"code": code, "label": WARNING_LABELS.get(code, "这条分析提示需要看一下")}
+        for code in codes
+    ]
+
+
 def _desk_view(document) -> dict:
     return {
         "revision": document.regions_sha256,
         "version_id": document.version_id,
+        "edited_at": document.edited_at,
         "duration_seconds": document.regions.duration_seconds,
+        "warnings": _warning_views(list(document.regions.warnings)),
         "regions": [_region_view(region) for region in document.regions.regions],
     }
 
@@ -853,18 +850,32 @@ def _ensure_draft_unlocked(paths: ProjectPaths) -> tuple[object | None, ServeRes
         return None, _error(400, _validation_message(exc), _regions_hint(paths.root))
 
 
-def _apply_region_edits(base: MusicEditRegions, payload: list) -> MusicEditRegions:
-    if not payload:
-        raise ValueError("regions must be a non-empty list")
-    parsed: list[MusicEditRegion] = []
+def _apply_role_edits(base: MusicEditRegions, payload: list) -> MusicEditRegions:
+    """Apply edit_role changes. Every other field, add, and delete is refused."""
+
+    if not isinstance(payload, list) or len(payload) != len(base.regions):
+        raise ValueError(_ROLE_ONLY)
+    current = {region.region_id: region for region in base.regions}
+    chosen: dict[str, str] = {}
     for item in payload:
-        if not isinstance(item, dict):
-            raise ValueError("region must be an object")
-        data = {key: value for key, value in item.items() if key not in _VIEW_KEYS}
-        region_id = str(data.get("region_id") or "?")
-        _check_bounds(region_id, data.get("start"), data.get("end"), base.duration_seconds)
-        parsed.append(MusicEditRegion.model_validate(data))
-    return base.model_copy(update={"regions": parsed})
+        if not isinstance(item, dict) or set(item) != {"region_id", "edit_role"}:
+            raise ValueError(_ROLE_ONLY)
+        region_id = item["region_id"]
+        role = item["edit_role"]
+        if not isinstance(region_id, str) or not isinstance(role, str):
+            raise ValueError(_ROLE_ONLY)
+        if region_id not in current or region_id in chosen or role not in KIND_LABELS:
+            raise ValueError(_ROLE_ONLY)
+        chosen[region_id] = role
+    if set(chosen) != set(current):
+        raise ValueError(_ROLE_ONLY)
+    updated: list[MusicEditRegion] = []
+    for region in base.regions:
+        role = chosen[region.region_id]
+        if role != region.edit_role:
+            region = region.model_copy(update={"edit_role": role, "evidence_basis": "manual"})
+        updated.append(region)
+    return base.model_copy(update={"regions": updated})
 
 
 def _client_write_path(payload: dict) -> bool:
@@ -903,9 +914,12 @@ def _save_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
             "refusing to write a client path; drafts stay inside the project root",
             "POST /api/regions-draft",
         )
+    extra = set(payload) - {"expected_revision", "regions"}
+    if extra:
+        return _error(400, _ROLE_ONLY, "POST /api/regions-draft")
     regions_payload = payload.get("regions")
     if not isinstance(regions_payload, list):
-        return _error(400, "regions must be a non-empty list", "POST /api/regions-draft")
+        return _error(400, _ROLE_ONLY, "POST /api/regions-draft")
     expected = payload.get("expected_revision")
     draft = load_regions_draft(paths)
     if draft is None:
@@ -919,7 +933,7 @@ def _save_draft_unlocked(project: Path, body: bytes) -> ServeResponse:
             return _error(409, _STALE_REVISION, "GET /api/music-desk")
         base = draft.regions
     try:
-        updated = _apply_region_edits(base, regions_payload)
+        updated = _apply_role_edits(base, regions_payload)
         saved = save_regions_draft(paths, updated)
     except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
         return _error(400, _validation_message(exc), "POST /api/regions-draft")
@@ -978,20 +992,33 @@ def _music_rows(view: dict | None) -> tuple[str, str]:
             1,
         )
         source = "已修改" if region.get("source") == "user" else "分析"
-        checked = " checked" if region.get("enabled", True) else ""
+        snap = SNAP_LABELS.get(str(region.get("snap_policy")), str(region.get("snap_policy")))
+        warning_bits = []
+        if region.get("edit_role") == "unknown":
+            warning_bits.append("角色还没定")
+        for item in view.get("warnings") or []:
+            warning_bits.append(
+                f"{html.escape(item['label'])} <small>{html.escape(item['code'])}</small>"
+            )
+        warning = "无" if not warning_bits else " ".join(warning_bits)
+        unknown = " is-unknown" if region.get("edit_role") == "unknown" else ""
         rows.append(
-            "<tr data-region-id=\"{rid}\">"
+            "<tr data-region-id=\"{rid}\" class=\"{unknown}\">"
+            "<td>{span}</td>"
             "<td><select>{options}</select></td>"
-            "<td>{start}</td><td>{end}</td><td>{confidence}</td><td>{source}</td>"
-            "<td><input type=\"checkbox\"{checked}></td><td>试听</td>"
+            "<td>{shot}</td><td>{snap} <small>{snap_code}</small></td>"
+            "<td>{confidence}</td><td>{warning}</td><td>{source}</td>"
             "</tr>".format(
                 rid=html.escape(str(region["region_id"])),
+                unknown=unknown.strip(),
                 options=selected,
-                start=html.escape(str(region["start"])),
-                end=html.escape(str(region["end"])),
+                span=html.escape(f"{float(region['start']):.1f}–{float(region['end']):.1f}"),
+                shot=html.escape(f"{float(region['suggested_shot_mean_s']):.1f}"),
+                snap=html.escape(snap),
+                snap_code=html.escape(str(region.get("snap_policy"))),
                 confidence=html.escape(f"{float(region['confidence']):.2f}"),
+                warning=warning,
                 source=source,
-                checked=checked,
             )
         )
     return "".join(strips), "".join(rows)
@@ -1029,7 +1056,7 @@ def render_music_page(project: Path) -> str:
     page = page.replace("__ROWS__", rows)
     page = page.replace("__DATA__", data)
     page = page.replace("__KIND_JSON__", json.dumps(KIND_LABELS, ensure_ascii=False))
-    page = page.replace("__PROXY_JSON__", json.dumps(_PROXY_FOR_ROLE, ensure_ascii=False))
+    page = page.replace("__SNAP_JSON__", json.dumps(SNAP_LABELS, ensure_ascii=False))
     return page
 
 

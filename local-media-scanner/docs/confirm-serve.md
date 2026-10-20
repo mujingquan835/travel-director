@@ -29,13 +29,22 @@ A bad path stays on the page as text, with the same copyable `travel-director �
 
 ## Music page `/music`
 
-Opening the page loads analyzer candidates and the open draft. If there is no draft, one is created from `music_edit_regions.json` through `save_regions_draft`. The table shows a Chinese kind label (前奏, 高潮, 可卡点, and the other edit roles), start, end, confidence, and whether the region still comes from the analyzer or has been edited.
+Opening the page loads analyzer candidates and the open draft. If there is no draft, one is created from `music_edit_regions.json` through `save_regions_draft`. Milestone A does not edit boundaries or add, split, or delete regions.
 
-Edits (bounds, kind, add, delete, enabled) `POST /api/regions-draft` with `expected_revision` set to the draft's `regions_sha256`. A stale revision is `409`. Bounds must be finite, `start < end`, and inside the track duration. The write is the existing temp-file rename inside the project root. A client-supplied path is refused.
+Each row shows:
 
-**保存草稿** sends the current draft. **丢弃草稿** asks for confirmation, then `POST /api/regions-draft/discard`. Confirm/lock is not on this page. There is no waveform.
+- 时段 — `start`–`end`, read-only
+- 角色 — `edit_role` dropdown with Chinese labels (前奏, 高潮, 可卡点, and the other roles). `unknown` rows are highlighted
+- 建议镜长 — `suggested_shot_mean_s`
+- `snap_policy`
+- 置信度 — `confidence`
+- 警告 — file-level `MusicEditRegions.warnings` (for example `onset_rate_from_beat_grid_proxy`) in plain Chinese, with the code in small type. The region schema has no warning list; an `unknown` role adds “角色还没定”
 
-Clicking a row sets the frozen-audio element to that region's start.
+`POST /api/regions-draft` accepts `expected_revision` and one `{region_id, edit_role}` per existing region. Any other field, a new id, or a missing id is `400` with a Chinese explanation. A changed role sets that region's `evidence_basis` to `manual` and leaves every other region field, including `musical_proxy` and the times, as they were. `edited_at` is the ISO UTC timestamp already on `RegionsVersionDocument`, the draft envelope. It is not added to `MusicEditRegion`, so analyzer JSON and the CLI schema stay the same. A stale `expected_revision` is `409`. The write still uses the temp-file rename inside the project root. A client-supplied path is refused.
+
+**保存草稿** sends the current roles. **丢弃草稿** asks for confirmation, then `POST /api/regions-draft/discard`.
+
+Clicking a row selects it. **播放本段** plays that span from `/audio/frozen`. **循环** seeks back to the span start when the playhead reaches the end (with a small tolerance for `timeupdate`). The page shows the current time. Confirm/lock is not on this page. There is no waveform.
 
 `/export` says `导出：后续版本开放`.
 
@@ -48,7 +57,7 @@ Clicking a row sets the frozen-audio element to that region's start.
 | `/api/music-desk` | Open draft, creating it from candidates when missing |
 | `POST /api/project` | Switch the project this process is showing |
 | `POST /api/reveal` | Open the resolved project root in the file manager |
-| `POST /api/regions-draft` | Replace the draft when `expected_revision` matches |
+| `POST /api/regions-draft` | Change `edit_role` only, when `expected_revision` matches |
 | `POST /api/regions-draft/discard` | Delete the open draft when `expected_revision` matches |
 | `/api/regions-versions` | Draft / confirmed / history listings |
 | `/api/regions-versions/draft` | Open draft document |

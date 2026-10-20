@@ -668,6 +668,73 @@ def playback_span_step(
     return "continue"
 
 
+def clamp_seek(seconds: float, duration: float) -> float:
+    """Keep a playhead inside the track."""
+
+    duration = max(0.0, float(duration))
+    seconds = float(seconds)
+    if seconds < 0.0:
+        return 0.0
+    if seconds > duration:
+        return duration
+    return seconds
+
+
+def seek_from_fraction(fraction: float, duration: float) -> float:
+    """Map a 0–1 click on a full-length lane to a time."""
+
+    fraction = float(fraction)
+    if fraction < 0.0:
+        fraction = 0.0
+    if fraction > 1.0:
+        fraction = 1.0
+    return clamp_seek(fraction * max(0.0, float(duration)), duration)
+
+
+def neighbor_mark(marks: list[float], current: float, step: int) -> float:
+    """Next mark strictly after ``current``, or the previous one when ``step`` is negative.
+
+    An empty list, or no mark on that side, leaves ``current`` where it is.
+    """
+
+    ordered = sorted(float(mark) for mark in marks)
+    current = float(current)
+    if not ordered:
+        return current
+    epsilon = 1e-3
+    if step >= 0:
+        for mark in ordered:
+            if mark > current + epsilon:
+                return mark
+        return current
+    for mark in reversed(ordered):
+        if mark < current - epsilon:
+            return mark
+    return current
+
+
+def detail_window(playhead: float, duration: float, half: float = 4.0) -> tuple[float, float]:
+    """An 8 second window centered on the playhead, clamped inside the track.
+
+    Near either end the window stays 8 seconds when the track is longer than
+    that, so the playhead is not always in the middle. A shorter track is the
+    whole file.
+    """
+
+    duration = max(0.0, float(duration))
+    playhead = clamp_seek(playhead, duration)
+    window = max(0.0, float(half) * 2.0)
+    if duration <= window:
+        return (0.0, duration)
+    start = playhead - window / 2.0
+    end = playhead + window / 2.0
+    if start < 0.0:
+        return (0.0, window)
+    if end > duration:
+        return (duration - window, duration)
+    return (start, end)
+
+
 def _load_candidate_regions(paths: ProjectPaths) -> MusicEditRegions | None:
     if not _regions_present(paths):
         return None

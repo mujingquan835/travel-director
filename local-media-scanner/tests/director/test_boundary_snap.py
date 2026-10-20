@@ -18,7 +18,15 @@ from director.music_edit_regions_versions import (
     load_regions_version,
     save_regions_draft,
 )
-from director.schema import BeatEvent, BeatGridInfo, EnergyPoint, MusicEnding
+from director.music_edit_regions_schema import region_invariant_violations
+from director.schema import (
+    BeatEvent,
+    BeatGridInfo,
+    EnergyPoint,
+    MusicEnding,
+    MusicStructure,
+    MusicStructureSection,
+)
 from director.shot_slots import apply_boundary_snaps, plan_shot_slots
 from tests.director.test_confirm_serve import _json, _port, _post_json, _request
 from tests.director.test_music_edit_regions import _travel
@@ -402,3 +410,120 @@ def test_old_region_json_without_snap_fields_still_loads() -> None:
     assert loaded.downbeat_cluster_times == []
     assert loaded.regions[0].start_raw_s is None
     assert json.loads(loaded.model_dump_json())["schema_version"] == "0.1.0"
+
+
+def _flip_curve(*, with_downbeats: bool) -> MusicStructure:
+    """60s curve where a sub-bar window shift crosses the establish slope gate.
+
+    Raw 3–8s slopes at -0.09, so it is unknown. The same energy read on
+    2.74–8.74s slopes inside ±0.08, so the old snapped-window classifier
+    called it establish and then marked the 8–25s section unknown.
+    """
+
+    values = [0.55] * 60
+    values[0:3] = [0.58, 0.58, 0.58]
+    values[3:6] = [0.62, 0.62, 0.62]
+    values[6:8] = [0.53, 0.53]
+    for index in range(8, 25):
+        values[index] = 0.62
+    for index in range(25, 40):
+        values[index] = 0.92
+    for index in range(40, 52):
+        values[index] = 0.48
+    for index, level in enumerate(np.linspace(0.40, 0.05, 8)):
+        values[52 + index] = float(level)
+    sections = [
+        MusicStructureSection(start=start, end=end, role="unknown", energy=0.5, confidence=confidence)
+        for start, end, confidence in (
+            (0, 3, 0.8),
+            (3, 8, 0.7),
+            (8, 25, 0.65),
+            (25, 40, 0.8),
+            (40, 52, 0.7),
+            (52, 60, 0.75),
+        )
+    ]
+    beats: list[float] = []
+    moment = 0.0
+    while moment < 60.0 - 1e-9:
+        if 8 <= moment < 25 or abs(moment / 2 - round(moment / 2)) < 1e-6:
+            beats.append(round(moment, 6))
+        moment += 0.5
+    beats = sorted(set(beats))
+    payload: dict = {
+        "source_sha256": SHA,
+        "duration_seconds": 60.0,
+        "bpm": 120.0,
+        "beats_seconds": beats,
+        "downbeats_seconds": beats[::4],
+        "energy_curve": [
+            EnergyPoint(time_seconds=float(index), value=round(float(level), 6))
+            for index, level in enumerate(values)
+        ],
+        "sections": sections,
+        "ending": MusicEnding(last_onset_seconds=58.0, behavior="decay"),
+        "confidence": 0.9,
+    }
+    if with_downbeats:
+        grid = sorted(set([round(index * 0.5, 6) for index in range(120)] + list(USER_DOWNBEATS)))
+        payload.update(
+            {
+                "beat_events": [
+                    BeatEvent(
+                        i=index,
+                        t=item,
+                        bar=index // 4,
+                        beat_in_bar=index % 4,
+                        is_downbeat=any(abs(item - down) < 1e-6 for down in USER_DOWNBEATS),
+                        onset_strength=0.4,
+                        energy=0.4,
+                    )
+                    for index, item in enumerate(grid)
+                ],
+                "downbeat_confidence": 0.935,
+                "beat_grid": BeatGridInfo(period_s=0.5, coverage=1.0),
+                "downbeats_seconds": list(USER_DOWNBEATS),
+                "beat_backend": "beat_this",
+                "downbeat_detector": "beat_this",
+            }
+        )
+    return MusicStructure(**payload)
+
+
+def test_sub_bar_snap_keeps_the_establish_role_on_the_long_section() -> None:
+    plain = analyze_music_edit_regions(_flip_curve(with_downbeats=False))
+    snapped = analyze_music_edit_regions(_flip_curve(with_downbeats=True))
+    assert region_invariant_violations(plain) == []
+    assert region_invariant_violations(snapped) == []
+
+    before = [(region.edit_role, region.confidence) for region in plain.regions]
+    assert [role for role, _confidence in before] == [
+        "hook",
+        "unknown",
+        "establish",
+        "peak_cut",
+        "narrative_hold",
+        "settle_outro",
+    ]
+    assert [(region.start, region.end, region.edit_role) for region in plain.regions][1:3] == [
+        (3.0, 8.0, "unknown"),
+        (8.0, 25.0, "establish"),
+    ]
+    assert plain.regions[1].confidence == 0.4
+    assert plain.regions[2].confidence == 0.65
+
+    assert [region.edit_role for region in snapped.regions] == [role for role, _confidence in before]
+    short = snapped.regions[1]
+    long = snapped.regions[2]
+    assert (short.start, short.end, short.start_raw_s, short.end_raw_s) == (2.74, 8.74, 3.0, 8.0)
+    assert short.edit_role == "unknown"
+    assert short.confidence == 0.4
+    assert (long.start, long.end, long.start_raw_s, long.end_raw_s) == (8.74, 24.74, 8.0, 25.0)
+    assert long.edit_role == "establish"
+    assert long.confidence == 0.65
+    long_slots = [slot for slot in snapped.shot_slots if slot.region_id == long.region_id]
+    assert long_slots
+    assert all(slot.reason_code != "ROLE_UNKNOWN_BAR_GRID" for slot in long_slots)
+    assert {slot.reason_code for slot in snapped.shot_slots if slot.region_id == short.region_id} == {
+        "ROLE_UNKNOWN_BAR_GRID"
+    }

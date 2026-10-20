@@ -643,9 +643,19 @@ def test_music_page_renders_role_rows_warnings_and_loop(desk) -> None:
     assert "is-unknown" in text
     assert "播放本段" in text
     assert "循环" in text
+    assert "循环本段" in text
     assert 'id="loop"' in text
+    assert 'id="loop" checked' not in text
     assert 'id="playhead"' in text
+    assert 'id="now-shot"' in text
     assert "playbackSpanStep" in text
+    assert "clampSeek" in text
+    assert "seekFromFraction" in text
+    assert "neighborMark" in text
+    assert "detailWindow" in text
+    assert "ArrowLeft" in text
+    assert "drag:true" not in text
+    assert 'draggable="true"' not in text
     assert "保存草稿" in text
     assert "丢弃草稿" in text
     assert "分析" in text

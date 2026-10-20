@@ -264,6 +264,10 @@ def analyze_music_edit_regions(
     bounds = [_r3(b) for b in bounds]
     bounds[-1] = _r3(duration)
     raw_bounds = list(bounds)
+    # Roles use the raw bounds. A sub-bar snap must not flip them: the user's
+    # 8–25s establish became unknown once 8.0 moved to 8.74 and the neighbour
+    # took the single establish slot.
+    snapped_bounds = list(raw_bounds)
     if structure.beat_events and structure.bpm:
         period = (
             structure.beat_grid.period_s
@@ -274,7 +278,7 @@ def analyze_music_edit_regions(
         down_times = [
             beat.t for beat in structure.beat_events if beat.is_downbeat and beat.t <= duration + 1e-6
         ]
-        bounds = snap_bound_list(
+        snapped_bounds = snap_bound_list(
             raw_bounds,
             duration,
             down_times,
@@ -282,24 +286,13 @@ def analyze_music_edit_regions(
             period,
             structure.downbeat_confidence,
         )
-
-        def _retarget(old: float) -> float:
-            for raw, snapped in zip(raw_bounds, bounds):
-                if abs(raw - old) <= 0.001:
-                    return snapped
-            return old
-
-        if hook_end > 0:
-            hook_end = _retarget(hook_end)
-        if carve_outro:
-            outro_start = _retarget(outro_start)
-    paired = list(zip(raw_bounds, bounds))
+    paired = list(zip(raw_bounds, snapped_bounds))
     spans = []
-    raw_spans: list[tuple[float, float]] = []
+    snapped_spans: list[tuple[float, float]] = []
     for (raw_start, start), (raw_end, end) in zip(paired, paired[1:]):
-        if end - start > tol:
-            spans.append((start, end))
-            raw_spans.append((raw_start, raw_end))
+        if raw_end - raw_start > tol:
+            spans.append((raw_start, raw_end))
+            snapped_spans.append((start, end))
     if unmerged:
         warnings.append(SHORT_REGION_UNMERGED)
 
@@ -395,7 +388,9 @@ def analyze_music_edit_regions(
 
     regions: list[MusicEditRegion] = []
     for index, ((start, end), role) in enumerate(zip(spans, roles)):
-        raw_start, raw_end = raw_spans[index]
+        snapped_start, snapped_end = snapped_spans[index]
+        if snapped_end - snapped_start <= tol:
+            snapped_start, snapped_end = start, end
         mean, shot_min, shot_max, motion, need, proxy = ROLE_DEFAULTS[role]
         if role == "peak_cut":
             mean = peak_shot_mean(structure.bpm)
@@ -407,8 +402,8 @@ def analyze_music_edit_regions(
         regions.append(
             MusicEditRegion(
                 region_id=f"r{index + 1:02d}",
-                start=_r3(start),
-                end=_r3(end),
+                start=_r3(snapped_start),
+                end=_r3(snapped_end),
                 edit_role=role,
                 musical_label=None,
                 musical_proxy=proxy,
@@ -431,8 +426,8 @@ def analyze_music_edit_regions(
                 content_need=need,
                 confidence=_r6(confidence),
                 evidence_basis="energy",
-                start_raw_s=_r3(raw_start) if abs(raw_start - start) >= 0.001 else None,
-                end_raw_s=_r3(raw_end) if abs(raw_end - end) >= 0.001 else None,
+                start_raw_s=_r3(start) if abs(start - snapped_start) >= 0.001 else None,
+                end_raw_s=_r3(end) if abs(end - snapped_end) >= 0.001 else None,
             )
         )
 

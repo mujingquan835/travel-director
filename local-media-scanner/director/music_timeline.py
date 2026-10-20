@@ -2,10 +2,11 @@
 
 The layout follows the approved static mock: transport, ruler, music lane,
 beat ticks, colored region blocks, and a shot lane. Blocks are HTML positioned
-by time. They are not draggable. When the analyzer stored shot slots, the shot
-lane uses those lengths and a zoom of the selected region. Otherwise the lane
-stays the empty equal-slot placeholder. Role changes go through the existing
-draft API. Confirmed versions render a disabled role control.
+by time. They are not draggable. Clicking or dragging a time lane seeks.
+When the analyzer stored shot slots, the shot lane uses those lengths and a
+detail lane follows the playhead. Otherwise the lane stays the empty
+equal-slot placeholder. Role changes go through the existing draft API.
+Confirmed versions render a disabled role control.
 
 Peaks are fetched from ``/api/`` + ``wave`` + ``form-peaks`` and drawn by the
 vendored wavesurfer build. The page does not decode the file itself.
@@ -105,14 +106,19 @@ a{color:var(--accent);text-decoration:none}
 .slotgrp.sel .slotcap{color:var(--ink2)}
 .rsep{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
 .ov{position:absolute;top:0;bottom:0;left:calc(var(--hdr) + 14px);right:14px;pointer-events:none;z-index:5}
+.ov *{pointer-events:none}
 .loopband{position:absolute;top:0;bottom:0;background:rgba(63,90,99,.06);border-left:1px solid rgba(46,51,54,.35);border-right:1px solid rgba(46,51,54,.35)}
+.loopband[hidden]{display:none}
 .brk{position:absolute;top:20px;width:9px;height:14px;border:2px solid #2e3336;border-bottom:none}
 .brk.l{left:-1px;border-right:none;border-radius:2px 0 0 0}
 .brk.r{right:-1px;border-left:none;border-radius:0 2px 0 0}
 .loopcap{position:absolute;top:3px;right:12px;font-size:11px;color:#2e3336;background:var(--bg);padding:0 6px;white-space:nowrap}
-.ph{position:absolute;top:0;bottom:0;width:0;border-left:1.5px solid #c0453a}
+.ph{position:absolute;top:0;bottom:0;width:0;border-left:1.5px solid #c0453a;pointer-events:auto;cursor:ew-resize;z-index:6}
+.ph,.ph *{pointer-events:auto}
 .ph:before{content:"";position:absolute;top:20px;left:-6.5px;border:5.5px solid transparent;border-top:8px solid #c0453a}
+.ph:after{content:"";position:absolute;left:-8px;top:0;bottom:0;width:16px}
 .phcap{position:absolute;top:3px;right:5px;background:#fbeeec;padding:0 4px;border-radius:3px;font-size:11px;color:#c0453a;font-family:"DejaVu Sans Mono",monospace}
+.now-shot{margin-left:10px;font-size:12px;color:var(--ink);white-space:nowrap}
 .insp{flex:1;margin:12px 24px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
   display:grid;grid-template-columns:1.25fr 1fr 1.15fr;min-height:0;overflow:auto}
 .col{padding:14px 18px;border-right:1px solid var(--line2);display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -164,12 +170,14 @@ body.has-slots .r-how .lane{height:34px}
 body.has-slots .insp{margin-top:8px}
 #beat-backend-note{flex:none;margin:0 24px 6px;padding:4px 10px;background:#f6ecd9;border:1px solid #e8d4ae;border-radius:6px;color:#7a5520;font-size:12px;line-height:1.45}
 .phr{position:absolute;top:3px;bottom:3px;border:1px solid #c5c9c6;border-bottom:none;border-radius:5px 5px 0 0;color:#6a7378;font-size:11px;padding:0 4px;overflow:hidden;white-space:nowrap}
+.phr.on{background:rgba(63,90,99,.14);color:#2e3336;border-color:#3f5a63}
 .how{position:absolute;top:2px;bottom:2px;padding:1px 4px;overflow:hidden;color:#3c4448;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.how.on{background:#f6ecd9;box-shadow:inset 0 0 0 1px #c9a15b}
 .sl{position:absolute;top:4px;bottom:8px;border-radius:3px;overflow:hidden;color:#2e3336;font-size:11px;line-height:1.15;padding:2px 3px 0 5px;cursor:pointer;border:1px solid rgba(0,0,0,.12)}
 .sl.fast{top:14px;color:#fff}
 .sl.faint,.zshot.faint{border-style:dashed}
 .sl.pending{color:#5a4a2a;background:repeating-linear-gradient(-45deg,#efe4cc 0 4px,#e2d3b1 4px 8px)}
-.sl.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:2}
+.sl.on,.zshot.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:2}
 .sl .cutedge{position:absolute;left:0;top:0;bottom:0;width:2px;background:#2e3336}
 .sl b{font-weight:650}
 .sl em{display:block;font-style:normal;font-size:10px;opacity:.85}
@@ -185,9 +193,15 @@ body.has-slots .insp{margin-top:8px}
 .zoom{flex:none;margin:8px 24px 0;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 12px 10px}
 .zoom h3{margin:0 0 6px;font-size:13px;font-weight:600}
 .zoom .note{margin:0 0 6px}
-.zlane{position:relative;height:78px;margin:0 0 6px;background:#f3f2ec;border-radius:4px}
+.zlane{position:relative;height:78px;margin:0 0 6px;background:#f3f2ec;border-radius:4px;cursor:ew-resize;touch-action:none}
+.zlane .beat{top:2px;bottom:auto;height:16px;z-index:1}
+.zlane .beat.db{height:22px}
+.zlane .zlab{position:absolute;top:0;left:2px;font-size:10px;color:#5c656a;line-height:1}
 .zold{position:relative;height:18px;margin-top:4px}
-.zshot,.osl{position:absolute;top:8px;bottom:6px;border-radius:3px;overflow:hidden;font-size:12px;line-height:1.2;padding:2px 4px;border:1px solid rgba(0,0,0,.12);color:#2e3336}
+.zold[hidden]{display:none}
+.zph{position:absolute;top:0;bottom:0;width:0;border-left:1.5px solid #c0453a;z-index:4;pointer-events:none}
+.zshot,.osl{position:absolute;top:24px;bottom:4px;border-radius:3px;overflow:hidden;font-size:12px;line-height:1.2;padding:2px 4px;border:1px solid rgba(0,0,0,.12);color:#2e3336}
+.r-ruler .lane,.r-wave .lane,.r-reg .lane,.r-phrase .lane,.r-shot .lane{touch-action:none}
 .zshot.fast{color:#fff}
 .osl{top:1px;bottom:1px;background:#eceae4;color:#8a9094;font-size:10px;border-style:dashed}
 #slot-detail p{margin:0 0 4px;font-size:12px;line-height:1.4}
@@ -222,6 +236,35 @@ def _span_style(start: float, end: float, duration: float) -> str:
     left = start / duration * 100
     width = (end - start) / duration * 100
     return f"left:{left:.3f}%;width:{width:.3f}%"
+
+
+def _item_at(items: list, moment: float) -> dict | None:
+    """The span that contains ``moment``. The last span also owns its end."""
+
+    if not items:
+        return None
+    last = len(items) - 1
+    for index, item in enumerate(items):
+        start = float(item["start"])
+        end = float(item["end"])
+        if start <= moment < end or (index == last and start <= moment <= end):
+            return item
+    return None
+
+
+def _display_slot_id(slot_id: str) -> str:
+    if "-s" not in slot_id:
+        return slot_id
+    head, tail = slot_id.rsplit("-s", 1)
+    if tail.isdigit():
+        tail = str(int(tail))
+    return f"{head}-s{tail}"
+
+
+def _shot_caption(slot: dict) -> str:
+    length = float(slot["end"]) - float(slot["start"])
+    kind = str(slot.get("shot_type") or "")
+    return f"镜头 {_display_slot_id(str(slot.get('slot_id') or ''))} · {kind} · {length:.1f}s"
 
 
 def _slot_count(region: dict) -> int:
@@ -384,7 +427,13 @@ def _pace_alpha(pace: str) -> float:
     return 0.55
 
 
-def _planned_slot_div(slot: dict, duration: float, *, zoom: tuple[float, float] | None = None) -> str:
+def _planned_slot_div(
+    slot: dict,
+    duration: float,
+    *,
+    zoom: tuple[float, float] | None = None,
+    active: bool = False,
+) -> str:
     start = float(slot["start"])
     end = float(slot["end"])
     if zoom is None:
@@ -403,6 +452,8 @@ def _planned_slot_div(slot: dict, duration: float, *, zoom: tuple[float, float] 
     classes = [css, "fast" if pace == "fast" else "hold" if pace == "hold" else "med"]
     if float(slot.get("confidence") or 1) < 0.5:
         classes.append("faint")
+    if active:
+        classes.append("on")
     if slot.get("shot_type") == "?":
         classes.append("pending")
         style = f"left:{left:.3f}%;width:{max(width, 0.2):.3f}%"
@@ -436,7 +487,7 @@ def _with_role(view: dict, slot: dict) -> dict:
     return payload
 
 
-def _planned_shots_html(view: dict, duration: float) -> str:
+def _planned_shots_html(view: dict, duration: float, active_id: str = "") -> str:
     slots = [_with_role(view, slot) for slot in view.get("shot_slots") or []]
     threshold = 3 * duration / 1200 if duration >= 180 else 0.0
     parts: list[str] = []
@@ -446,13 +497,13 @@ def _planned_shots_html(view: dict, duration: float) -> str:
         if not bucket:
             return
         if len(bucket) == 1 or threshold <= 0:
-            parts.append(_planned_slot_div(bucket[0], duration))
+            parts.append(_planned_slot_div(bucket[0], duration, active=str(bucket[0].get("slot_id")) == active_id))
         else:
             start = float(bucket[0]["start"])
             end = float(bucket[-1]["end"])
             parts.append(
                 f'<div class="density" data-region-id="{html.escape(str(bucket[0]["region_id"]))}" '
-                f'style="{_span_style(start, end, duration)}" title="这里镜头太密，打开放大看">密</div>'
+                f'style="{_span_style(start, end, duration)}" title="这里镜头太密，看下方局部细节">密</div>'
             )
         bucket.clear()
 
@@ -465,7 +516,7 @@ def _planned_shots_html(view: dict, duration: float) -> str:
         if tiny:
             bucket.append(slot)
         else:
-            parts.append(_planned_slot_div(slot, duration))
+            parts.append(_planned_slot_div(slot, duration, active=str(slot.get("slot_id")) == active_id))
     flush()
     for slot in slots:
         if slot.get("accent_at_start"):
@@ -476,7 +527,7 @@ def _planned_shots_html(view: dict, duration: float) -> str:
     return "".join(parts)
 
 
-def _phrases_html(view: dict, duration: float) -> str:
+def _phrases_html(view: dict, duration: float, moment: float) -> str:
     parts = []
     for index, phrase in enumerate(view.get("phrases") or [], start=1):
         start = float(phrase["start"])
@@ -488,71 +539,118 @@ def _phrases_html(view: dict, duration: float) -> str:
             label = str(index)
         else:
             label = ""
+        on = " on" if start <= moment < end or (index == len(view.get("phrases") or []) and start <= moment <= end) else ""
         parts.append(
-            f'<div class="phr" style="{_span_style(start, end, duration)}" '
+            f'<div class="phr{on}" data-start="{start:.6f}" data-end="{end:.6f}" '
+            f'style="{_span_style(start, end, duration)}" '
             f'title="句 {index}">{html.escape(label)}</div>'
         )
     return "".join(parts)
 
 
-def _how_html(view: dict, duration: float) -> str:
+def _how_html(view: dict, duration: float, moment: float) -> str:
     parts = []
-    for region in view.get("regions") or []:
+    regions = list(view.get("regions") or [])
+    current = _item_at(regions, moment)
+    current_id = str(current["region_id"]) if current else ""
+    for region in regions:
         start = float(region["start"])
         end = float(region["end"])
         summary = str(region.get("cut_summary_zh") or "")
-        fraction = (end - start) / duration
+        fraction = (end - start) / duration if duration else 0.0
         shown = region["region_id"] if fraction < 0.08 or not summary else summary
+        region_id = str(region["region_id"])
+        on = " on" if region_id == current_id else ""
         parts.append(
-            f'<div class="how" style="{_span_style(start, end, duration)}" '
+            f'<div class="how{on}" data-region-id="{html.escape(region_id)}" '
+            f'data-start="{start:.6f}" data-end="{end:.6f}" '
+            f'style="{_span_style(start, end, duration)}" '
             f'title="{html.escape(summary)}">{html.escape(str(shown))}</div>'
         )
     return "".join(parts)
 
 
-def _zoom_html(view: dict, region: dict, duration: float) -> str:
-    period = 0.5
-    grid = view.get("beat_grid") or {}
-    if grid.get("period_s"):
-        period = float(grid["period_s"])
-    bar = 4 * period
-    origin = max(0.0, float(region["start"]) - bar)
-    limit = min(duration, float(region["end"]) + bar)
-    span = max(0.001, limit - origin)
-    slots = [
-        _with_role(view, slot)
-        for slot in view.get("shot_slots") or []
-        if float(slot["end"]) > origin and float(slot["start"]) < limit
-    ]
+def _detail_ticks(view: dict, origin: float, limit: float, span: float) -> str:
     downs = [float(item) for item in view.get("downbeats_seconds") or []]
-    ticks = []
-    for moment in downs:
+    beats = [float(item) for item in view.get("beats_seconds") or []]
+    seen: set[int] = set()
+    moments = []
+    for moment in beats + downs:
+        key = int(round(moment * 1000))
+        if key in seen:
+            continue
+        seen.add(key)
         if origin - 1e-6 <= moment <= limit + 1e-6:
-            index = downs.index(moment) + 1
-            ticks.append(
-                f'<div class="beat db" style="left:{(moment - origin) / span * 100:.3f}%" title="强拍 {index}"></div>'
+            moments.append(moment)
+    parts = []
+    for moment in moments:
+        down_index = next((index for index, item in enumerate(downs, start=1) if abs(item - moment) < 1e-3), 0)
+        left = (moment - origin) / span * 100
+        if down_index:
+            parts.append(
+                f'<div class="beat db" style="left:{left:.3f}%" title="强拍 {down_index}">'
+                f'<span class="zlab">{down_index}</span></div>'
             )
-    shot_html = "".join(_planned_slot_div(slot, duration, zoom=(origin, span)) for slot in slots)
+        else:
+            parts.append(f'<div class="beat" style="left:{left:.3f}%"></div>')
+    return "".join(parts)
+
+
+def _detail_old_row(view: dict, playhead: float, origin: float, limit: float, span: float) -> str:
+    region = _item_at(list(view.get("regions") or []), playhead)
+    if region is None:
+        return ""
     count = _slot_count(region)
-    old = []
     start = float(region["start"])
     end = float(region["end"])
+    parts = []
     for index in range(count):
         piece_start = start + (end - start) * index / count
         piece_end = start + (end - start) * (index + 1) / count
         if piece_end <= origin or piece_start >= limit:
             continue
-        old.append(
+        parts.append(
             f'<div class="osl" style="left:{(piece_start - origin) / span * 100:.3f}%;'
             f'width:{(piece_end - piece_start) / span * 100:.3f}%">旧</div>'
         )
-    label = html.escape(str(region.get("kind_label") or region["region_id"]))
+    return "".join(parts)
+
+
+def _detail_html(view: dict, duration: float, playhead: float) -> str:
+    from director.confirm_serve import detail_window
+
+    origin, limit = detail_window(playhead, duration, 4.0)
+    span = max(0.001, limit - origin)
+    active = _item_at(list(view.get("shot_slots") or []), playhead)
+    active_id = str(active["slot_id"]) if active else ""
+    slots = [
+        _with_role(view, slot)
+        for slot in view.get("shot_slots") or []
+        if float(slot["end"]) > origin and float(slot["start"]) < limit
+    ]
+    shot_html = "".join(
+        _planned_slot_div(
+            slot,
+            duration,
+            zoom=(origin, span),
+            active=str(slot.get("slot_id")) == active_id,
+        )
+        for slot in slots
+    )
+    play_left = (playhead - origin) / span * 100
+    window_label = f"{origin:.1f}–{limit:.1f}s"
     return (
-        f'<section class="zoom" id="zoom"><h3>放大 · {html.escape(str(region["region_id"]))} {label}'
-        f' · {_mmss(origin)[:7]}–{_mmss(limit)[:7]}</h3>'
-        '<p class="note">镜头轨只是建议，不能拖动。导出按已确认的分区边界；分析或采纳之后，分区和刀口是同一条时间。下方虚线是旧的按均长平分。</p>'
-        f'<div class="zlane" id="zoom-lane">{"".join(ticks)}{shot_html}</div>'
-        f'<div class="zold" title="旧：按均长平分">{"".join(old)}</div></section>'
+        '<section class="zoom" id="zoom">'
+        '<h3 id="detail-title">局部细节 · 跟随播放头 · 前后 4 秒 '
+        f'<small id="detail-range">{html.escape(window_label)}</small></h3>'
+        '<p class="note">镜头轨只是建议，不能拖动。导出按已确认的分区边界；分析或采纳之后，分区和刀口是同一条时间。'
+        "拖动这一条也可以挪播放头。"
+        '<label class="note"><input type="checkbox" id="compare-old"> 对比旧版</label></p>'
+        f'<div class="zlane" id="zoom-lane" data-origin="{origin:.6f}" data-limit="{limit:.6f}">'
+        f'{_detail_ticks(view, origin, limit, span)}{shot_html}'
+        f'<div class="zph" style="left:{play_left:.3f}%"></div></div>'
+        f'<div class="zold" id="compare-row" hidden title="旧：按均长平分">'
+        f'{_detail_old_row(view, playhead, origin, limit, span)}</div></section>'
     )
 
 
@@ -643,9 +741,10 @@ def _snap_notes_html(view: dict) -> str:
     return '<div class="sub">边界吸附</div><ul id="snap-notes">' + "".join(items) + "</ul>"
 
 
-def _slot_panel(view: dict, region: dict) -> str:
-    slots = [slot for slot in view.get("shot_slots") or [] if slot["region_id"] == region["region_id"]]
-    slot = slots[0] if slots else None
+def _slot_panel(view: dict, region: dict, slot: dict | None = None) -> str:
+    slots = [slot_row for slot_row in view.get("shot_slots") or [] if slot_row["region_id"] == region["region_id"]]
+    if slot is None or str(slot.get("region_id")) != str(region["region_id"]):
+        slot = slots[0] if slots else None
     if slot is None:
         body = "<p>这一段还没有镜头建议。</p>"
     else:
@@ -778,7 +877,7 @@ def _inspector_html(
   <div class="f"><label>时段</label><div class="ro"><span class="box" id="insp-start">{_mmss(start)}</span>–<span class="box" id="insp-end">{_mmss(end)}</span><span class="note" id="insp-len">{length:.3f} s · 只读</span></div></div>
   <div class="f"><label></label><div class="ro"><span class="note ms">边界拖动：里程碑 B</span></div></div>
   <div class="f"><label>角色</label><div class="ro">{select}{hint}</div></div>
-  <div class="acts"><button type="button" class="btn" id="play-span">▶ 播放本段</button><button type="button" class="btn on" id="loop-button">⟲ 循环</button><label class="note"><input type="checkbox" id="loop" checked> 循环</label></div>
+  <div class="acts"><button type="button" class="btn" id="play-span">▶ 播放本段</button><button type="button" class="btn" id="loop-button">⟲ 循环本段</button><label class="note"><input type="checkbox" id="loop"> 循环本段</label></div>
 </div>
 <div class="col">
   <div class="f"><label>建议镜长</label><div class="v" id="insp-shot">均值 <b>{float(region["suggested_shot_mean_s"]):g}s</b> · 范围 {float(region["shot_min_s"]):g}–{float(region["shot_max_s"]):g}s</div></div>
@@ -822,16 +921,22 @@ def render_timeline_page(
 
     regions = list((view or {}).get("regions") or [])
     duration = float((view or {}).get("duration_seconds") or 0) or 1.0
-    chosen = selected if any(str(region["region_id"]) == selected for region in regions) else ""
-    if not chosen and regions:
-        chosen = str(regions[0]["region_id"])
-    current = next((region for region in regions if str(region["region_id"]) == chosen), None)
     try:
         moment = max(0.0, float(playhead)) if playhead else 0.0
     except ValueError:
         moment = 0.0
     if view and moment > float(view["duration_seconds"]):
         moment = float(view["duration_seconds"])
+    at_playhead = _item_at(regions, moment)
+    if at_playhead is not None:
+        chosen = str(at_playhead["region_id"])
+    elif selected and any(str(region["region_id"]) == selected for region in regions):
+        chosen = selected
+    elif regions:
+        chosen = str(regions[0]["region_id"])
+    else:
+        chosen = ""
+    current = next((region for region in regions if str(region["region_id"]) == chosen), None)
     status_word = {"draft": "草稿", "confirmed": "已确认", "history": "历史确认"}.get(
         str((view or {}).get("status") or ""), ""
     )
@@ -861,20 +966,22 @@ def render_timeline_page(
         else ""
     )
     if has_slots and view is not None and current is not None:
+        active_slot = _item_at(list(view.get("shot_slots") or []), moment)
+        active_id = str(active_slot["slot_id"]) if active_slot else ""
         phrase_row = (
             '<div class="row r-phrase" id="track-phrases"><div class="rh"><b>乐句</b>'
-            f'<small>4 小节</small></div><div class="lane">{_phrases_html(view, duration)}</div></div>'
+            f'<small>4 小节</small></div><div class="lane">{_phrases_html(view, duration, moment)}</div></div>'
         )
         how_row = (
             '<div class="row r-how" id="track-how"><div class="rh"><b>本段怎么剪</b></div>'
-            f'<div class="lane">{_how_html(view, duration)}</div></div>'
+            f'<div class="lane">{_how_html(view, duration, moment)}</div></div>'
         )
         shot_small = "建议 · 按拍，不能拖"
-        shot_body = _planned_shots_html(view, duration)
-        zoom_html = _zoom_html(view, current, duration)
+        shot_body = _planned_shots_html(view, duration, active_id)
+        zoom_html = _detail_html(view, duration, moment)
         inspector = inspector.replace(
             '<div class="sub">警告</div>',
-            _slot_panel(view, current) + '<div class="sub">警告</div>',
+            _slot_panel(view, current, active_slot) + '<div class="sub">警告</div>',
             1,
         )
     else:
@@ -883,6 +990,8 @@ def render_timeline_page(
         shot_small = "（预留·未启用）"
         shot_body = _shots_html(view, duration, chosen) if view else ""
         zoom_html = ""
+        active_slot = None
+    shot_caption = _shot_caption(active_slot) if active_slot else ""
     body_class = ' class="has-slots"' if has_slots else ""
     chrome = _version_chrome(view) if view else (
         '<div class="sp"></div>'
@@ -914,6 +1023,7 @@ def render_timeline_page(
 <div class="transport">
   <button type="button" class="btn" id="transport-play" style="width:34px;padding:0">▶</button>
   <div class="tc"><span id="playhead">{_mmss(moment)}</span> <small>/ <span id="duration-readout">{_mmss(float((view or {}).get("duration_seconds") or 0))}</span></small></div>
+  <span class="now-shot" id="now-shot">{html.escape(shot_caption)}</span>
   <div class="meta"><span>BPM {bpm_text}</span><span>节拍 {beat_count}</span><span>整体置信度 {overall * 100:.0f}%</span><span>分析器 {provider} · schema {schema}</span></div>
   <div class="sp"></div>
   <div class="legend">{_legend(kind_labels)}</div>
@@ -929,7 +1039,7 @@ def render_timeline_page(
   <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
   {how_row}
   <div class="ov" id="ov">
-    <div class="loopband" id="loopband" style="{loop_style}"><div class="brk l"></div><div class="brk r"></div><div class="loopcap" id="loopcap">{html.escape(loop_text)}</div></div>
+    <div class="loopband" id="loopband" hidden style="{loop_style}"><div class="brk l"></div><div class="brk r"></div><div class="loopcap" id="loopcap">{html.escape(loop_text)}</div></div>
     <div class="ph" id="ph" style="left:{moment / duration * 100:.3f}%"><div class="phcap" id="phcap">{_mmss(moment)[:7]}</div></div>
   </div>
 </div>
@@ -963,6 +1073,86 @@ function playbackSpanStep(current, start, end, looping) {{
   if (current >= end - tolerance) return looping ? "seek" : "pause";
   if (current < start - tolerance) return "seek";
   return "continue";
+}}
+function clampSeek(seconds, duration) {{
+  if (duration < 0) duration = 0;
+  if (seconds < 0) return 0;
+  if (seconds > duration) return duration;
+  return seconds;
+}}
+function seekFromFraction(fraction, duration) {{
+  if (fraction < 0) fraction = 0;
+  if (fraction > 1) fraction = 1;
+  return clampSeek(fraction * (duration < 0 ? 0 : duration), duration < 0 ? 0 : duration);
+}}
+function neighborMark(marks, current, step) {{
+  var ordered = marks.slice().sort(function (a, b) {{ return a - b; }});
+  if (!ordered.length) return current;
+  var epsilon = 0.001;
+  var index;
+  if (step >= 0) {{
+    for (index = 0; index < ordered.length; index++) {{
+      if (ordered[index] > current + epsilon) return ordered[index];
+    }}
+    return current;
+  }}
+  for (index = ordered.length - 1; index >= 0; index--) {{
+    if (ordered[index] < current - epsilon) return ordered[index];
+  }}
+  return current;
+}}
+function detailWindow(playhead, duration, half) {{
+  if (half == null) half = 4;
+  if (duration < 0) duration = 0;
+  playhead = clampSeek(playhead, duration);
+  var windowSpan = half * 2;
+  if (windowSpan < 0) windowSpan = 0;
+  if (duration <= windowSpan) return [0, duration];
+  var start = playhead - windowSpan / 2;
+  var end = playhead + windowSpan / 2;
+  if (start < 0) return [0, windowSpan];
+  if (end > duration) return [duration - windowSpan, duration];
+  return [start, end];
+}}
+var scrubbing = false;
+var scrubMoved = false;
+var frozenDetail = null;
+function loopOn() {{
+  var box = document.getElementById("loop");
+  return !!(box && box.checked);
+}}
+function regionAt(seconds) {{
+  if (!state || !state.regions || !state.regions.length) return null;
+  var regions = state.regions;
+  for (var index = 0; index < regions.length; index++) {{
+    var start = Number(regions[index].start);
+    var end = Number(regions[index].end);
+    if (seconds >= start && (seconds < end || (index === regions.length - 1 && seconds <= end))) return regions[index];
+  }}
+  return null;
+}}
+function slotAt(seconds) {{
+  if (!state || !state.shot_slots || !state.shot_slots.length) return null;
+  var slots = state.shot_slots;
+  for (var index = 0; index < slots.length; index++) {{
+    var start = Number(slots[index].start);
+    var end = Number(slots[index].end);
+    if (seconds >= start && (seconds < end || (index === slots.length - 1 && seconds <= end))) return slots[index];
+  }}
+  return null;
+}}
+function shotCaption(slot) {{
+  var id = String(slot.slot_id || "");
+  var parts = id.split("-s");
+  if (parts.length === 2 && /^[0-9]+$/.test(parts[1])) id = parts[0] + "-s" + String(Number(parts[1]));
+  var length = (Number(slot.end) - Number(slot.start)).toFixed(1);
+  return "镜头 " + id + " · " + (slot.shot_type || "") + " · " + length + "s";
+}}
+function musicHref(versionId) {{
+  var version = versionId ? ("version=" + encodeURIComponent(versionId) + "&") : "";
+  var sel = selectedId ? ("sel=" + encodeURIComponent(selectedId) + "&") : "";
+  var when = track && isFinite(track.currentTime) ? track.currentTime : 0;
+  return "/music?" + version + sel + "t=" + encodeURIComponent(String(when));
 }}
 function formatClock(seconds) {{
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -1135,7 +1325,12 @@ function moveLoop() {{
   var region = selectedRegion();
   var band = document.getElementById("loopband");
   var cap = document.getElementById("loopcap");
-  if (!region || !band) return;
+  var button = document.getElementById("loop-button");
+  var on = loopOn();
+  if (button) button.classList.toggle("on", on);
+  if (!band) return;
+  band.hidden = !on;
+  if (!region || !on) return;
   var duration = state.duration_seconds || 1;
   band.style.left = (Number(region.start) / duration * 100).toFixed(3) + "%";
   band.style.width = ((Number(region.end) - Number(region.start)) / duration * 100).toFixed(3) + "%";
@@ -1149,6 +1344,137 @@ function movePlayhead(seconds) {{
   if (line) line.style.left = (seconds / duration * 100).toFixed(3) + "%";
   if (cap) cap.textContent = formatClock(seconds).slice(0, 7);
   if (readout) readout.textContent = formatClock(seconds);
+}}
+function seekAt(seconds) {{
+  var duration = (state && state.duration_seconds) || 0;
+  seconds = clampSeek(Number(seconds) || 0, duration);
+  if (track) {{
+    try {{ track.currentTime = seconds; }} catch (err) {{}}
+  }}
+  movePlayhead(seconds);
+  followPlayhead(seconds);
+}}
+function togglePlay() {{
+  if (!track) return;
+  if (track.paused) {{
+    var playing = track.play();
+    if (playing && playing.catch) playing.catch(function () {{}});
+  }} else {{
+    track.pause();
+  }}
+}}
+function renderDetail(seconds) {{
+  var lane = document.getElementById("zoom-lane");
+  if (!lane || !state) return;
+  var duration = Number(state.duration_seconds) || 0;
+  var win = detailWindow(seconds, duration, 4);
+  var origin = win[0];
+  var limit = win[1];
+  var span = Math.max(0.001, limit - origin);
+  lane.setAttribute("data-origin", String(origin));
+  lane.setAttribute("data-limit", String(limit));
+  var range = document.getElementById("detail-range");
+  if (range) range.textContent = origin.toFixed(1) + "–" + limit.toFixed(1) + "s";
+  var html = "";
+  var downs = state.downbeats_seconds || [];
+  var beats = (state.beats_seconds || []).slice();
+  downs.forEach(function (moment) {{
+    var found = false;
+    for (var i = 0; i < beats.length; i++) {{
+      if (Math.abs(Number(beats[i]) - Number(moment)) < 0.001) found = true;
+    }}
+    if (!found) beats.push(moment);
+  }});
+  beats.forEach(function (moment) {{
+    moment = Number(moment);
+    if (moment < origin - 1e-6 || moment > limit + 1e-6) return;
+    var left = ((moment - origin) / span * 100).toFixed(3);
+    var downIndex = 0;
+    for (var i = 0; i < downs.length; i++) {{
+      if (Math.abs(Number(downs[i]) - moment) < 0.001) downIndex = i + 1;
+    }}
+    if (downIndex) html += '<div class="beat db" style="left:' + left + '%" title="强拍 ' + downIndex + '"><span class="zlab">' + downIndex + '</span></div>';
+    else html += '<div class="beat" style="left:' + left + '%"></div>';
+  }});
+  var active = slotAt(seconds);
+  (state.shot_slots || []).forEach(function (slot) {{
+    var start = Number(slot.start);
+    var end = Number(slot.end);
+    if (end <= origin || start >= limit) return;
+    var left = ((start - origin) / span * 100);
+    var width = ((end - start) / span * 100);
+    var role = "";
+    (state.regions || []).forEach(function (region) {{
+      if (region.region_id === slot.region_id) role = region.edit_role;
+    }});
+    var color = COLORS[role] || "#7f9e9c";
+    var on = active && slot.slot_id === active.slot_id ? " on" : "";
+    var type = String(slot.shot_type || "");
+    var safe = type.replace(/[&<>]/g, function (ch) {{ return ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : "&gt;"; }});
+    html += '<div class="zshot med' + on + '" data-slot-id="' + slot.slot_id + '" data-region-id="' + slot.region_id + '" style="left:' + left.toFixed(3) + '%;width:' + Math.max(width, 0.2).toFixed(3) + '%;background:' + color + '8c"><b>' + safe + '</b><em>' + (end - start).toFixed(2) + 's</em></div>';
+  }});
+  var playLeft = ((seconds - origin) / span * 100).toFixed(3);
+  html += '<div class="zph" style="left:' + playLeft + '%"></div>';
+  lane.innerHTML = html;
+  var old = document.getElementById("compare-row");
+  if (old) {{
+    var region = regionAt(seconds);
+    var oldHtml = "";
+    if (region) {{
+      var count = slotCount(region);
+      var start = Number(region.start);
+      var end = Number(region.end);
+      for (var index = 0; index < count; index++) {{
+        var pieceStart = start + (end - start) * index / count;
+        var pieceEnd = start + (end - start) * (index + 1) / count;
+        if (pieceEnd <= origin || pieceStart >= limit) continue;
+        oldHtml += '<div class="osl" style="left:' + ((pieceStart - origin) / span * 100).toFixed(3) + '%;width:' + ((pieceEnd - pieceStart) / span * 100).toFixed(3) + '%">旧</div>';
+      }}
+    }}
+    old.innerHTML = oldHtml;
+  }}
+}}
+function followPlayhead(seconds) {{
+  if (!state || !state.regions) return;
+  var region = regionAt(seconds);
+  var slot = slotAt(seconds);
+  var changed = false;
+  if (region && region.region_id !== selectedId) {{
+    selectedId = region.region_id;
+    document.body.setAttribute("data-selected", selectedId);
+    changed = true;
+  }}
+  if (slot && slot.slot_id !== selectedSlotId) {{
+    selectedSlotId = slot.slot_id;
+    changed = true;
+  }}
+  if (!slot && selectedSlotId) {{
+    selectedSlotId = null;
+    changed = true;
+  }}
+  document.querySelectorAll(".blk").forEach(function (block) {{
+    block.classList.toggle("sel", block.getAttribute("data-region-id") === selectedId);
+  }});
+  document.querySelectorAll(".slotgrp").forEach(function (node) {{
+    node.classList.toggle("sel", node.getAttribute("data-region-id") === selectedId);
+  }});
+  document.querySelectorAll(".how").forEach(function (node) {{
+    node.classList.toggle("on", node.getAttribute("data-region-id") === selectedId);
+  }});
+  document.querySelectorAll(".phr").forEach(function (node) {{
+    var start = Number(node.getAttribute("data-start"));
+    var end = Number(node.getAttribute("data-end"));
+    node.classList.toggle("on", seconds >= start && seconds < end);
+  }});
+  if (!frozenDetail) renderDetail(seconds);
+  if (changed) {{
+    fillInspector();
+    moveLoop();
+    markSpan();
+  }}
+  fillSlot();
+  var now = document.getElementById("now-shot");
+  if (now) now.textContent = slot ? shotCaption(slot) : "";
 }}
 function renderChrome() {{
   var acceptance = document.getElementById("acceptance");
@@ -1217,8 +1543,7 @@ function postDraft() {{
         return refreshDesk();
       }}
       if (data.shot_slots && data.shot_slots.length && data.version_id) {{
-        var sel = selectedId ? ("&sel=" + encodeURIComponent(selectedId)) : "";
-        window.location.href = "/music?version=" + encodeURIComponent(data.version_id) + sel;
+        window.location.href = musicHref(data.version_id);
         return;
       }}
       state = data;
@@ -1240,8 +1565,7 @@ function playSelected() {{
   var region = selectedRegion();
   if (!region || !track) {{ showError("先点选一段"); return; }}
   showError("");
-  track.currentTime = Number(region.start) || 0;
-  movePlayhead(track.currentTime);
+  seekAt(Number(region.start) || 0);
   var playing = track.play();
   if (playing && playing.catch) playing.catch(function () {{}});
 }}
@@ -1300,19 +1624,29 @@ function bootWave() {{
 }}
 if (track) {{
   track.addEventListener("timeupdate", function () {{
+    if (scrubbing) return;
     var region = selectedRegion();
-    if (region) {{
-      var step = playbackSpanStep(track.currentTime, Number(region.start), Number(region.end), document.getElementById("loop").checked);
+    if (region && loopOn()) {{
+      var step = playbackSpanStep(track.currentTime, Number(region.start), Number(region.end), true);
       if (step === "seek") track.currentTime = Number(region.start) || 0;
       else if (step === "pause") track.pause();
     }}
     movePlayhead(track.currentTime);
+    followPlayhead(track.currentTime);
+  }});
+  track.addEventListener("play", function () {{
+    var button = document.getElementById("transport-play");
+    if (button) button.textContent = "❚❚";
+  }});
+  track.addEventListener("pause", function () {{
+    var button = document.getElementById("transport-play");
+    if (button) button.textContent = "▶";
   }});
 }}
 var playSpan = document.getElementById("play-span");
 if (playSpan) playSpan.addEventListener("click", playSelected);
 var transportPlay = document.getElementById("transport-play");
-if (transportPlay) transportPlay.addEventListener("click", playSelected);
+if (transportPlay) transportPlay.addEventListener("click", togglePlay);
 function adoptBlocked() {{
   return !!(state && state.read_only && state.has_draft);
 }}
@@ -1336,8 +1670,7 @@ function adoptBoundaries(which) {{
         showError(data.error || "采纳失败");
         return;
       }}
-      var sel = selectedId ? ("&sel=" + encodeURIComponent(selectedId)) : "";
-      window.location.href = "/music?version=" + encodeURIComponent(data.version_id) + sel;
+      window.location.href = musicHref(data.version_id);
     }});
   }});
 }}
@@ -1354,35 +1687,23 @@ if (regionLane) {{
       event.stopPropagation();
       return;
     }}
-    var block = event.target.closest ? event.target.closest(".blk") : null;
-    if (!block) return;
-    var nextId = block.getAttribute("data-region-id");
-    if (document.body.classList.contains("has-slots") && nextId && nextId !== selectedId) {{
-      window.location.href = deskUrl(nextId, "");
-      return;
-    }}
-    selectedId = nextId;
-    selectedSlotId = null;
-    document.body.setAttribute("data-selected", selectedId);
-    paint();
   }});
 }}
 function pickSlot(event) {{
+  if (scrubMoved) return;
   var node = event.target.closest ? event.target.closest("[data-slot-id]") : null;
   if (!node) return;
-  event.stopPropagation();
   var regionId = node.getAttribute("data-region-id");
   var slotId = node.getAttribute("data-slot-id");
-  if (document.body.classList.contains("has-slots") && regionId && regionId !== selectedId) {{
-    window.location.href = deskUrl(regionId, slotId);
-    return;
-  }}
   selectedSlotId = slotId;
   if (regionId) {{
     selectedId = regionId;
     document.body.setAttribute("data-selected", selectedId);
   }}
   paint();
+  var now = document.getElementById("now-shot");
+  var slot = activeSlot();
+  if (now) now.textContent = slot ? shotCaption(slot) : "";
 }}
 var shotLane = document.getElementById("shots");
 if (shotLane) shotLane.addEventListener("click", pickSlot);
@@ -1433,7 +1754,7 @@ if (confirmButton) {{
         if (!response.ok) {{ showError(data.error || "确认失败"); return; }}
         state = data;
         showError("");
-        window.location.href = "/music?version=" + encodeURIComponent(state.version_id);
+        window.location.href = musicHref(state.version_id);
       }});
     }});
   }});
@@ -1445,7 +1766,7 @@ if (confirmButton) {{
 var picker = document.getElementById("version-picker");
 if (picker) {{
   picker.addEventListener("change", function () {{
-    window.location.href = "/music?version=" + encodeURIComponent(this.value);
+    window.location.href = musicHref(this.value);
   }});
 }}
 var fork = document.getElementById("draft-from-confirmed");
@@ -1459,13 +1780,124 @@ if (fork) {{
     }}).then(function (response) {{
       return response.json().then(function (data) {{
         if (!response.ok) {{ showError(data.error || "另开草稿失败"); return; }}
-        window.location.href = "/music?version=" + encodeURIComponent(data.version_id);
+        window.location.href = musicHref(data.version_id);
       }});
     }});
   }});
 }}
+function laneFraction(event, node) {{
+  if (!node) return 0;
+  var rect = node.getBoundingClientRect();
+  if (!rect.width) return 0;
+  return (event.clientX - rect.left) / rect.width;
+}}
+function applyPointer(event, node, mode) {{
+  if (!state) return;
+  var duration = Number(state.duration_seconds) || 0;
+  var seconds;
+  if (mode === "detail" && frozenDetail) {{
+    var fraction = laneFraction(event, node);
+    if (fraction < 0) fraction = 0;
+    if (fraction > 1) fraction = 1;
+    seconds = frozenDetail[0] + fraction * (frozenDetail[1] - frozenDetail[0]);
+  }} else {{
+    var basis = mode === "playhead" ? document.getElementById("ov") : node;
+    seconds = seekFromFraction(laneFraction(event, basis), duration);
+  }}
+  seekAt(seconds);
+}}
+function endScrub(event, node, mode) {{
+  applyPointer(event, node, mode);
+  scrubbing = false;
+  frozenDetail = null;
+  if (track) followPlayhead(track.currentTime || 0);
+  setTimeout(function () {{ scrubMoved = false; }}, 0);
+}}
+function bindScrub(node, mode) {{
+  if (!node) return;
+  node.addEventListener("pointerdown", function (event) {{
+    if (event.button !== 0) return;
+    if (event.target.closest && event.target.closest("button,select,input,textarea,a,.snapchip,[data-adopt]")) return;
+    event.preventDefault();
+    scrubbing = true;
+    scrubMoved = false;
+    if (mode === "detail") {{
+      frozenDetail = [
+        Number(node.getAttribute("data-origin")) || 0,
+        Number(node.getAttribute("data-limit")) || 0
+      ];
+    }}
+    if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
+    applyPointer(event, node, mode);
+  }});
+  node.addEventListener("pointermove", function (event) {{
+    if (!scrubbing) return;
+    if (node.hasPointerCapture && !node.hasPointerCapture(event.pointerId)) return;
+    scrubMoved = true;
+    applyPointer(event, node, mode);
+  }});
+  function finish(event) {{
+    if (!scrubbing) return;
+    if (node.hasPointerCapture && event.pointerId != null && !node.hasPointerCapture(event.pointerId)) return;
+    endScrub(event, node, mode);
+  }}
+  node.addEventListener("pointerup", finish);
+  node.addEventListener("pointercancel", finish);
+}}
+document.addEventListener("keydown", function (event) {{
+  var tag = event.target && event.target.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+  if (!state || !track) return;
+  if (event.code === "Space") {{
+    event.preventDefault();
+    togglePlay();
+    return;
+  }}
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  event.preventDefault();
+  var step = event.key === "ArrowRight" ? 1 : -1;
+  var marks = state.beats_seconds || [];
+  if (event.shiftKey) {{
+    marks = [];
+    if (state.shot_slots && state.shot_slots.length) {{
+      state.shot_slots.forEach(function (slot) {{
+        marks.push(Number(slot.start));
+        marks.push(Number(slot.end));
+      }});
+    }} else {{
+      marks = state.downbeats_seconds || [];
+    }}
+  }}
+  seekAt(neighborMark(marks, track.currentTime || 0, step));
+}});
+var compareOld = document.getElementById("compare-old");
+if (compareOld) {{
+  compareOld.addEventListener("change", function () {{
+    var row = document.getElementById("compare-row");
+    if (row) row.hidden = !compareOld.checked;
+  }});
+}}
+var loopButton = document.getElementById("loop-button");
+var loopBox = document.getElementById("loop");
+if (loopButton && loopBox) {{
+  loopButton.addEventListener("click", function () {{
+    loopBox.checked = !loopBox.checked;
+    moveLoop();
+  }});
+  loopBox.addEventListener("change", moveLoop);
+}}
+bindScrub(document.querySelector(".r-ruler .lane"), "timeline");
+bindScrub(document.querySelector("#track-wave .lane"), "timeline");
+bindScrub(document.getElementById("track-regions"), "timeline");
+bindScrub(document.querySelector("#track-phrases .lane"), "timeline");
+bindScrub(document.getElementById("shots"), "timeline");
+bindScrub(document.getElementById("zoom-lane"), "detail");
+bindScrub(document.getElementById("ph"), "playhead");
 setTimeout(markReady, 4000);
-if (state) paint();
+if (state) {{
+  paint();
+  followPlayhead(Number(document.body.getAttribute("data-time")) || 0);
+}}
 bootWave();
 </script>
 </body>

@@ -537,23 +537,31 @@ def stats(slots, desk, beat_s):
     return out
 
 
-_SECTION_ZH = {
-    "hook": "开场",
-    "unknown": "待定",
-    "establish": "铺陈",
-    "narrative_hold": "叙事",
-    "build": "推进",
-    "peak_cut": "高潮",
-    "breath": "换气",
-    "settle_outro": "收尾",
+_ACTION_ZH = {
+    "hook": "开场跟着音乐进，先给一个能停住的画面。",
+    "establish": "铺陈先把地方交代清楚，再切到人和细节。",
+    "narrative_hold": "这一段放慢，让画面自己待一会儿。",
+    "build": "往前推，一段比一段更密，进高潮前甩进去。",
+    "peak_cut": "高潮把最好的一镜放在落点上，密切和停顿交替。",
+    "breath": "换气，留一个空镜，别接着堆信息。",
+    "settle_outro": "收尾慢下来，最后一个镜头停到曲子结束。",
+    "unknown": "先选定这段的角色，再决定怎么切。",
 }
 
 
 def region_summary_zh(style, role, stat) -> str:
-    """One line for 本段怎么剪. Markers are editing suggestions, not footage claims."""
+    """Action sentence for 本段怎么剪. The counts live in ``region_stats_zh``."""
+
+    return _ACTION_ZH.get(role, "按这段的角色来切。")
+
+
+def region_stats_zh(style, role, stat) -> str:
+    """Counts for the hover title. Not the sentence on the timeline."""
+
+    from director.role_labels import ROLE_LABELS_ZH
 
     label = STYLES[style]["label_zh"]
-    name = _SECTION_ZH.get(role, role)
+    name = ROLE_LABELS_ZH.get(role, role)
     bits = [f"{label} · {name}", f"{stat['count']} 镜", f"{stat['cuts_per_bar']} 刀/小节"]
     if stat.get("flurry_slots"):
         bits.append(f"快闪 {stat['flurry_slots']}")

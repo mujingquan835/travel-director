@@ -20,6 +20,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 from director.regions_fcpxml import EXPORT_PAGE_NOTE
+from director.role_labels import STYLE_LABELS_ZH
 
 ROLE_COLORS = {
     "hook": "#c27a62",
@@ -191,7 +192,8 @@ body.has-slots .insp{margin-top:8px}
 .zshot .mark{font-size:12px;top:2px;bottom:auto}
 .stylelane{display:flex;align-items:center;gap:12px;height:34px;font-size:12px}
 #shot-style{height:26px;border:1px solid #d6d3c9;border-radius:5px;background:#fffefb;padding:0 6px}
-#guide-toggle{margin:0 4px 0 0;vertical-align:-2px}
+.r-shot{position:relative}
+#guide-toggle{position:absolute;left:calc(var(--hdr) + 8px);top:6px;z-index:6;height:26px;padding:0 10px;font-weight:700;background:#fff8e8;border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer}
 #guide-rows[hidden]{display:none !important}
 .r-guide .lane{height:20px;overflow:hidden}
 .r-guide .rh{padding:1px 10px}
@@ -362,7 +364,7 @@ def _slot_marks(slot: dict) -> str:
 
 
 def _style_options(current: str) -> str:
-    labels = (("narrative", "叙事"), ("travel", "旅拍快剪"), ("event", "活动快剪"))
+    labels = tuple(STYLE_LABELS_ZH.items())
     parts = []
     for value, label in labels:
         selected = " selected" if value == current else ""
@@ -386,7 +388,6 @@ def _style_row(view: dict) -> str:
         '<div class="row r-style" id="track-style"><div class="rh"><b>剪法</b></div>'
         f'<div class="lane stylelane"><label>镜头轨 <select id="shot-style" title="{html.escape(title)}"'
         f'{disabled}>{_style_options(current)}</select></label>{rules_html}'
-        '<label class="note"><input type="checkbox" id="guide-toggle"> 剪辑思路</label>'
         f'<span id="drop-contrast">{contrast}</span></div></div>'
     )
 
@@ -444,21 +445,34 @@ def _version_chrome(view: dict) -> str:
     if unknown:
         warning = "这些分段的角色还没定：" + ", ".join(unknown) + "。普通确认已停用。"
         warning_attr = ""
+        verdict = f"还有 {len(unknown)} 段待定角色"
+        pill = "bad"
+    elif ok:
+        warning = ""
+        warning_attr = " hidden"
+        verdict = "验收通过"
+        pill = "ok"
     else:
         warning = ""
         warning_attr = " hidden"
+        verdict = "还不能确认"
+        pill = "bad"
     read_only = bool(view.get("read_only"))
     confirm_disabled = " disabled" if read_only or not ok else ""
     fork_hidden = "" if read_only and not view.get("has_draft") else " hidden"
     save_disabled = " disabled" if read_only else ""
-    pill = "ok" if ok else "bad"
-    verdict = "验收通过" if ok else "验收未通过"
+    pick_unknown = (
+        '<button type="button" class="btn" id="pick-unknown">去选角色</button>'
+        if unknown and not read_only
+        else ""
+    )
     return (
         f'<label class="ver">版本 <select id="version-picker">{"".join(options)}</select></label>'
         f'<span id="version-meta">{meta}</span>'
         '<button type="button" class="btn ghost" id="compare-previous" disabled title="后续版本开放">对比上次</button>'
         '<div class="sp"></div>'
         f'<p id="acceptance" class="{pill}">{verdict}</p>'
+        f"{pick_unknown}"
         f'<button type="button" class="btn ghost" id="save"{save_disabled}>保存草稿</button>'
         f'<button type="button" class="btn ghost danger" id="discard"{save_disabled}>丢弃草稿</button>'
         f'<button type="button" class="btn primary" id="confirm-version"{confirm_disabled}>确认分区</button>'
@@ -574,11 +588,16 @@ def _slot_title(slot: dict) -> str:
     dur = float(slot["end"]) - float(slot["start"])
     reason = str(slot.get("reason_zh") or "")
     text = f"{kind} · {dur:.2f}s"
+    if slot.get("reserve_best"):
+        text = "★最好一镜 · " + text
     if reason:
         text += f" · {reason}"
     hint = str(slot.get("content_hint") or "")
     if hint:
         text += f" · {hint}"
+    seam = str(slot.get("seam_zh") or "")
+    if seam:
+        text += f" · {seam}"
     return html.escape(text)
 
 
@@ -590,7 +609,7 @@ def _slot_face(slot: dict, pixels: float, *, detail: bool) -> str:
     type_at = 14 if detail else 18
     time_at = 40 if detail else 46
     mark_at = 52 if detail else 64
-    body = ""
+    body = "★" if slot.get("reserve_best") else ""
     if pixels >= type_at and kind:
         body += f"<b>{kind}</b>"
     if pixels >= time_at:
@@ -768,6 +787,7 @@ def _how_html(view: dict, duration: float, moment: float) -> str:
         start = float(region["start"])
         end = float(region["end"])
         summary = str(region.get("cut_summary_zh") or "")
+        stats = str(region.get("cut_stats_zh") or "")
         fraction = (end - start) / duration if duration else 0.0
         shown = region["region_id"] if fraction < 0.08 or not summary else summary
         region_id = str(region["region_id"])
@@ -776,7 +796,7 @@ def _how_html(view: dict, duration: float, moment: float) -> str:
             f'<div class="how{on}" data-region-id="{html.escape(region_id)}" '
             f'data-start="{start:.6f}" data-end="{end:.6f}" '
             f'style="{_span_style(start, end, duration)}" '
-            f'title="{html.escape(summary)}">{html.escape(str(shown))}</div>'
+            f'title="{html.escape(stats or summary)}">{html.escape(str(shown))}</div>'
         )
     return "".join(parts)
 
@@ -974,7 +994,17 @@ def _slot_panel(view: dict, region: dict, slot: dict | None = None) -> str:
             f'<p id="slot-type">建议镜头 {html.escape(str(slot.get("shot_type") or ""))} · '
             f'{html.escape(str(slot.get("reason_code") or ""))}</p>'
             f'<p id="slot-hint">{html.escape(str(slot.get("content_hint") or ""))}</p>'
-            f'<p id="slot-budget">预算 {html.escape(str(budget))}</p>'
+            + (
+                '<p id="slot-best">★ 最好一镜</p>'
+                if slot.get("reserve_best")
+                else '<p id="slot-best" hidden></p>'
+            )
+            + (
+                f'<p id="slot-seam">{html.escape(str(slot.get("seam_zh") or ""))}</p>'
+                if slot.get("seam_zh")
+                else '<p id="slot-seam" hidden></p>'
+            )
+            + f'<p id="slot-budget">预算 {html.escape(str(budget))}</p>'
             f'<p id="slot-evidence">证据 拍 {html.escape(str(evidence.get("beat_ids") or []))}'
             f' · 强拍 {html.escape(str(evidence.get("downbeat_ids") or []))}'
             f' · 乐句 {html.escape(str(evidence.get("phrase_id") or "—"))}'
@@ -1242,7 +1272,8 @@ def _transition_lane(slots: list[dict], duration: float) -> str:
             if mark and mark not in marks:
                 marks.append(mark)
         label = "·".join(marks)
-        title = " · ".join(part for part in (label, _guide_hint(slot)) if part)
+        seam = str(slot.get("seam_zh") or "")
+        title = " · ".join(part for part in (label, seam, _guide_hint(slot)) if part)
         bg = "#f6e4dc" if "甩" in marks else "#f7f4ee"
         parts.append(
             _guide_cell(
@@ -1428,6 +1459,7 @@ def render_timeline_page(
         style_row = _style_row(view)
         guide_rows = _guide_rows_html(view, duration)
         zoom_html = _detail_html(view, duration, moment)
+        guide_button = '<button type="button" id="guide-toggle">展开剪辑思路</button>'
         inspector = inspector.replace(
             '<div class="sub">警告</div>',
             _slot_panel(view, current, active_slot) + '<div class="sub">警告</div>',
@@ -1441,6 +1473,7 @@ def render_timeline_page(
         shot_small = "（预留·未启用）"
         shot_body = _shots_html(view, duration, chosen) if view else ""
         zoom_html = ""
+        guide_button = ""
         active_slot = None
     shot_caption = _shot_caption(active_slot) if active_slot else ""
     body_class = ' class="has-slots"' if has_slots else ""
@@ -1474,6 +1507,7 @@ def render_timeline_page(
 {notice_html}
 <div class="transport">
   <button type="button" class="btn" id="transport-play" style="width:34px;padding:0">▶</button>
+  <label class="note" id="cut-click-label"><input type="checkbox" id="cut-click"> 刀口嗒嗒声</label>
   <div class="tc"><span id="playhead">{_mmss(moment)}</span> <small>/ <span id="duration-readout">{_mmss(float((view or {}).get("duration_seconds") or 0))}</span></small></div>
   <span class="now-shot" id="now-shot">{html.escape(shot_caption)}</span>
   <div class="meta"><span>BPM {bpm_text}</span><span>节拍 {beat_count}</span><span>整体置信度 {overall * 100:.0f}%</span><span>分析器 {provider} · schema {schema}</span></div>
@@ -1489,7 +1523,7 @@ def render_timeline_page(
   <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small>{_adopt_all_html(view) if view else ""}</div><div class="lane" id="track-regions">{(_blocks_html(view, duration, chosen, kind_labels) + _snap_chips_html(view, duration)) if view else ""}</div></div>
   {phrase_row}
   {style_row}
-  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
+  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div>{guide_button}<div class="lane" id="shots">{shot_body}</div></div>
   {guide_rows}
   {how_row}
   <div class="ov" id="ov">
@@ -1777,6 +1811,16 @@ function fillSlot() {{
   }});
   var idea = document.getElementById("slot-hint");
   if (idea) idea.textContent = slot && slot.content_hint ? slot.content_hint : "";
+  var best = document.getElementById("slot-best");
+  if (best) {{
+    best.hidden = !(slot && slot.reserve_best);
+    best.textContent = slot && slot.reserve_best ? "★ 最好一镜" : "";
+  }}
+  var seam = document.getElementById("slot-seam");
+  if (seam) {{
+    seam.hidden = !(slot && slot.seam_zh);
+    seam.textContent = slot && slot.seam_zh ? slot.seam_zh : "";
+  }}
   if (!slot) return;
   var when = document.getElementById("slot-when");
   var why = document.getElementById("slot-why");
@@ -2022,8 +2066,11 @@ function renderChrome() {{
   if (!acceptance || !state) return;
   var ok = state.acceptance && state.acceptance.ok;
   acceptance.className = ok ? "ok" : "bad";
-  acceptance.textContent = ok ? "验收通过" : "验收未通过";
   var ids = (state.acceptance && state.acceptance.unknown_region_ids) || [];
+  if (ids.length) acceptance.textContent = "还有 " + ids.length + " 段待定角色";
+  else acceptance.textContent = ok ? "验收通过" : "还不能确认";
+  var pickUnknown = document.getElementById("pick-unknown");
+  if (pickUnknown) pickUnknown.hidden = !ids.length || !!state.read_only;
   if (warning) {{
     if (ids.length) {{
       warning.hidden = false;
@@ -2173,8 +2220,10 @@ if (track) {{
     }}
     movePlayhead(track.currentTime);
     followPlayhead(track.currentTime);
+    maybeCutClick(track.currentTime);
   }});
   track.addEventListener("play", function () {{
+    lastCutAt = track.currentTime;
     var button = document.getElementById("transport-play");
     if (button) button.textContent = "❚❚";
   }});
@@ -2249,15 +2298,75 @@ var shotLane = document.getElementById("shots");
 if (shotLane) shotLane.addEventListener("click", pickSlot);
 var guideRows = document.getElementById("guide-rows");
 var guideToggle = document.getElementById("guide-toggle");
+var guideKey = "travel-director-guide-open";
+function setGuideOpen(open) {{
+  if (guideRows) guideRows.hidden = !open;
+  if (guideToggle) guideToggle.textContent = open ? "收起" : "展开剪辑思路";
+  try {{ localStorage.setItem(guideKey, open ? "1" : "0"); }} catch (err) {{}}
+}}
 if (guideToggle && guideRows) {{
-  guideRows.hidden = !guideToggle.checked;
-  guideToggle.addEventListener("change", function () {{
-    guideRows.hidden = !guideToggle.checked;
+  var storedGuide = false;
+  try {{ storedGuide = localStorage.getItem(guideKey) === "1"; }} catch (err) {{}}
+  setGuideOpen(storedGuide);
+  guideToggle.addEventListener("click", function () {{
+    setGuideOpen(!!guideRows.hidden);
   }});
+}}
+var cutClick = document.getElementById("cut-click");
+var cutClickKey = "travel-director-cut-click";
+if (cutClick) {{
+  try {{ cutClick.checked = localStorage.getItem(cutClickKey) === "1"; }} catch (err) {{}}
+  cutClick.addEventListener("change", function () {{
+    try {{ localStorage.setItem(cutClickKey, cutClick.checked ? "1" : "0"); }} catch (err) {{}}
+  }});
+}}
+var cutAudio = null;
+var lastCutAt = -1;
+function playCutClick() {{
+  if (!cutClick || !cutClick.checked) return;
+  var Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  if (!cutAudio) cutAudio = new Ctx();
+  if (cutAudio.state === "suspended") cutAudio.resume();
+  var osc = cutAudio.createOscillator();
+  var gain = cutAudio.createGain();
+  osc.frequency.value = 1400;
+  gain.gain.setValueAtTime(0.0001, cutAudio.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.12, cutAudio.currentTime + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, cutAudio.currentTime + 0.04);
+  osc.connect(gain);
+  gain.connect(cutAudio.destination);
+  osc.start();
+  osc.stop(cutAudio.currentTime + 0.05);
+}}
+function maybeCutClick(now) {{
+  if (!cutClick || !cutClick.checked || !track || track.paused || !state) return;
+  var slots = state.shot_slots || [];
+  for (var i = 0; i < slots.length; i++) {{
+    var start = Number(slots[i].start);
+    if (lastCutAt >= 0 && lastCutAt < start && now >= start && now - start < 0.25) {{
+      playCutClick();
+      break;
+    }}
+  }}
+  lastCutAt = now;
 }}
 if (guideRows) guideRows.addEventListener("click", pickSlot);
 var zoomLane = document.getElementById("zoom");
 if (zoomLane) zoomLane.addEventListener("click", pickSlot);
+var pickUnknown = document.getElementById("pick-unknown");
+if (pickUnknown) {{
+  pickUnknown.addEventListener("click", function () {{
+    if (!state || state.read_only) return;
+    var ids = (state.acceptance && state.acceptance.unknown_region_ids) || [];
+    if (!ids.length) return;
+    selectedId = ids[0];
+    document.body.setAttribute("data-selected", selectedId);
+    paint();
+    var role = document.getElementById("role");
+    if (role && !role.disabled) role.focus();
+  }});
+}}
 var roleSelect = document.getElementById("role");
 if (roleSelect) {{
   roleSelect.addEventListener("change", function () {{

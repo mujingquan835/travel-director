@@ -586,7 +586,7 @@ def _print_shot_track_stats(desk: dict, style: str) -> None:
         ]
         beats = desk["beats_seconds"]
         beat_s = statistics.median([b - a for a, b in zip(beats, beats[1:])])
-        label = "叙事"
+        label = "慢叙事"
     else:
         slots, beat_s = generate(desk, style)
         label = STYLES[style]["label_zh"]

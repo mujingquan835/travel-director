@@ -131,6 +131,8 @@ _SLOT_GUIDE_FIELDS = frozenset(
         "sound_cue",
         "story_beat",
         "content_hint",
+        "reserve_best",
+        "seam_zh",
     }
 )
 _DOCUMENT_STYLE_FIELDS = frozenset({"shot_style", "shot_rules_version", "guide_version"})
@@ -173,6 +175,7 @@ class MusicEditRegion(StrictModel):
     confidence: float = Field(ge=0.0, le=1.0)
     evidence_basis: Literal["energy", "structure_model", "hybrid", "manual"]
     cut_summary_zh: str = ""
+    cut_stats_zh: str = ""
     slot_count: int = Field(default=0, ge=0)
     start_raw_s: float | None = None
     end_raw_s: float | None = None
@@ -189,6 +192,13 @@ class MusicEditRegion(StrictModel):
                 f"region {self.region_id} requires shot_min_s <= suggested_shot_mean_s <= shot_max_s"
             )
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if isinstance(data, dict) and data.get("cut_stats_zh") == "":
+            data.pop("cut_stats_zh", None)
+        return data
 
 
 class SlotEvidence(StrictModel):
@@ -234,6 +244,8 @@ class ShotSlot(StrictModel):
     sound_cues: list[SoundCue] = Field(default_factory=list)
     story_beat: StoryBeat | None = None
     content_hint: str | None = None
+    reserve_best: bool | None = None
+    seam_zh: str | None = None
 
     @field_validator("reason_code")
     @classmethod

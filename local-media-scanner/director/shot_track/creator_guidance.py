@@ -35,6 +35,32 @@ _STORY_ZH = {
 }
 
 
+def _seam_zh(guide: dict) -> str | None:
+    """How the cut should look. Empty when this slot is a plain cut."""
+
+    direction = guide.get("motion") if guide.get("motion") in {"→", "←"} else "画面方向"
+    parts: list[str] = []
+    out_kind = guide.get("transition_out")
+    in_kind = guide.get("transition_in")
+    if out_kind == "whip":
+        parts.append(f"出：结尾 4–8 帧向 {direction} 快甩，要有运动模糊")
+    elif out_kind == "match":
+        parts.append("出：形状、颜色、亮度要相近")
+    elif out_kind == "zoom":
+        parts.append("出：顺着推近或拉开")
+    if in_kind == "whip":
+        parts.append("入：开头同向甩入")
+    elif in_kind == "match":
+        parts.append("入：形状、颜色、亮度要相近")
+    elif in_kind == "zoom":
+        parts.append("入：顺着上一镜的推拉进来")
+    elif in_kind == "mask_optional":
+        parts.append("入：可以用遮挡接上")
+    if not parts:
+        return None
+    return "；".join(parts)
+
+
 def timing_hash(slots: list[dict]) -> str:
     rows = [[slot.get(key) for key in _TIMING_KEYS] for slot in slots]
     return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
@@ -337,6 +363,7 @@ def creator_guidance(slots: list[dict], desk: dict, style: str = "travel") -> li
         row["content_hint"] = guide["content_hint"]
         row["_reserve_best"] = guide["_reserve_best"]
         row["_title"] = guide["_title"]
+        row["seam_zh"] = _seam_zh(guide)
         guided.append(row)
     if timing_hash(guided) != before:
         raise RuntimeError("creator guidance changed a slot time")

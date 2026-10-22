@@ -470,7 +470,7 @@ def test_role_edit_sets_manual_and_edited_at_and_rejects_other_edits(desk) -> No
     status, opened = _json(port, "/api/music-desk")
     assert status == 200
     assert [item["region_id"] for item in opened["regions"]] == ["r1", "r2", "r3"]
-    assert opened["regions"][0]["kind_label"] == "前奏"
+    assert opened["regions"][0]["kind_label"] == "铺陈"
     assert opened["regions"][0]["source"] == "analyzer"
     assert "enabled" not in opened["regions"][0]
     revision = opened["revision"]
@@ -630,9 +630,9 @@ def test_music_page_renders_role_rows_warnings_and_loop(desk) -> None:
 
     assert status == 200
     assert "r1" in text
-    assert "前奏" in text
+    assert "铺陈" in text
     assert "高潮" in text
-    assert "可卡点" in text
+    assert "开场" in text
     assert "建议镜长" in text
     assert "snap_policy" in text
     assert "置信度" in text
@@ -934,7 +934,9 @@ def test_unknown_blocks_confirm_until_force_records_reason(desk) -> None:
 
     _page_status, _headers, page = _request(port, "/music")
     text = page.decode("utf-8")
-    assert "验收未通过" in text
+    assert "还有 1 段待定角色" in text
+    assert 'id="pick-unknown"' in text
+    assert "验收未通过" not in text
     assert 'id="unknown-warning"' in text
     assert "这些分段的角色还没定" in text and "r2" in text
     confirm_tag = re.search(r'<button[^>]*id="confirm-version"[^>]*>', text)

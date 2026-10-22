@@ -56,6 +56,7 @@ from director.music_edit_regions_versions import (
     save_regions_draft,
 )
 from director.project import ProjectConflict, ProjectPaths, _sha256_file, load_project_state, open_project
+from director.role_labels import ROLE_LABELS_ZH
 from director.waveform_peaks import load_or_build_peaks
 
 
@@ -74,16 +75,7 @@ _ROLE_ONLY = "只能修改每段的角色。不能改时间，也不能增加或
 _CLIENT_PATH_KEYS = ("path", "destination", "output", "target")
 _PLAYBACK_TOLERANCE = 0.08
 
-KIND_LABELS = {
-    "hook": "可卡点",
-    "establish": "前奏",
-    "narrative_hold": "叙事",
-    "build": "铺垫",
-    "peak_cut": "高潮",
-    "breath": "换气",
-    "settle_outro": "收尾",
-    "unknown": "未定",
-}
+KIND_LABELS = ROLE_LABELS_ZH
 SNAP_LABELS = {
     "downbeat": "对齐强拍",
     "beat": "对齐拍点",
@@ -121,7 +113,7 @@ _PROGRESS_STEPS = (
         "id": "confirmed",
         "title": "分段已确认",
         "meaning": "已经有锁定的分段版本，导出时会用这一版。",
-        "instruction": "打开音乐分段，听完后点确认分区。角色还没定或验收未通过时，普通确认会停用。",
+        "instruction": "打开音乐分段，听完后点确认分区。还有待定角色时，普通确认会停用。",
     },
     {
         "id": "export",
@@ -1053,7 +1045,7 @@ def _confirm_error(exc: RegionsVersionError) -> tuple[int, str]:
         if marker in detail:
             ids = detail.split(marker, 1)[1].split(";")[0].strip()
             return 400, f"这些分段的角色还没定：{ids}。普通确认已停用。"
-        return 400, f"验收未通过：{detail}。普通确认已停用，可打开强制确认并填写原因。"
+        return 400, f"还不能确认：{detail}。普通确认已停用，可打开强制确认并填写原因。"
     return 400, f"确认失败：{text}"
 
 
@@ -1190,7 +1182,7 @@ def _shot_style_unlocked(project: Path, body: bytes) -> ServeResponse:
         return _error(400, "只能提交剪法。", "POST /api/regions-draft/shot-style")
     style = payload.get("style")
     if style not in {"narrative", "travel", "event"}:
-        return _error(400, "剪法只能是叙事、旅拍快剪或活动快剪。", "POST /api/regions-draft/shot-style")
+        return _error(400, "剪法只能是慢叙事、旅拍快剪或活动快剪。", "POST /api/regions-draft/shot-style")
     version_id = payload.get("version_id")
     if not isinstance(version_id, str) or not version_id.strip():
         return _error(400, "要写明基于哪一版分段更换剪法。", "POST /api/regions-draft/shot-style")

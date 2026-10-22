@@ -259,9 +259,12 @@ def test_mapped_fastcut_slots_share_region_edges(tmp_path: Path) -> None:
         assert rows
         assert abs(rows[0].start - region.start) <= 0.001
         assert abs(rows[-1].end - region.end) <= 0.001
-        assert region.cut_summary_zh.startswith("旅拍快剪")
+        assert region.cut_summary_zh
+        assert "刀" not in region.cut_summary_zh
+        assert region.cut_stats_zh.startswith("旅拍快剪")
     event = plan_shot_slots(document, style="event")
-    assert "活动快剪" in event.regions[1].cut_summary_zh
+    assert "活动快剪" in event.regions[1].cut_stats_zh
+    assert event.regions[1].cut_summary_zh
     assert "落点" in __import__("director.shot_slots", fromlist=["drop_contrast_zh"]).drop_contrast_zh(event)
 
     paths = _project(tmp_path)
@@ -578,6 +581,8 @@ _GUIDE_KEYS = {
     "sound_cues",
     "story_beat",
     "content_hint",
+    "reserve_best",
+    "seam_zh",
 }
 _SHOT_SIZES = set(get_args(ShotSize))
 _MOTIONS = set(get_args(MotionKind))
@@ -739,9 +744,14 @@ def test_guide_toggle_is_collapsed_by_default() -> None:
         snap_labels={"downbeat": "强拍"},
         warning_labels={},
     )
-    assert re.search(r'<input type="checkbox" id="guide-toggle">', page)
-    assert 'id="guide-toggle" checked' not in page
+    assert 'id="guide-toggle"' in page
+    assert "展开剪辑思路" in page
     assert 'id="guide-rows" hidden' in page
+    assert 'id="cut-click"' in page
+    assert 'id="cut-click" checked' not in page
+    assert "刀口嗒嗒声" in page
+    assert "★" in page
+    assert any(slot.seam_zh for slot in document.shot_slots)
     for row_id in ("guide-size", "guide-transition", "guide-sound", "guide-story"):
         assert f'id="{row_id}"' in page
     hint = next(slot.content_hint for slot in document.shot_slots if slot.content_hint)

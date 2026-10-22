@@ -818,6 +818,7 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
     from director.shot_track.fastcut import (
         RULES_VERSION,
         generate,
+        region_stats_zh,
         region_summary_zh,
         stats,
     )
@@ -893,6 +894,7 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
                 update={
                     "slot_count": stat["count"],
                     "cut_summary_zh": region_summary_zh(style, region.edit_role, stat),
+                    "cut_stats_zh": region_stats_zh(style, region.edit_role, stat),
                 }
             )
         )
@@ -977,6 +979,8 @@ def attach_guidance(document: MusicEditRegions) -> MusicEditRegions:
                     "sound_cues": list(row["sound_cues"]),
                     "story_beat": row["story_beat"],
                     "content_hint": row["content_hint"],
+                    "reserve_best": True if row.get("_reserve_best") else None,
+                    "seam_zh": row.get("seam_zh"),
                 }
             )
         )

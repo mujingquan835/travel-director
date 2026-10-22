@@ -719,6 +719,11 @@ def _plan_narrative_slots(document: MusicEditRegions) -> MusicEditRegions:
 
 DEFAULT_SHOT_STYLE = "travel"
 _SHOT_STYLES = frozenset({"narrative", "travel", "event"})
+NEW_RULES_NOTICE = "有新规则，可另存新草稿"
+MISSING_SNAPSHOT_NOTICE = (
+    "这份确认版还没有镜头轨快照。页面按文件里原来的镜头槽显示，不会重算。"
+    "另存新草稿会按当前规则生成，确认版文件不会被改写。"
+)
 
 
 def plan_shot_slots(
@@ -749,6 +754,62 @@ def plan_shot_slots(
             planned = planned.model_copy(update=update)
         return attach_guidance(planned)
     return attach_guidance(_apply_fastcut(planned, chosen))
+
+
+def unlock_shot_track(document: MusicEditRegions) -> MusicEditRegions:
+    """Drafts are not snapshots. Confirm is what freezes the shot track."""
+
+    if not document.shot_track_locked and document.guide_version is None:
+        return document
+    return document.model_copy(update={"shot_track_locked": False, "guide_version": None})
+
+
+def freeze_shot_track(document: MusicEditRegions) -> MusicEditRegions:
+    """Plan once, then mark regions, style, rules, and guidance as the snapshot.
+
+    A document without beats stays slot-for-slot as stored. The lock is still
+    set so a later open does not invent a track.
+    """
+
+    from director.shot_track.creator_guidance import GUIDE_VERSION
+
+    planned = plan_shot_slots(document)
+    return planned.model_copy(
+        update={"shot_track_locked": True, "guide_version": GUIDE_VERSION}
+    )
+
+
+def shot_track_rules_drifted(document: MusicEditRegions) -> bool:
+    """True when the frozen rule ids disagree with the code that is running.
+
+    Narrative leaves ``shot_rules_version`` empty. That is not a mismatch
+    against the fastcut version.
+    """
+
+    from director.shot_track.creator_guidance import GUIDE_VERSION
+    from director.shot_track.fastcut import RULES_VERSION
+
+    if document.guide_version != GUIDE_VERSION:
+        return True
+    if document.shot_style in {"travel", "event"} and document.shot_rules_version != RULES_VERSION:
+        return True
+    return False
+
+
+def confirmed_snapshot_should_replan(document: MusicEditRegions) -> bool:
+    """A fork may replan. The confirmed file itself is never rewritten."""
+
+    return (not document.shot_track_locked) or shot_track_rules_drifted(document)
+
+
+def snapshot_notice(document: MusicEditRegions, *, read_only: bool) -> str:
+    if not read_only:
+        return ""
+    if not document.shot_track_locked:
+        return MISSING_SNAPSHOT_NOTICE
+    if shot_track_rules_drifted(document):
+        return NEW_RULES_NOTICE
+    return ""
 
 
 def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:

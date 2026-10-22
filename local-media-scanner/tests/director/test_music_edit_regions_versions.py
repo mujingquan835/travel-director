@@ -162,6 +162,8 @@ def test_confirm_locks_version_and_refuses_mutation(tmp_path: Path) -> None:
     datetime.fromisoformat(listing.confirmed_at)
     stored = load_regions_version(paths, listing.version_id)
     assert stored.status == "confirmed"
+    assert stored.regions.shot_track_locked is True
+    assert stored.regions.guide_version == "creator-0.1"
     assert stored.confirmed_by == "user"
     assert stored.confirmed_at == listing.confirmed_at
     assert load_regions_draft(paths) is None
@@ -413,7 +415,9 @@ def test_reanalysis_opens_or_replaces_a_draft_and_does_not_touch_confirmed(tmp_p
     again = stage_regions_reanalysis(paths, _with_role(_document(), "r1", "build"))
     assert again.version_id == staged.version_id
     assert again.regions.regions[0].edit_role == "build"
-    assert load_regions_version(paths, confirmed.version_id).regions == _document()
+    from director.shot_slots import freeze_shot_track
+
+    assert load_regions_version(paths, confirmed.version_id).regions == freeze_shot_track(_document())
     assert _confirmed_bytes(paths, confirmed.version_id) == before
     assert [item.status for item in list_regions_versions(paths)] == ["confirmed", "draft"]
 

@@ -34,6 +34,14 @@ or open a new draft when the latest snapshot is confirmed. It never rewrites
 ``confirmed/``. Once this directory exists, ``build_project_music_edit_regions``
 calls that rule after refreshing the analyzer candidate file.
 
+Confirm freezes the shot track into that write-once file: regions, ``shot_style``,
+``shot_rules_version``, and the guidance layer. Opening a confirmed or history
+version reads the file and does not replan. A draft still replans with the
+current rules. If the frozen rule version disagrees with the running code, the
+desk only says 「有新规则，可另存新草稿」 and leaves the file alone. A confirmed
+file from before snapshots existed stays byte-identical; the desk says so and
+``migrate_unlocked_confirmed_regions`` opens a new draft under the current rules.
+
 ``require_confirmed_regions_version`` is the export gate. Missing ids,
 ``latest``, and drafts are refused. ``export_fcpxml_for_confirmed_regions`` is
 the Slice 1 hook only: it does not build an ``FcpxmlEditDecision`` or write
@@ -428,9 +436,13 @@ def save_regions_draft(paths: ProjectPaths, regions: MusicEditRegions) -> Region
     """Create the single draft, or replace it in place. Writes a ``draft_save`` receipt.
 
     When a confirmed snapshot already exists, the new draft's parent is the
-    latest confirmed version. Confirmed files are not modified.
+    latest confirmed version. Confirmed files are not modified. A draft is not
+    a snapshot: the shot-track lock is cleared on write.
     """
 
+    from director.shot_slots import unlock_shot_track
+
+    regions = unlock_shot_track(regions)
     index = _load_index(paths) or RegionsVersionIndex()
     _require_same_track(index, regions)
     now = _now()
@@ -495,10 +507,13 @@ def confirm_regions_draft(
         blockers = _confirm_blockers(draft.regions)
         if blockers:
             raise RegionsVersionError("confirm refused: " + "; ".join(blockers))
+    from director.shot_slots import freeze_shot_track
+
+    frozen = freeze_shot_track(draft.regions)
     confirmed = _make_document(
         version_id=draft.version_id,
         status="confirmed",
-        regions=draft.regions,
+        regions=frozen,
         created_at=draft.created_at,
         edited_at=draft.edited_at,
         parent_version_id=draft.parent_version_id,
@@ -578,6 +593,27 @@ def discard_regions_draft(paths: ProjectPaths) -> RegionsBaseline:
     index.draft_version_id = None
     _write_index(paths, index)
     return current_regions_baseline(paths)
+
+
+def migrate_unlocked_confirmed_regions(
+    paths: ProjectPaths, version_id: str
+) -> RegionsVersionDocument:
+    """Open a current-rules draft from a confirmed version that has no snapshot.
+
+    The confirmed file is left byte-identical. A version that already has a
+    shot-track snapshot is refused; fork that one with 另存新草稿 instead.
+    """
+
+    document = load_regions_version(paths, version_id)
+    if document.status != "confirmed":
+        raise RegionsVersionError("只能基于已确认的版本另开草稿。")
+    if load_regions_draft(paths) is not None:
+        raise RegionsVersionError("已经有打开的草稿。先确认或丢弃它，再基于确认版另开。")
+    if document.regions.shot_track_locked:
+        raise RegionsVersionError("这份确认版已有镜头轨快照。要换规则，请另存新草稿。")
+    from director.shot_slots import plan_shot_slots
+
+    return save_regions_draft(paths, plan_shot_slots(document.regions))
 
 
 def require_confirmed_regions_version(

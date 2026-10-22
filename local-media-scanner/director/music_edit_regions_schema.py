@@ -133,7 +133,7 @@ _SLOT_GUIDE_FIELDS = frozenset(
         "content_hint",
     }
 )
-_DOCUMENT_STYLE_FIELDS = frozenset({"shot_style", "shot_rules_version"})
+_DOCUMENT_STYLE_FIELDS = frozenset({"shot_style", "shot_rules_version", "guide_version"})
 
 
 def _omit_empty_style_fields(data: object, keys: frozenset[str]) -> object:
@@ -294,10 +294,15 @@ class MusicEditRegions(StrictModel):
     breath_marks: list[float] = Field(default_factory=list)
     shot_style: ShotStyle | None = None
     shot_rules_version: str | None = None
+    guide_version: str | None = None
+    shot_track_locked: bool = False
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler):
-        return _omit_empty_style_fields(handler(self), _DOCUMENT_STYLE_FIELDS)
+        data = _omit_empty_style_fields(handler(self), _DOCUMENT_STYLE_FIELDS)
+        if isinstance(data, dict) and data.get("shot_track_locked") is False:
+            data.pop("shot_track_locked", None)
+        return data
 
     @model_validator(mode="after")
     def region_invariants(self) -> "MusicEditRegions":

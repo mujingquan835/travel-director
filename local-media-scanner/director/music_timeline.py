@@ -133,6 +133,7 @@ a{color:var(--accent);text-decoration:none}
 .ro{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 .ro .box{height:28px;display:flex;align-items:center;padding:0 10px;border:1px solid var(--line);border-radius:5px;background:#f1f0eb;color:var(--ink2);font-family:"DejaVu Sans Mono",monospace;font-size:12.5px}
 .note{font-size:11px;color:var(--mute)}
+#snapshot-notice{margin:8px 16px 0;padding:8px 12px;background:var(--warnbg);color:var(--warn);border:1px solid #e8d4ae;border-radius:8px;font-size:13px}
 .note.ms{border:1px solid var(--line);border-radius:10px;padding:1px 8px}
 select{height:30px;border:1px solid #cfccc1;border-radius:5px;background:#fffefb;padding:0 8px}
 select:disabled{background:#f1f0eb;color:var(--ink2)}
@@ -1398,6 +1399,10 @@ def render_timeline_page(
         else _empty_inspector()
     )
     has_slots = bool(view and view.get("shot_slots"))
+    snapshot = str((view or {}).get("snapshot_notice") or "")
+    notice_html = (
+        f'<p id="snapshot-notice">{html.escape(snapshot)}</p>' if snapshot else ""
+    )
     note = str((view or {}).get("beat_backend_note") or "")
     note_html = (
         f'<p id="beat-backend-note" title="{html.escape(note)}">{html.escape(note)}</p>'
@@ -1463,6 +1468,7 @@ def render_timeline_page(
   {chrome}
 </div>
 <section id="error" class="panel"{hidden}>{html.escape(message)}</section>
+{notice_html}
 <div class="transport">
   <button type="button" class="btn" id="transport-play" style="width:34px;padding:0">▶</button>
   <div class="tc"><span id="playhead">{_mmss(moment)}</span> <small>/ <span id="duration-readout">{_mmss(float((view or {}).get("duration_seconds") or 0))}</span></small></div>

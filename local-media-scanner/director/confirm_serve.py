@@ -49,6 +49,7 @@ from director.music_edit_regions_versions import (
     confirm_regions_draft,
     discard_regions_draft,
     list_regions_versions,
+    migrate_unlocked_confirmed_regions,
     load_regions_draft,
     load_regions_version,
     save_regions_draft,
@@ -789,12 +790,13 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
     unknown = [region.region_id for region in document.regions.regions if region.edit_role == "unknown"]
     blockers = _confirm_blockers(document.regions)
     stored = document.regions
+    read_only = listing_status != "draft"
     display = stored
-    if stored.beats and stored.bpm:
+    if not read_only and stored.beats and stored.bpm:
         from director.shot_slots import plan_shot_slots
 
         display = plan_shot_slots(stored)
-    from director.shot_slots import drop_contrast_zh
+    from director.shot_slots import drop_contrast_zh, snapshot_notice
 
     return {
         "revision": document.regions_sha256,
@@ -803,8 +805,9 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
         "duration_seconds": document.regions.duration_seconds,
         "warnings": _warning_views(list(display.warnings), list(display.downbeat_cluster_times)),
         "regions": [_region_view(region) for region in display.regions],
-        "read_only": listing_status != "draft",
+        "read_only": read_only,
         "status": listing_status,
+        "snapshot_notice": snapshot_notice(stored, read_only=read_only),
         "source_music_sha8": document.source_music_sha8,
         "confirmed_at": document.confirmed_at,
         "has_draft": any(item.status == "draft" for item in listings),
@@ -1259,7 +1262,18 @@ def _draft_from_confirmed_unlocked(project: Path, body: bytes) -> ServeResponse:
         return _error(404, f"没有这个分段版本：{version_id}", _regions_hint(paths.root))
     if document.status != "confirmed":
         return _error(409, "只能基于已确认的版本另开草稿。", "GET /music")
-    saved = save_regions_draft(paths, document.regions)
+    from director.shot_slots import confirmed_snapshot_should_replan, plan_shot_slots
+
+    regions = document.regions
+    if not regions.shot_track_locked:
+        try:
+            saved = migrate_unlocked_confirmed_regions(paths, version_id)
+        except RegionsVersionError as exc:
+            return _error(409, str(exc), "GET /music")
+        return _json_response(200, _desk_view(paths, saved))
+    if confirmed_snapshot_should_replan(regions):
+        regions = plan_shot_slots(regions)
+    saved = save_regions_draft(paths, regions)
     return _json_response(200, _desk_view(paths, saved))
 
 

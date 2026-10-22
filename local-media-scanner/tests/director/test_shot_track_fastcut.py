@@ -746,3 +746,86 @@ def test_guide_toggle_is_collapsed_by_default() -> None:
         assert f'id="{row_id}"' in page
     hint = next(slot.content_hint for slot in document.shot_slots if slot.content_hint)
     assert hint in page
+
+
+def _slot_blob(regions) -> bytes:
+    payload = [slot.model_dump(mode="json") for slot in regions.shot_slots]
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+
+
+def test_confirmed_shot_track_bytes_stay_put_when_rules_change(tmp_path, monkeypatch) -> None:
+    """Changing a rule parameter must not rewrite a confirmed shot track."""
+
+    from director.confirm_serve import _desk_view
+    from director.shot_slots import NEW_RULES_NOTICE
+    from director.shot_track import fastcut
+
+    document = plan_shot_slots(_covered_song(), style="travel")
+    paths = _project(tmp_path)
+    save_regions_draft(paths, document)
+    listing = confirm_regions_draft(paths)
+    confirmed = load_regions_version(paths, listing.version_id)
+    before = _confirmed_bytes(paths, listing.version_id)
+    frozen_slots = _slot_blob(confirmed.regions)
+    assert confirmed.regions.shot_track_locked is True
+    assert b'"shot_track_locked":true' in before or b'"shot_track_locked": true' in before
+
+    monkeypatch.setitem(fastcut.SHOT_CYCLES["travel"]["base"], "establish", ["脸"])
+    reloaded = load_regions_version(paths, listing.version_id)
+    assert _confirmed_bytes(paths, listing.version_id) == before
+    assert _slot_blob(reloaded.regions) == frozen_slots
+    view = _desk_view(paths, reloaded)
+    assert _slot_blob_from_view(view) == frozen_slots
+    assert view["snapshot_notice"] == ""
+
+    save_regions_draft(paths, document)
+    draft_view = _desk_view(paths, load_regions_version(paths, "regions-v02"))
+    assert draft_view["status"] == "draft"
+    assert _slot_blob_from_view(draft_view) != frozen_slots
+    assert _confirmed_bytes(paths, listing.version_id) == before
+
+    monkeypatch.setattr(fastcut, "RULES_VERSION", "fastcut-9.9")
+    drifted = _desk_view(paths, load_regions_version(paths, listing.version_id))
+    assert drifted["snapshot_notice"] == NEW_RULES_NOTICE
+    assert drifted["shot_rules_version"] == RULES_VERSION
+    assert _slot_blob_from_view(drifted) == frozen_slots
+    assert _confirmed_bytes(paths, listing.version_id) == before
+
+
+def _slot_blob_from_view(view: dict) -> bytes:
+    return json.dumps(view["shot_slots"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+
+
+def test_old_confirmed_without_snapshot_prompts_and_migrates(tmp_path, monkeypatch) -> None:
+    from director.confirm_serve import render_music_page
+    from director.music_edit_regions_versions import migrate_unlocked_confirmed_regions
+    from director.shot_slots import MISSING_SNAPSHOT_NOTICE, plan_shot_slots as real_plan
+    import director.shot_slots as shot_slots
+
+    document = plan_shot_slots(_covered_song(), style="travel")
+    paths = _project(tmp_path)
+    real_freeze = shot_slots.freeze_shot_track
+    monkeypatch.setattr(shot_slots, "freeze_shot_track", lambda regions: regions)
+    save_regions_draft(paths, document)
+    listing = confirm_regions_draft(paths)
+    before = _confirmed_bytes(paths, listing.version_id)
+    assert b"shot_track_locked" not in before
+    monkeypatch.setattr(shot_slots, "freeze_shot_track", real_freeze)
+
+    def explode(regions, style=None):
+        raise AssertionError("a confirmed version without a snapshot must not be replanned")
+
+    monkeypatch.setattr(shot_slots, "plan_shot_slots", explode)
+    page = render_music_page(paths.root, version_id=listing.version_id)
+    assert MISSING_SNAPSHOT_NOTICE in page
+    assert 'id="snapshot-notice"' in page
+    assert _confirmed_bytes(paths, listing.version_id) == before
+
+    monkeypatch.setattr(shot_slots, "plan_shot_slots", real_plan)
+    migrated = migrate_unlocked_confirmed_regions(paths, listing.version_id)
+    assert migrated.status == "draft"
+    assert migrated.regions.shot_track_locked is False
+    assert migrated.regions.shot_slots
+    assert migrated.regions.shot_style == "travel"
+    assert _confirmed_bytes(paths, listing.version_id) == before
+    assert b"shot_track_locked" not in before

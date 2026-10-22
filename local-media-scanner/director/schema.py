@@ -273,6 +273,53 @@ class MusicEnding(StrictModel):
     behavior: Literal["hard_stop", "decay", "fade", "unknown"]
 
 
+class OnsetEvent(StrictModel):
+    id: str = Field(min_length=1)
+    t: float = Field(ge=0.0)
+    strength: float = Field(ge=0.0, le=1.0)
+
+
+class BeatGap(StrictModel):
+    start: float = Field(ge=0.0)
+    end: float = Field(gt=0.0)
+
+
+class BeatGridInfo(StrictModel):
+    period_s: float = Field(gt=0.0)
+    coverage: float = Field(ge=0.0, le=1.0)
+    gaps: list[BeatGap] = Field(default_factory=list)
+
+
+class BeatEvent(StrictModel):
+    i: int = Field(ge=0)
+    t: float = Field(ge=0.0)
+    bar: int = Field(ge=0)
+    beat_in_bar: int = Field(ge=0, le=16)
+    is_downbeat: bool
+    is_phrase_start: bool = False
+    onset_strength: float = Field(ge=0.0, le=1.0)
+    energy: float = Field(ge=0.0, le=1.0)
+    accent: bool = False
+
+
+class PhraseSpan(StrictModel):
+    id: str = Field(min_length=1)
+    start: float = Field(ge=0.0)
+    end: float = Field(gt=0.0)
+    bars: int = Field(ge=1)
+    source: Literal["bar_grid_4", "energy_step", "allin1"]
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+DownbeatDetectorName = Literal[
+    "every_fourth_beat",
+    "onset_phase_heuristic",
+    "beat_this",
+    "allin1",
+    "unknown",
+]
+
+
 class MusicStructure(StrictModel):
     schema_version: SchemaVersion = "0.1.0"
     source_sha256: str
@@ -280,11 +327,24 @@ class MusicStructure(StrictModel):
     bpm: float | None = Field(default=None, gt=0.0)
     beats_seconds: list[float] = Field(default_factory=list)
     downbeats_seconds: list[float] = Field(default_factory=list)
+    downbeat_cluster_times: list[float] = Field(default_factory=list)
     energy_curve: list[EnergyPoint] = Field(default_factory=list)
     sections: list[MusicStructureSection] = Field(default_factory=list)
     ending: MusicEnding
     confidence: float = Field(ge=0.0, le=1.0)
     errors: list[ProviderError] = Field(default_factory=list)
+    # Rhythm detail is optional. Older files load with the defaults.
+    beat_backend: str = ""
+    beat_backend_note: str = ""
+    onsets: list[OnsetEvent] = Field(default_factory=list)
+    beat_events: list[BeatEvent] = Field(default_factory=list)
+    beat_grid: BeatGridInfo | None = None
+    phrases: list[PhraseSpan] = Field(default_factory=list)
+    downbeat_detector: DownbeatDetectorName = "every_fourth_beat"
+    downbeat_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    meter_assumed: int | None = None
+    analysis_warnings: list[str] = Field(default_factory=list)
+    plp_beat_count: int | None = Field(default=None, ge=0)
 
 
 class TimelineSlot(StrictModel):

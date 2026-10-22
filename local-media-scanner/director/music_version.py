@@ -9,11 +9,31 @@ from pathlib import Path
 
 from director.audio_import import load_music_evidence
 from director.creative_direction import _context, load_creative
+from director.music_edit_regions_versions import is_regions_version_state_key
 from director.project import (
     ProjectConflict, ProjectPaths, VISUAL_STAGE_ORDER, _paths, _sha256_file,
     _write_state, load_project_state, open_project, record_supporting_artifact,
 )
 from director.skill_summary import build_skill_run_summary
+
+
+# Root names left behind when forking a project onto a new track. Regions
+# confirmations stay with the parent; they are not a music_version.
+EVIDENCE_COPY_EXCLUDED = {
+    "generation",
+    "music_structure.json",
+    "music_edit_regions.json",
+    "music_edit_regions_versions",
+    "timeline_slots.json",
+    "clip_placements.json",
+    "sfx_plan.json",
+    "render",
+    "previews",
+    "guidance",
+    "music_version.json",
+    "delivery",
+    "timeline_revision.json",
+}
 
 
 def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
@@ -61,8 +81,7 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
         if load_creative(child, validate_sources=False) is None:
             build_skill_run_summary(child.root)
         return child
-    excluded = {"generation", "music_structure.json", "music_edit_regions.json", "timeline_slots.json",
-                "clip_placements.json", "sfx_plan.json", "render", "previews", "guidance", "music_version.json", "delivery", "timeline_revision.json"}
+    excluded = EVIDENCE_COPY_EXCLUDED
     for path in parent.root.rglob('*'):
         if path.is_symlink():
             raise ProjectConflict("music version evidence must not contain symbolic links")
@@ -81,6 +100,9 @@ def create_music_version(parent: ProjectPaths, source: Path) -> ProjectPaths:
         for key in removed:
             child_state.completed_artifact_hashes.pop(key, None)
             child_state.artifact_paths.pop(key, None)
+        for key in list(child_state.completed_artifact_hashes):
+            if is_regions_version_state_key(key):
+                child_state.completed_artifact_hashes.pop(key, None)
         _write_state(child, child_state)
         record_supporting_artifact(child, temporary / "music_version.json", linkage,
                                    state_key="music_version")

@@ -28,6 +28,8 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
+          # Same uv release that wrote local-media-scanner/uv.lock (revision 5).
+          version: "0.13.5"
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: local-media-scanner/uv.lock
@@ -39,7 +41,7 @@ jobs:
       - name: Install media tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ffmpeg
+          sudo apt-get install --yes ffmpeg fonts-wqy-microhei
 
       - name: Check pull request diff
         if: github.event_name == 'pull_request'

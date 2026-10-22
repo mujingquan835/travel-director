@@ -451,7 +451,8 @@ def test_invariant_7_fixed_wav_fixture_is_stable(click_track: Path) -> None:
     assert _role_at(document, 40.0) == "peak_cut"
     assert _role_at(document, 27.0) == "breath"
     assert _role_at(document, 57.0) == "settle_outro"
-    assert document.regions[0].end == 3.0
+    assert document.regions[0].end == 2.02
+    assert document.regions[0].end_raw_s == 3.0
 
 
 def test_music_structure_major_version_is_unchanged(click_track: Path) -> None:

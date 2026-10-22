@@ -6,16 +6,21 @@ narrative_hold, build, peak_cut, breath, settle_outro, unknown) and writes a
 sibling ``music_edit_regions.json`` bound to the frozen music hash. Purely
 local and deterministic; it never calls an external service and never claims
 confirmed phrases or downbeats.
+
+Confirmed edit-region versions are a different store. See
+``director.music_edit_regions_versions`` — those drafts and locks are not
+``music_version`` child projects.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from pydantic import Field
 
+from director.boundary_snap import snap_bound_list
 from director.music_edit_regions_schema import (
     BOUNDARY_TOLERANCE_SECONDS,
     MISSING_SETTLE_OUTRO,
@@ -56,6 +61,7 @@ class EditRegionConfig(StrictModel):
     narrative_onset_percentile: float = Field(default=50.0, gt=0.0, lt=100.0)
     entry_lookback_seconds: float = Field(default=4.0, gt=0.0)
     onset_rate_tolerance: float = Field(default=0.05, ge=0.0, lt=1.0)
+    shot_style: Literal["narrative", "travel", "event"] | None = None
 
 
 # Contract §7 defaults: (mean, min, max, motion, content_need, proxy).
@@ -222,7 +228,12 @@ def analyze_music_edit_regions(
             f"provider {config.provider} is not available in M0; use heuristic_v1"
         )
     duration, ending, warnings = _clip_structure(structure, config)
-    warnings.append(BEAT_GRID_PROXY_WARNING)
+    real_onsets = bool(structure.onsets)
+    if not real_onsets:
+        warnings.append(BEAT_GRID_PROXY_WARNING)
+    for code in structure.analysis_warnings:
+        if code not in warnings:
+            warnings.append(code)
     signal = _Signal(structure, duration)
     window = config.energy_window_seconds
     tol = BOUNDARY_TOLERANCE_SECONDS
@@ -253,7 +264,36 @@ def analyze_music_edit_regions(
         bounds.append(duration)
     bounds = [_r3(b) for b in bounds]
     bounds[-1] = _r3(duration)
-    spans = [(a, b) for a, b in zip(bounds, bounds[1:]) if b - a > tol]
+    raw_bounds = list(bounds)
+    # Roles use the raw bounds. A sub-bar snap must not flip them: the user's
+    # 8–25s establish became unknown once 8.0 moved to 8.74 and the neighbour
+    # took the single establish slot.
+    snapped_bounds = list(raw_bounds)
+    if structure.beat_events and structure.bpm:
+        period = (
+            structure.beat_grid.period_s
+            if structure.beat_grid is not None and structure.beat_grid.period_s > 0
+            else 60.0 / structure.bpm
+        )
+        beat_times = [beat.t for beat in structure.beat_events if beat.t <= duration + 1e-6]
+        down_times = [
+            beat.t for beat in structure.beat_events if beat.is_downbeat and beat.t <= duration + 1e-6
+        ]
+        snapped_bounds = snap_bound_list(
+            raw_bounds,
+            duration,
+            down_times,
+            beat_times,
+            period,
+            structure.downbeat_confidence,
+        )
+    paired = list(zip(raw_bounds, snapped_bounds))
+    spans = []
+    snapped_spans: list[tuple[float, float]] = []
+    for (raw_start, start), (raw_end, end) in zip(paired, paired[1:]):
+        if raw_end - raw_start > tol:
+            spans.append((raw_start, raw_end))
+            snapped_spans.append((start, end))
     if unmerged:
         warnings.append(SHORT_REGION_UNMERGED)
 
@@ -261,7 +301,13 @@ def analyze_music_edit_regions(
     energy_values = signal.values.tolist()
     e_med = float(np.median(signal.values)) if energy_values else 0.0
     e_p80 = _percentile(energy_values, config.peak_energy_percentile)
-    rates = [signal.beat_rate(a, b) for a, b in spans]
+    if real_onsets:
+        rates = []
+        for start, end in spans:
+            onset_count = sum(1 for onset in structure.onsets if start <= onset.t < end)
+            rates.append(onset_count / (end - start))
+    else:
+        rates = [signal.beat_rate(a, b) for a, b in spans]
     rate_p70 = _percentile(rates, config.peak_onset_percentile)
     rate_p50 = _percentile(rates, config.narrative_onset_percentile)
     rate_slack = 1.0 + config.onset_rate_tolerance
@@ -343,6 +389,9 @@ def analyze_music_edit_regions(
 
     regions: list[MusicEditRegion] = []
     for index, ((start, end), role) in enumerate(zip(spans, roles)):
+        snapped_start, snapped_end = snapped_spans[index]
+        if snapped_end - snapped_start <= tol:
+            snapped_start, snapped_end = start, end
         mean, shot_min, shot_max, motion, need, proxy = ROLE_DEFAULTS[role]
         if role == "peak_cut":
             mean = peak_shot_mean(structure.bpm)
@@ -354,8 +403,8 @@ def analyze_music_edit_regions(
         regions.append(
             MusicEditRegion(
                 region_id=f"r{index + 1:02d}",
-                start=_r3(start),
-                end=_r3(end),
+                start=_r3(snapped_start),
+                end=_r3(snapped_end),
                 edit_role=role,
                 musical_label=None,
                 musical_proxy=proxy,
@@ -365,29 +414,61 @@ def analyze_music_edit_regions(
                 suggested_shot_mean_s=_r3(mean),
                 shot_min_s=shot_min,
                 shot_max_s=shot_max,
-                snap_policy="beat" if role in BEAT_SNAP_ROLES else "free",
+                snap_policy=(
+                    "downbeat"
+                    if role in BEAT_SNAP_ROLES
+                    and structure.downbeat_detector == "beat_this"
+                    and (structure.downbeat_confidence or 0.0) >= 0.7
+                    else "beat"
+                    if role in BEAT_SNAP_ROLES
+                    else "free"
+                ),
                 desired_motion=motion,
                 content_need=need,
                 confidence=_r6(confidence),
                 evidence_basis="energy",
+                start_raw_s=_r3(start) if abs(start - snapped_start) >= 0.001 else None,
+                end_raw_s=_r3(end) if abs(end - snapped_end) >= 0.001 else None,
             )
         )
 
     weighted = sum(r.confidence * (r.end - r.start) for r in regions) / duration
-    return MusicEditRegions(
+    provider = config.provider
+    if structure.beat_backend == "beat_this" and provider == "heuristic_v1":
+        provider = "beat_this+heuristic"
+    document = MusicEditRegions(
         source_sha256=structure.source_sha256,
         duration_seconds=_r3(duration),
         bpm=structure.bpm,
-        provider=config.provider,
+        provider=provider,
         beats_seconds=[b for b in structure.beats_seconds if b < duration],
         downbeats_seconds=[b for b in structure.downbeats_seconds if b < duration],
-        downbeat_detector="every_fourth_beat",
+        downbeat_cluster_times=list(structure.downbeat_cluster_times),
+        downbeat_detector=structure.downbeat_detector,
         energy_curve=[p for p in structure.energy_curve if p.time_seconds < duration],
         regions=regions,
         ending=ending,
         confidence=_r6(min(structure.confidence, weighted)),
         warnings=warnings,
+        beat_backend=structure.beat_backend,
+        beat_backend_note=structure.beat_backend_note,
+        onsets=[onset for onset in structure.onsets if onset.t < duration],
+        beats=[beat for beat in structure.beat_events if beat.t < duration],
+        beat_grid=structure.beat_grid,
+        phrases=[phrase for phrase in structure.phrases if phrase.start < duration],
+        downbeat_confidence=structure.downbeat_confidence,
+        meter_assumed=structure.meter_assumed,
+        plp_beat_count=structure.plp_beat_count,
     )
+    if document.beats:
+        from director.shot_slots import plan_shot_slots
+
+        if config.shot_style:
+            document = document.model_copy(update={"shot_style": config.shot_style})
+            document = plan_shot_slots(document, style=config.shot_style)
+        else:
+            document = plan_shot_slots(document)
+    return document
 
 
 def load_music_edit_regions(paths: Any) -> MusicEditRegions | None:
@@ -421,7 +502,9 @@ def build_project_music_edit_regions(
     """Analyse a project's frozen music and record ``music_edit_regions.json``.
 
     A previous file bound to another track (or produced with another config) is
-    replaced; an unchanged result is left byte-identical.
+    replaced; an unchanged result is left byte-identical. When the regions
+    version store already exists, the candidate is also staged as a draft and
+    confirmed snapshots are left untouched.
     """
 
     from director.audio_import import load_music_evidence
@@ -454,6 +537,11 @@ def build_project_music_edit_regions(
     record_supporting_artifact(
         paths, paths.music_edit_regions, regions, state_key="music_edit_regions"
     )
+    # Version store, when present, receives a new or replaced draft. Confirmed
+    # snapshots stay write-once; this never rewrites music_edit_regions_versions/confirmed.
+    from director.music_edit_regions_versions import stage_reanalysis_if_versioned
+
+    stage_reanalysis_if_versioned(paths, regions)
     after = paths.music_edit_regions.read_bytes()
     if before is None:
         status = "created"

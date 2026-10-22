@@ -27,6 +27,11 @@ dev = [
   "pytest>=8.3,<10",
   "pytest-cov>=6,<8",
 ]
+beat = [
+  "torch>=2.7,<3",
+  "torchaudio>=2.7,<3",
+  "beat-this>=1.0,<2",
+]
 
 [project.scripts]
 travel-scanner = "scanner.cli:app"
@@ -38,6 +43,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["scanner", "director"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"director/vendor" = "director/vendor"
+"director/shot_track/techniques/cards.json" = "director/shot_track/techniques/cards.json"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

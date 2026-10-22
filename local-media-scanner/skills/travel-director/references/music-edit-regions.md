@@ -211,4 +211,24 @@ outro 窗 = 末尾 `max(8s, 0.12 * duration)`。
 - `onset_rate`：M0 用 beat 网格密度（区内 beat 数 / 区长）作代理，`warnings` 恒含 `onset_rate_from_beat_grid_proxy`；真 onset 留给 M1。分位比较带 5% 相对容差。
 - **CHANGE (peak_cut / beat-proxy)**：在 `onset_rate_from_beat_grid_proxy` 期间，中段（非 hook/outro）`Ē` 相对 `E_p80` 带与 onset 相同的 5% 相对容差即可单独标 `peak_cut`（不要求 beat 密度达 P70 或正进入斜率）；另将「非 hook/outro 中均能最高且 ≥ E_med」的主导高能段标为 `peak_cut`，避免点位 `E_p80` 被 outro 抬高时平坦高能中段被错标 `narrative_hold`。
 - `peak_cut` 镜长均值 `max(0.5, 60/bpm)` 夹在 `[0.5, 1.4]` 内以满足不变量 4；`unknown` 的 `snap_policy` 取 `free`。
-- `musical_label` 恒为 null，`downbeat_detector` 恒为 `every_fourth_beat`，`evidence_basis` 恒为 `energy`。全部区域只是未经听审的候选。
+- `musical_label` 恒为 null。没有逐拍 onset 的结构（手写测试曲线）仍用 `downbeat_detector=every_fourth_beat`，并保留 `onset_rate_from_beat_grid_proxy`。`evidence_basis` 在分析器产物里为 `energy`，角色被改过则为 `manual`。全部区域只是未经听审的候选。
+
+## 14. 镜头槽（建议，不改分区）
+
+分析器在有真实 onset 时把 `onset_rate` 写成起音次数 / 区长，并不再写 `onset_rate_from_beat_grid_proxy`。拍点来自 librosa `beat_track(trim=False)`，并对照 `beat.plp` 的峰数。强拍默认用低频 onset 相位（`onset_phase_heuristic`）；置信度低于 0.10 时退回 `every_fourth_beat`，并写 `downbeat_phase_heuristic`。拍号按 4/4，警告 `meter_assumed_4_4`。
+
+`shot_slots[]` 按角色模板、乐句和重音排不等长槽。每个槽有 `reason_code`、一句中文 `reason_zh`、建议镜头类型（远/细/动/脸/空/转/?）和证据引用。槽的起止就是分区的 `start` / `end`，段界上只有一条时间。
+
+剪法存在 `shot_style`：`narrative`（叙事）、`travel`（旅拍快剪）、`event`（活动快剪）。新分析的命令行默认是 `travel`。不传风格时，规划函数仍走叙事，原来的字段保持不变，空的快剪字段不出现。镜头时间排完之后另补剪辑思路：`shot_size`、`motion`、`transition_in`、`transition_out`、`sound_cue`、`story_beat`、`content_hint`，不改 `start` / `end`，原来的 `transition` 仍留着。旅拍铺陈的常规镜按动、细、脸轮换，只改类型，不改切点。叙事槽 id 仍是 `rXX-sNN`。旅拍和活动用确定性规则 `fastcut-0.4`（`director/shot_track/fastcut.py`），时间只来自已经存下的拍点、强拍、乐句、分区边界和 onset。不调用 LLM。分区边界不动。活动铺陈的快闪比 0.2 原型少一半，所以铺陈刀/小节低于推进。可选字段：`style`、`pattern_role`、`flurry_group`、`ramp`、`transition`、`flash`、`cut_on`、`rules_version`、`beat_length`。`beat_length` 用拍（可以是半拍）；原来的整数 `beats` 不变。闪白、变速、转场是给剪辑的建议，不是素材里已经有这些画面。确认台用 `POST /api/regions-draft/shot-style` 换剪法：草稿就地保存，已确认版本只读并记下当时的剪法，从确认版切换会另开草稿。镜头块按时间贴齐，没有外边距和圆角；邻居之间是 1 像素内线，快闪是一条括号加内部发丝线。窄块上的字藏起来，悬停和局部细节条还能看到。确认台的「剪辑思路」在底部抽屉里，抽屉默认收起。「展开剪辑思路 / 收起」的选择记在浏览器本地。打开后在镜头轨下多出景别、转场、声音、故事四行，悬停或点镜头能看到 `content_hint`。最好的一镜标 ★，接缝要求写在该镜头上。本段怎么剪是一句动作，统计在悬停里。分区叫开场、铺陈、停留、推进、高潮、换气、收尾、待定；慢剪法叫慢叙事，不再用「叙事」同时指角色和剪法。待定角色显示「还有 N 段待定角色」，并可以直接去选角色。刀口嗒嗒声默认关。局部细节条有闪 / 变速 / 转场 / 快闪组图例。`shot-track stats` 打印每段刀数和「落点 N 刀 vs 进场前 N 刀」。
+
+旅拍和活动还会从 `director/shot_track/techniques/cards.json` 选一个主题手法（反差节奏、留白、定格、推近、条件变速），在合格分段里重复 2–3 次。种子是音频 sha256、版本号和用户选项的 sha256，只在分数相同时排序。高潮和推进各有节奏变体，刀口仍在拍点上。不调用 LLM。确认快照记下种子、主题和触发证据；已确认文件不因规则升级重算。五张卡是 C 级经验判断，没有原文链接，状态是草案，剪映菜单名待核。导出把手法名写进片段名、占位卡、marker 和剪辑单。marker 和变速曲线剪映认不认，还没在这台机器上验过。
+
+新分析先按原始分区定角色，再把存下来的 `start` / `end` 吸到格点上。不足 1 小节的移动不能把角色从 establish 改成 unknown。最近强拍在半小节（2 拍）以内就吸强拍；强拍置信度低于 0.10 且最近强拍超过半小节时，改吸 1 小节以内的最近拍点，并写 `boundary_snap_beat_low_confidence`。超过 1 小节不移动，记 `boundary_snap_beyond_bar`。相距不足半小节的强拍丢掉较晚的那个（`downbeat_cluster`），半小节或更远的保留。吸过的原始时间在 `start_raw_s` / `end_raw_s`。
+
+确认台可以在标尺、音乐轨、分区、乐句、镜头轨上点或拖来移动播放头，空格播放或暂停。左右方向键跳到上一拍或下一拍，按住 Shift 则跳到镜头切点（没有镜头槽时跳强拍）。循环本段默认关闭。局部细节条跟随播放头，窗口大约前后 4 秒；对比旧版才显示按均长平分的那一行。
+
+已经确认或已经存下的草稿不会被静默改写。确认时把分区、镜头轨（含 `shot_style`、`shot_rules_version`）和剪辑思路冻成快照：`shot_track_locked` 与 `guide_version`。打开已确认或历史版本只读这份快照，不再重算镜头轨。草稿仍按当前规则重算。规则版本和快照不一致时，页面只提示「有新规则，可另存新草稿」，不改确认版文件。没有快照的旧确认版保持原字节，页面提示另存新草稿；`migrate_unlocked_confirmed_regions` 会按当前规则另开草稿。确认台按当前边界重算建议，芯片写明距离和半小节阈值。采纳进新草稿；已确认文件只读。若已有打开的草稿，再从确认版采纳会 409。`export_fcpxml_for_confirmed_regions` 只读已确认快照，按 30fps 为每个镜头生成 1080×1920 占位视频（文件名含镜头号和短说明），主轨首尾相接，音乐作为第一段上的 connected clip（lane=-1，整首）。分区名和角色烧在每个占位顶部角标，不另开覆盖轨：2026-09-09 能导入的那份只有主轨视频和挂在第一段上的音频，整幅标签会挡住画面。marker 仍写在片段上。重复导出覆盖旧占位。草稿不能导出。竖屏占位和烧录文字还没在这台机器上用剪映打开过。用户的 Mac 上已经验证过剪映能导入工程。烧录的字、marker 和手法菜单仍待核。采纳或分析吸过之后，这些边界就是刀口。镜头类型仍是建议，不能拖。
+
+确认台音乐页可以「导入 / 换音乐」：只接受本机上传的 mp3、m4a、wav（上限 100MB，时长仍不得超过 10 分钟；`--lan` 时这个接口也拒绝非本机）。它走 `create_music_version` 和 `freeze_and_analyze_music`，拍点用 `auto`（有 beat_this 且本地已有权重才用，否则 librosa），再按旅拍快剪做分区并打开新草稿。进度是建版本、拍点、分区、完成。旧项目留在磁盘上，配乐菜单可以切回去。只有 brief 和配乐、没有完整视觉阶段的项目会得到明确失败，不会另造一套版本目录。
+
+可选依赖 `beat`（torch + beat-this，MIT）用 `File2Beats(..., dbn=False)` 出拍点和强拍。没装、没有本地权重，或运行失败时回退 librosa，并在 `beat_backend` / `beat_backend_note` 里写明。`auto` 不会为了分析去下载权重。显式 `--beat-backend beat_this` 第一次会下载 small0（约 8MB）或 final0（约 78MB）到 torch hub 缓存。不引入 madmom、Essentia、aubio、MERT、MuQ。

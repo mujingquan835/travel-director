@@ -53,6 +53,9 @@ a{color:var(--accent);text-decoration:none}
 .btn.danger{color:var(--danger)}
 .btn.on{background:#e6ece9;border-color:#a9bab4}
 .btn:disabled,.btn[disabled]{opacity:.45;cursor:default}
+#import-music-label{cursor:pointer}
+#import-status{max-width:320px;line-height:1.3}
+#music-picker{max-width:240px}
 .top{flex:none;display:flex;align-items:center;gap:6px 8px;padding:6px 16px;min-height:52px;
   border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 .logo{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#dcdcd2 70%);border:1px solid #cfccc1;flex:none}
@@ -1377,6 +1380,29 @@ def _guide_rows_html(view: dict, duration: float) -> str:
     return f'<div id="guide-rows" hidden>{rows}</div>'
 
 
+def _music_import_html(music_family: list[dict] | None) -> str:
+    options = []
+    for item in music_family or []:
+        selected = " selected" if item.get("current") else ""
+        options.append(
+            f'<option value="{html.escape(str(item.get("path") or ""))}"{selected}>'
+            f'{html.escape(str(item.get("label") or ""))}</option>'
+        )
+    picker = ""
+    if options:
+        picker = (
+            f'<label class="ver">配乐 <select id="music-picker">{"".join(options)}</select></label>'
+        )
+    return (
+        '<label class="btn" id="import-music-label" title="只接受本机的 mp3、m4a、wav，不超过 100MB、10 分钟。旧版本会留下来。">'
+        "导入 / 换音乐"
+        '<input id="import-music" type="file" accept=".mp3,.m4a,.wav" hidden>'
+        "</label>"
+        '<span id="import-status" class="note"></span>'
+        + picker
+    )
+
+
 def render_timeline_page(
     *,
     project_title: str,
@@ -1390,6 +1416,7 @@ def render_timeline_page(
     kind_labels: dict[str, str],
     snap_labels: dict[str, str],
     warning_labels: dict[str, str],
+    music_family: list[dict] | None = None,
 ) -> str:
     """Return the music desk as one HTML document."""
 
@@ -1477,6 +1504,7 @@ def render_timeline_page(
         active_slot = None
     shot_caption = _shot_caption(active_slot) if active_slot else ""
     body_class = ' class="has-slots"' if has_slots else ""
+    import_html = _music_import_html(music_family)
     chrome = _version_chrome(view) if view else (
         '<div class="sp"></div>'
         '<button type="button" class="btn ghost" id="save" disabled>保存草稿</button>'
@@ -1506,6 +1534,7 @@ def render_timeline_page(
 <section id="error" class="panel"{hidden}>{html.escape(message)}</section>
 {notice_html}
 <div class="transport">
+  {import_html}
   <button type="button" class="btn" id="transport-play" style="width:34px;padding:0">▶</button>
   <label class="note" id="cut-click-label"><input type="checkbox" id="cut-click"> 刀口嗒嗒声</label>
   <div class="tc"><span id="playhead">{_mmss(moment)}</span> <small>/ <span id="duration-readout">{_mmss(float((view or {}).get("duration_seconds") or 0))}</span></small></div>
@@ -2592,6 +2621,83 @@ bindScrub(document.querySelector("#track-phrases .lane"), "timeline");
 bindScrub(document.getElementById("shots"), "timeline");
 bindScrub(document.getElementById("zoom-lane"), "detail");
 bindScrub(document.getElementById("ph"), "playhead");
+var importInput = document.getElementById("import-music");
+var importStatus = document.getElementById("import-status");
+function setImportStatus(text) {{
+  if (importStatus) importStatus.textContent = text || "";
+}}
+function switchMusic(path) {{
+  return fetch("/api/project", {{
+    method: "POST",
+    headers: {{"Content-Type": "application/json"}},
+    body: JSON.stringify({{path: path}})
+  }}).then(function (response) {{
+    return response.json().then(function (data) {{
+      if (!response.ok || data.error) {{
+        showError((data && data.error) || "没能切换配乐");
+        return;
+      }}
+      window.location.href = "/music";
+    }});
+  }}).catch(function (err) {{
+    showError(String(err));
+  }});
+}}
+function pollImport(jobId) {{
+  fetch("/api/music-import/status?id=" + encodeURIComponent(jobId)).then(function (response) {{
+    return response.json().then(function (data) {{
+      if (data.phase === "失败") {{
+        setImportStatus(data.error || data.message || "导入失败");
+        return;
+      }}
+      if (!response.ok) {{
+        setImportStatus(data.error || "导入失败");
+        return;
+      }}
+      setImportStatus(data.message || data.phase || "");
+      if (data.phase === "完成" && data.project_path) {{
+        switchMusic(data.project_path);
+        return;
+      }}
+      setTimeout(function () {{ pollImport(jobId); }}, 700);
+    }});
+  }}).catch(function (err) {{
+    setImportStatus(String(err));
+  }});
+}}
+if (importInput) {{
+  importInput.addEventListener("change", function () {{
+    var file = importInput.files && importInput.files[0];
+    if (!file) return;
+    var name = String(file.name || "").toLowerCase();
+    if (!(name.endsWith(".mp3") || name.endsWith(".m4a") || name.endsWith(".wav"))) {{
+      setImportStatus("只接受 mp3、m4a、wav。");
+      importInput.value = "";
+      return;
+    }}
+    setImportStatus("正在上传…");
+    var body = new FormData();
+    body.append("music", file, file.name);
+    fetch("/api/music-import", {{method: "POST", body: body}}).then(function (response) {{
+      return response.json().then(function (data) {{
+        if (!response.ok || !data.job_id) {{
+          setImportStatus(data.error || "导入失败");
+          return;
+        }}
+        setImportStatus(data.message || "正在建立新的音乐版本。");
+        pollImport(data.job_id);
+      }});
+    }}).catch(function (err) {{
+      setImportStatus(String(err));
+    }});
+  }});
+}}
+var musicPicker = document.getElementById("music-picker");
+if (musicPicker) {{
+  musicPicker.addEventListener("change", function () {{
+    if (musicPicker.value) switchMusic(musicPicker.value);
+  }});
+}}
 setTimeout(markReady, 4000);
 if (state) {{
   paint();

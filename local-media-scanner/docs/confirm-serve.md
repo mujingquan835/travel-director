@@ -2,7 +2,7 @@
 
 `travel-director serve --project <path> [--port 8765] [--lan]`
 
-The HTTP stack is the Python standard library `http.server.ThreadingHTTPServer`. One local process serves the desk. There is no extra web framework, no authentication, and no upload. The default bind address is `127.0.0.1`. `--lan` binds `0.0.0.0` so another machine on the same network can open the page. This is not a public-internet service.
+The HTTP stack is the Python standard library `http.server.ThreadingHTTPServer`. One local process serves the desk. There is no extra web framework and no authentication. The default bind address is `127.0.0.1`. `--lan` binds `0.0.0.0` so another machine on the same network can open the page. This is not a public-internet service. Video is never uploaded. The one upload is **导入 / 换音乐** on the music page: a single local mp3, m4a, or wav. That route accepts only a loopback client, even when `--lan` is on. Other routes still refuse a body larger than 64KB.
 
 ## Project page `/`
 
@@ -80,6 +80,14 @@ The music lane uses wavesurfer.js 7.12.12 (BSD-3-Clause), vendored under `direct
 
 `/export` points at the music page. After a version is confirmed, **导出剪辑** is enabled and `POST /api/regions-export` writes `delivery/regions/<version>/project.fcpxml` plus `edit-sheet.md`. The package is the confirmed snapshot: a music audio clip, one gap per shot slot named with the slot id and `content_hint`, and markers for each region and for the drop (`peak_cut`). Times are rounded to 30 fps because the regions document has no frame rate of its own and the shot planner uses 30. A draft is refused and no directory is created. Jianying on macOS 11.4.0 imported FCPXML video and audio clips on 2026-09-09. Markers, gap names, and gap placeholders from this export have not been checked in Jianying. The page says that, and does not call the file compatible.
 
+## 导入 / 换音乐
+
+The music page has **导入 / 换音乐**. Choosing a local mp3, m4a, or wav posts it to `POST /api/music-import` as multipart field `music`. The handler checks the client address before it reads the body. `127.0.0.1` and `::1` are accepted. Any other peer gets 403 and the body is not read, including when the server was started with `--lan`. The import body limit is 100MB. `freeze_and_analyze_music` still refuses audio longer than 10 minutes, and a container that does not match the extension.
+
+The job calls the existing `create_music_version` on the original parent. If the open project is already a music-version child, `music_version.json` points back at that parent, and the new directory is a sibling (`{parent}-music-{sha16}`), not a grandchild. Then `freeze_and_analyze_music` runs with beat backend `auto`: beat_this only when that package imports and a weight file is already cached, otherwise librosa. The page shows the phases 建版本, 拍点, 分区, and 完成, including the beat-backend note. Region analysis uses 旅拍快剪 and `save_regions_draft` opens a draft. On 完成 the page switches to the child with `POST /api/project` and opens `/music`. The parent and earlier children stay on disk. The **配乐** menu switches back the same way.
+
+`create_music_version` still requires a frozen parent whose visual stages through director review are intact. A desk project that only has a brief and a frozen track gets a Chinese error and no new directory. The parent files are not rewritten either way. A file that matches the parent's music, a wrong extension, or an undecodable file does not create a version.
+
 ## Other routes
 
 | Path | Body |
@@ -88,6 +96,8 @@ The music lane uses wavesurfer.js 7.12.12 (BSD-3-Clause), vendored under `direct
 | `/api/recent` | Recent project paths |
 | `/api/music-desk` | Open draft, or the selected `?version=`. Creates a candidate draft only when nothing is confirmed |
 | `POST /api/project` | Switch the project this process is showing |
+| `POST /api/music-import` | Loopback-only multipart upload of one mp3, m4a, or wav. Returns a job id |
+| `GET /api/music-import/status?id=` | Phase of that job: 建版本, 拍点, 分区, 完成, or 失败 |
 | `POST /api/reveal` | Open the resolved project root in the file manager |
 | `POST /api/regions-draft` | Change `edit_role` only, when `expected_revision` matches. Confirmed versions are `409` |
 | `POST /api/regions-draft/confirm` | Lock the open draft. `force` plus a non-empty `reason` records an override |
@@ -104,4 +114,4 @@ The music lane uses wavesurfer.js 7.12.12 (BSD-3-Clause), vendored under `direct
 
 `/audio/frozen` answers `Range: bytes=` with `206 Partial Content`. Request targets that contain `..`, and a frozen path that resolves outside the project, are refused.
 
-Export still calls `require_confirmed_regions_version` and refuses `latest` or `draft`. The project page step 分段已确认 is complete once `confirmed_count` is at least one. This desk does not re-run analysis or build an FCPXML package. The shot lane does not select media.
+Export still calls `require_confirmed_regions_version` and refuses `latest` or `draft`. The project page step 分段已确认 is complete once `confirmed_count` is at least one. Opening a page does not re-run analysis. Importing a new track does, in a new music-version directory. Export writes an FCPXML package only from a confirmed snapshot. The shot lane does not select media.

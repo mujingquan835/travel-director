@@ -1,9 +1,12 @@
 """Local confirm desk: project page and thin music-region editor.
 
 HTTP stack: the stdlib ``http.server.ThreadingHTTPServer``. One process, no
-extra dependency, no authentication, and no upload. The default bind address
-is ``127.0.0.1``. ``--lan`` binds ``0.0.0.0`` for other machines on the same
-network. This is not a public internet service.
+extra dependency, and no authentication. The default bind address is
+``127.0.0.1``. ``--lan`` binds ``0.0.0.0`` for other machines on the same
+network. This is not a public internet service. The only upload is
+``POST /api/music-import``: one local mp3, m4a, or wav, and only from a
+loopback client, even when the port is bound on the LAN. Other routes still
+refuse bodies larger than 64KB.
 
 ``/`` explains the desk in Chinese and shows four steps. ``/music`` is the
 timeline desk for the open draft (created from analyzer candidates only when
@@ -21,8 +24,9 @@ or event. An open draft is updated in place. A confirmed version is not
 rewritten: the same call forks a draft, unless one is already open. ``POST
 /api/regions-draft/confirm`` locks the open draft. ``POST
 /api/regions-draft/from-confirmed`` copies a locked snapshot into a new draft.
-Exceptions while rendering a page or API become a Chinese error body. This
-module does not re-run analysis or export.
+Exceptions while rendering a page or API become a Chinese error body. Opening
+a page does not re-run analysis. Importing a new track does: it forks a music
+version, measures beats, and opens a draft. Export reads a confirmed snapshot.
 """
 
 from __future__ import annotations
@@ -42,7 +46,17 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from pydantic import ValidationError
 
-from director.audio_import import ImportedMusicAsset
+from director.audio_import import ImportedMusicAsset, load_music_evidence
+from director.music_import import (
+    MAX_MUSIC_IMPORT_BYTES,
+    chinese_import_error,
+    import_jobs,
+    is_loopback_host,
+    list_music_family,
+    parse_music_upload,
+    resolve_family_parent,
+    start_music_import,
+)
 from director.music_edit_regions_schema import MusicEditRegion, MusicEditRegions
 from director.music_edit_regions_versions import (
     RegionsVersionError,
@@ -1349,6 +1363,7 @@ def render_music_page(
         frozen = _frozen_music(paths)
         if frozen is not None:
             track_label = Path(frozen[1].frozen_relative_path).name
+    family = list_music_family(paths.root) if paths is not None else []
     return render_timeline_page(
         project_title=title,
         project_id=name,
@@ -1361,6 +1376,7 @@ def render_music_page(
         kind_labels=KIND_LABELS,
         snap_labels=SNAP_LABELS,
         warning_labels=WARNING_LABELS,
+        music_family=family,
     )
 
 
@@ -1634,12 +1650,56 @@ def _wavesurfer_file(relative: str) -> ServeResponse:
     return ServeResponse(200, candidate.read_bytes(), content_type)
 
 
+def _header_value(headers: Mapping[str, str] | None, name: str) -> str:
+    for key, value in (headers or {}).items():
+        if key.lower() == name.lower():
+            return value
+    return ""
+
+
+def _music_import_request(
+    server: ThreadingHTTPServer,
+    headers: Mapping[str, str] | None,
+    body: bytes,
+    client_host: str | None,
+) -> ServeResponse:
+    if not is_loopback_host(client_host):
+        return _error(403, "导入只接受本机请求。", "请在运行确认台的这台电脑上打开页面。")
+    try:
+        filename, payload = parse_music_upload(_header_value(headers, "content-type"), body)
+    except ValueError as exc:
+        return _error(400, str(exc), "选择 mp3、m4a 或 wav，且不超过 100MB。")
+    project = Path(server.project_root)  # type: ignore[attr-defined]
+    try:
+        parent = resolve_family_parent(project)
+        paths = open_project(parent)
+        if load_music_evidence(paths) is None:
+            raise ValueError("还没有固定的配乐，不能换音乐。")
+    except FileNotFoundError:
+        return _error(400, "当前目录不是一个项目。", "先打开已经有配乐的项目。")
+    except (ProjectConflict, ValueError, OSError) as exc:
+        return _error(400, chinese_import_error(exc), "先打开已经冻结配乐、并且视觉阶段完整的项目。")
+    status = start_music_import(parent, filename, payload, import_jobs(server))
+    return _json_response(202, status.as_dict())
+
+
+def _music_import_status(server: ThreadingHTTPServer, query: str) -> ServeResponse:
+    job_id = _query_value(query, "id")
+    if not job_id:
+        return _error(400, "缺少导入任务编号。", "GET /api/music-import/status?id=")
+    status = import_jobs(server).get(job_id)
+    if status is None:
+        return _error(404, "没有这个导入任务。", "任务只留在这次确认台进程里。")
+    return _json_response(200, status.as_dict())
+
+
 def handle_confirm_request(
     server: ThreadingHTTPServer,
     method: str,
     target: str,
     headers: Mapping[str, str] | None = None,
     body: bytes = b"",
+    client_host: str | None = None,
 ) -> ServeResponse:
     """Answer one confirm-desk request. ``target`` is the raw request path.
 
@@ -1649,7 +1709,7 @@ def handle_confirm_request(
 
     project = Path(getattr(server, "project_root", "."))
     try:
-        return _dispatch_confirm_request(server, method, target, headers, body)
+        return _dispatch_confirm_request(server, method, target, headers, body, client_host)
     except Exception as exc:
         return _failure_response(target, exc, project)
 
@@ -1660,6 +1720,7 @@ def _dispatch_confirm_request(
     target: str,
     headers: Mapping[str, str] | None = None,
     body: bytes = b"",
+    client_host: str | None = None,
 ) -> ServeResponse:
     project = Path(server.project_root)  # type: ignore[attr-defined]
     if _traversal_requested(target):
@@ -1687,6 +1748,8 @@ def _dispatch_confirm_request(
         return _shot_style_request(project, body)
     if method == "POST" and path == "/api/regions-export":
         return _regions_export_request(project, body)
+    if method == "POST" and path == "/api/music-import":
+        return _music_import_request(server, headers, body, client_host)
     if method not in {"GET", "HEAD"}:
         return _error(405, "method is not allowed", "GET /api/status")
     if path == "/":
@@ -1700,6 +1763,8 @@ def _dispatch_confirm_request(
         return _wavesurfer_file(path.removeprefix(vendor_prefix))
     if path == "/export":
         return _html(_EXPORT_HTML)
+    if path == "/api/music-import/status":
+        return _music_import_status(server, parsed.query)
     if path == "/api/music-desk":
         return _music_desk_response(project, version)
     if path == "/api/status":
@@ -1742,20 +1807,44 @@ class _ConfirmDeskHandler(BaseHTTPRequestHandler):
 
     def _serve(self, method: str) -> None:
         body = b""
+        peer = str(self.client_address[0]) if self.client_address else ""
         if method in {"POST", "PUT", "DELETE"}:
+            path = unquote(urlsplit(self.path).path)
+            importing = method == "POST" and path == "/api/music-import"
             try:
                 length = int(self.headers.get("Content-Length") or "0")
             except ValueError:
                 length = -1
-            if length < 0 or length > _MAX_BODY_BYTES:
-                response = _error(400, "request body is too large", "POST /api/project")
+            if importing and not is_loopback_host(peer):
+                response = _error(403, "导入只接受本机请求。", "请在运行确认台的这台电脑上打开页面。")
+                response.headers["Connection"] = "close"
+                self.close_connection = True
+                self._write(method, response)
+                return
+            limit = MAX_MUSIC_IMPORT_BYTES if importing else _MAX_BODY_BYTES
+            if length < 0 or length > limit:
+                if importing:
+                    response = _error(
+                        400,
+                        "文件太大。导入上限是 100MB。",
+                        "请换一首更短的 mp3、m4a 或 wav。",
+                    )
+                else:
+                    response = _error(400, "request body is too large", "POST /api/project")
+                response.headers["Connection"] = "close"
+                self.close_connection = True
                 self._write(method, response)
                 return
             if length:
                 body = self.rfile.read(length)
         try:
             response = handle_confirm_request(
-                self.server, method, self.path, dict(self.headers.items()), body
+                self.server,
+                method,
+                self.path,
+                dict(self.headers.items()),
+                body,
+                client_host=peer,
             )
         except Exception as exc:
             root = Path(getattr(self.server, "project_root", "."))

@@ -227,4 +227,6 @@ outro 窗 = 末尾 `max(8s, 0.12 * duration)`。
 
 已经确认或已经存下的草稿不会被静默改写。确认时把分区、镜头轨（含 `shot_style`、`shot_rules_version`）和剪辑思路冻成快照：`shot_track_locked` 与 `guide_version`。打开已确认或历史版本只读这份快照，不再重算镜头轨。草稿仍按当前规则重算。规则版本和快照不一致时，页面只提示「有新规则，可另存新草稿」，不改确认版文件。没有快照的旧确认版保持原字节，页面提示另存新草稿；`migrate_unlocked_confirmed_regions` 会按当前规则另开草稿。确认台按当前边界重算建议，芯片写明距离和半小节阈值。采纳进新草稿；已确认文件只读。若已有打开的草稿，再从确认版采纳会 409。`export_fcpxml_for_confirmed_regions` 只读已确认快照，按 30fps 写出 FCPXML（音乐轨、每个镜头一个 gap，名字含镜头号和 `content_hint`、分区和落点 marker）和一份剪辑单。草稿不能导出。剪映 11.4.0 曾导入过带视频和音频的 FCPXML；marker、占位名和 gap 还没在剪映里验证，页面和文档都不写成已兼容。采纳或分析吸过之后，这些边界就是刀口。镜头类型仍是建议，不能拖。
 
+确认台音乐页可以「导入 / 换音乐」：只接受本机上传的 mp3、m4a、wav（上限 100MB，时长仍不得超过 10 分钟；`--lan` 时这个接口也拒绝非本机）。它走 `create_music_version` 和 `freeze_and_analyze_music`，拍点用 `auto`（有 beat_this 且本地已有权重才用，否则 librosa），再按旅拍快剪做分区并打开新草稿。进度是建版本、拍点、分区、完成。旧项目留在磁盘上，配乐菜单可以切回去。只有 brief 和配乐、没有完整视觉阶段的项目会得到明确失败，不会另造一套版本目录。
+
 可选依赖 `beat`（torch + beat-this，MIT）用 `File2Beats(..., dbn=False)` 出拍点和强拍。没装、没有本地权重，或运行失败时回退 librosa，并在 `beat_backend` / `beat_backend_note` 里写明。`auto` 不会为了分析去下载权重。显式 `--beat-backend beat_this` 第一次会下载 small0（约 8MB）或 final0（约 78MB）到 torch hub 缓存。不引入 madmom、Essentia、aubio、MERT、MuQ。

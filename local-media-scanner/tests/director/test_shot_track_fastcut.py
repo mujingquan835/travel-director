@@ -5,12 +5,15 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import re
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from director.cli import analyze_music_edit_regions_command
 from director.confirm_serve import start_confirm_desk
+from director.music_timeline import _shot_box_style, render_timeline_page
 from director.music_edit_regions_versions import (
     confirm_regions_draft,
     load_regions_version,
@@ -354,3 +357,209 @@ def test_confirmed_style_switch_is_blocked_while_a_draft_is_open(tmp_path: Path)
     finally:
         server.shutdown()
         server.server_close()
+
+
+_BOX_RE = re.compile(
+    r'<div class="(?P<class>[^"]*)" data-slot-id="(?P<id>[^"]+)" '
+    r'data-region-id="(?P<region>[^"]+)"'
+    r'(?: data-flurry-group="(?P<group>[^"]*)")? '
+    r'data-start="(?P<start>[0-9.]+)" data-end="(?P<end>[0-9.]+)" '
+    r'style="(?P<style>[^"]*)" title="(?P<title>[^"]*)">(?P<body>.*?)</div>'
+)
+_RUN_RE = re.compile(
+    r'<div class="flurry-run" data-flurry-group="(?P<group>[^"]+)" '
+    r'style="left:(?P<left>-?\d+\.\d+)%;width:(?P<width>-?\d+\.\d+)%">'
+)
+
+
+def _milli(text: str) -> int:
+    sign = -1 if text.startswith("-") else 1
+    body = text[1:] if sign < 0 else text
+    whole, frac = body.split(".")
+    return sign * (int(whole) * 1000 + int(frac.ljust(3, "0")[:3]))
+
+
+def _box_millis(style: str) -> tuple[int, int]:
+    match = re.search(r"left:(-?\d+\.\d+)%;width:calc\((-?\d+\.\d+)% \+ 1px\)", style)
+    assert match, style
+    return _milli(match.group(1)), _milli(match.group(2))
+
+
+def test_rendered_slot_geometry_has_no_horizontal_gaps() -> None:
+    """Shot blocks use the time edges. Chrome does not paint a gap between them."""
+
+    tiny = _shot_box_style(0.0, 0.05, 0.0, 60.0)
+    assert tiny == "left:0.000%;width:calc(0.083% + 1px)"
+    slots, _beat_s = generate(DESK, "travel")
+    view = {
+        "regions": DESK["regions"],
+        "duration_seconds": DESK["duration_seconds"],
+        "bpm": DESK["bpm"],
+        "confidence": 0.8,
+        "provider": "beat_this+heuristic",
+        "schema_version": "0.1.0",
+        "status": "draft",
+        "read_only": False,
+        "acceptance": {"ok": False, "unknown_region_ids": ["r02"]},
+        "versions": [],
+        "version_id": "regions-v01",
+        "warnings": [],
+        "beats_seconds": DESK["beats_seconds"],
+        "downbeats_seconds": DESK["downbeats_seconds"],
+        "phrases": DESK["phrases"],
+        "shot_slots": slots,
+        "shot_style": "travel",
+        "shot_rules_version": RULES_VERSION,
+        "region_cut_anchors": [],
+    }
+    page = render_timeline_page(
+        project_title="示例数据",
+        project_id="sample",
+        project_path="/tmp/sample",
+        track_label="示例",
+        view=view,
+        message="",
+        selected="r05",
+        playhead="40.74",
+        kind_labels={
+            "hook": "可卡点",
+            "unknown": "未定",
+            "establish": "叙事/铺陈",
+            "build": "推进",
+            "peak_cut": "高潮",
+            "settle_outro": "收束",
+        },
+        snap_labels={"downbeat": "强拍", "beat": "拍", "free": "自由"},
+        warning_labels={},
+    )
+    assert "margin:0;padding:0;border:0;border-radius:0;min-width:1px" in page
+    assert "cutedge" not in page
+    shots = page.split('id="shots"', 1)[1].split('id="track-how"', 1)[0]
+    overview = list(_BOX_RE.finditer(shots))
+    assert len(overview) == len(slots)
+    previous = None
+    short_hidden = 0
+    wide_labeled = 0
+    for box in overview:
+        left, width = _box_millis(box.group("style"))
+        if previous is not None:
+            assert left == previous, (box.group("id"), previous, left)
+        previous = left + width
+        assert "0.200%" not in box.group("style")
+        duration = float(box.group("end")) - float(box.group("start"))
+        if duration < 0.3:
+            assert "<b>" not in box.group("body")
+            assert box.group("title")
+            short_hidden += 1
+        if duration >= 1.2:
+            assert "<b>" in box.group("body")
+            wide_labeled += 1
+    assert short_hidden >= 20
+    assert wide_labeled >= 1
+    groups: dict[str, list[re.Match[str]]] = {}
+    for box in overview:
+        if box.group("group"):
+            groups.setdefault(box.group("group"), []).append(box)
+    runs = list(_RUN_RE.finditer(shots))
+    assert runs and len(runs) == len(groups)
+    for run in runs:
+        members = groups[run.group("group")]
+        assert len(members) >= 2
+        first_left, _first_width = _box_millis(members[0].group("style"))
+        last_left, last_width = _box_millis(members[-1].group("style"))
+        assert _milli(run.group("left")) == first_left
+        assert _milli(run.group("left")) + _milli(run.group("width")) == last_left + last_width
+        for member in members[1:]:
+            assert "hair" in member.group("class").split()
+    detail = page.split('id="zoom-lane"', 1)[1].split('class="zph"', 1)[0]
+    zoomed = list(_BOX_RE.finditer(detail))
+    assert len(zoomed) >= 2
+    previous = None
+    detail_label = False
+    for box in zoomed:
+        left, width = _box_millis(box.group("style"))
+        if previous is not None:
+            assert left == previous, (box.group("id"), previous, left)
+        previous = left + width
+        duration = float(box.group("end")) - float(box.group("start"))
+        if duration < 0.3 and "<b>" in box.group("body"):
+            detail_label = True
+    assert detail_label
+    script = page[page.index("function fmtMilli"): page.index("function renderDetail")]
+    program = script + """
+var slots = [{start:0,end:0.24},{start:0.24,end:0.5},{start:0.5,end:2}];
+var prev = null;
+function milli(text) {
+  var sign = text[0] === "-" ? -1 : 1;
+  var body = sign < 0 ? text.slice(1) : text;
+  var parts = body.split(".");
+  return sign * (Number(parts[0]) * 1000 + Number(parts[1]));
+}
+for (var i = 0; i < slots.length; i++) {
+  var style = shotBoxStyle(slots[i].start, slots[i].end, 0, 60);
+  var match = style.match(/left:(-?\\d+\\.\\d+)%;width:calc\\((-?\\d+\\.\\d+)% \\+ 1px\\)/);
+  if (!match) throw new Error(style);
+  var left = milli(match[1]);
+  var width = milli(match[2]);
+  if (prev !== null && prev !== left) throw new Error("gap " + prev + " vs " + left);
+  prev = left + width;
+}
+var tiny = shotBoxStyle(0, 0.05, 0, 60);
+if (tiny.indexOf("0.200") !== -1) throw new Error(tiny);
+if (tiny !== "left:0.000%;width:calc(0.083% + 1px)") throw new Error(tiny);
+"""
+    completed = subprocess.run(["node", "-e", program], check=False, capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stderr
+
+    playwright = pytest.importorskip("playwright.sync_api")
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path="/usr/local/bin/google-chrome",
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        tab = browser.new_page(viewport={"width": 1440, "height": 900})
+        tab.route("**/vendor/**", lambda route: route.abort())
+        tab.set_content(page, wait_until="domcontentloaded")
+        report = tab.evaluate(
+            """() => {
+              renderDetail(40.74);
+              function paintGaps(selector, timebox) {
+                const nodes = [...document.querySelectorAll(selector)];
+                const bad = [];
+                const chrome = [];
+                for (let i = 0; i < nodes.length; i++) {
+                  const node = nodes[i];
+                  const rect = node.getBoundingClientRect();
+                  const style = getComputedStyle(node);
+                  const horizontal = ["marginLeft", "marginRight", "paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"];
+                  horizontal.forEach(function (name) {
+                    if (parseFloat(style[name]) > 0) chrome.push(node.getAttribute("data-slot-id") + " " + name);
+                  });
+                  if (parseFloat(style.borderTopLeftRadius) > 0) chrome.push("radius");
+                  if (i === 0) continue;
+                  const prev = nodes[i - 1].getBoundingClientRect();
+                  const gap = rect.left - prev.right;
+                  if (gap > 0.6 || gap < -2.5) bad.push({id: node.getAttribute("data-slot-id"), gap: gap});
+                  const start = Number(node.getAttribute("data-start"));
+                  const expected = timebox.left + (start - timebox.origin) / timebox.span * timebox.width;
+                  if (Math.abs(rect.left - expected) > 1.5) bad.push({id: node.getAttribute("data-slot-id"), shift: rect.left - expected});
+                }
+                return {n: nodes.length, bad: bad, chrome: chrome};
+              }
+              const lane = document.querySelector("#shots").getBoundingClientRect();
+              const duration = Number(state.duration_seconds);
+              const shots = paintGaps("#shots > .sl", {left: lane.left, origin: 0, span: duration, width: lane.width});
+              const row = document.querySelector("#zoom-lane .zrow").getBoundingClientRect();
+              const origin = Number(document.querySelector("#zoom-lane").getAttribute("data-origin"));
+              const limit = Number(document.querySelector("#zoom-lane").getAttribute("data-limit"));
+              const detail = paintGaps("#zoom-lane .zshot", {left: row.left, origin: origin, span: limit - origin, width: row.width});
+              return {shots: shots, detail: detail};
+            }"""
+        )
+        browser.close()
+    assert report["shots"]["n"] == len(slots)
+    assert report["shots"]["bad"] == []
+    assert report["shots"]["chrome"] == []
+    assert report["detail"]["n"] >= 2
+    assert report["detail"]["bad"] == []
+    assert report["detail"]["chrome"] == []

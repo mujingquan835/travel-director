@@ -165,7 +165,7 @@ body.has-slots .r-reg .lane{height:64px}
 body.has-slots .r-reg .blk{top:2px;bottom:20px;padding:2px 6px}
 body.has-slots .r-reg .blk .nm{font-size:12px}
 body.has-slots .r-phrase .lane{height:22px}
-body.has-slots .r-shot .lane{height:72px}
+body.has-slots .r-shot .lane{height:72px;overflow:hidden}
 body.has-slots .r-how .lane{height:34px}
 body.has-slots .insp{margin-top:8px}
 #beat-backend-note{flex:none;margin:0 24px 6px;padding:4px 10px;background:#f6ecd9;border:1px solid #e8d4ae;border-radius:6px;color:#7a5520;font-size:12px;line-height:1.45}
@@ -173,13 +173,17 @@ body.has-slots .insp{margin-top:8px}
 .phr.on{background:rgba(63,90,99,.14);color:#2e3336;border-color:#3f5a63}
 .how{position:absolute;top:2px;bottom:2px;padding:1px 4px;overflow:hidden;color:#3c4448;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .how.on{background:#f6ecd9;box-shadow:inset 0 0 0 1px #c9a15b}
-.sl{position:absolute;top:4px;bottom:8px;border-radius:3px;overflow:hidden;color:#2e3336;font-size:11px;line-height:1.15;padding:2px 3px 0 5px;cursor:pointer;border:1px solid rgba(0,0,0,.12)}
-.sl.fast{top:14px;color:#fff}
-.sl.faint,.zshot.faint{border-style:dashed}
+.sl,.zshot{position:absolute;margin:0;padding:0;border:0;border-radius:0;min-width:1px;overflow:hidden;cursor:pointer;box-sizing:border-box}
+.sl{top:4px;bottom:8px;z-index:1;color:#2e3336;font-size:11px;line-height:1.15}
+.sl.fast,.zshot.fast{color:#fff}
+.sl.faint,.zshot.faint{outline:1px dashed rgba(46,51,54,.55);outline-offset:-1px}
 .sl.pending{color:#5a4a2a;background:repeating-linear-gradient(-45deg,#efe4cc 0 4px,#e2d3b1 4px 8px)}
-.sl.on,.zshot.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:2}
-.sl.flurry,.zshot.flurry{box-shadow:inset 0 -5px 0 #1c1c1c}
-.sl.on.flurry,.zshot.on.flurry{box-shadow:inset 0 -5px 0 #1c1c1c, inset 0 0 0 2px #2e3336}
+.sl.alt,.zshot.alt{background-image:linear-gradient(rgba(255,255,255,.16),rgba(255,255,255,.16))}
+.sl.hair,.zshot.hair{box-shadow:inset 1px 0 0 rgba(28,28,28,.72)}
+.sl.on,.zshot.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:3}
+.sl.on.hair,.zshot.on.hair{box-shadow:inset 1px 0 0 rgba(28,28,28,.72), inset 0 0 0 2px #2e3336}
+.flurry-run{position:absolute;top:4px;bottom:8px;margin:0;padding:0;border:0;pointer-events:none;z-index:2}
+.flurry-run .bracket{position:absolute;inset:0;border:0 solid #1c1c1c;border-left-width:2px;border-right-width:2px;border-bottom-width:2px;pointer-events:none}
 .mark{position:absolute;right:2px;bottom:2px;color:#9c2b22;font-size:10px;font-weight:700;background:rgba(255,252,248,.94);padding:0 2px;border-radius:2px;line-height:1.3;z-index:3}
 .zshot .mark{font-size:12px;top:2px;bottom:auto}
 .stylelane{display:flex;align-items:center;gap:12px;height:34px;font-size:12px}
@@ -189,10 +193,9 @@ body.has-slots .insp{margin-top:8px}
 #detail-contrast:empty{display:none}
 .marklegend{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:#3c4448;margin:6px 0 0}
 .marklegend .mark{position:static;font-size:12px}
-.flurrykey{display:inline-block;width:36px;height:12px;border-radius:2px;background:#d9d3cc;box-shadow:inset 0 -5px 0 #1c1c1c;vertical-align:-2px}
-.sl .cutedge{position:absolute;left:0;top:0;bottom:0;width:2px;background:#2e3336}
-.sl b{font-weight:650}
-.sl em{display:block;font-style:normal;font-size:10px;opacity:.85}
+.flurrykey{display:inline-block;width:36px;height:12px;background:#d9d3cc;border-left:2px solid #1c1c1c;border-right:2px solid #1c1c1c;border-bottom:2px solid #1c1c1c;vertical-align:-2px;background-image:linear-gradient(90deg,transparent 11px,rgba(28,28,28,.72) 11px,rgba(28,28,28,.72) 12px,transparent 12px,transparent 23px,rgba(28,28,28,.72) 23px,rgba(28,28,28,.72) 24px,transparent 24px)}
+.sl b,.zshot b{font-weight:650;margin-left:2px}
+.sl em,.zshot em{font-style:normal;font-size:10px;opacity:.85;margin-left:2px}
 .exc{position:absolute;left:4px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#d07a2a}
 .accent-mark{position:absolute;top:0;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #c0453a;transform:translateX(-4px)}
 .breath-mark{position:absolute;top:0;transform:translateX(-6px);color:#3d6f9a;font-size:11px;font-weight:700}
@@ -205,17 +208,18 @@ body.has-slots .insp{margin-top:8px}
 .zoom{flex:none;margin:8px 24px 0;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 12px 10px}
 .zoom h3{margin:0 0 6px;font-size:13px;font-weight:600}
 .zoom .note{margin:0 0 6px}
-.zlane{position:relative;height:78px;margin:0 0 6px;background:#f3f2ec;border-radius:4px;cursor:ew-resize;touch-action:none}
+.zlane{position:relative;height:78px;margin:0 0 6px;background:#f3f2ec;border-radius:4px;cursor:ew-resize;touch-action:none;overflow:hidden}
+.zrow{position:absolute;left:0;right:0;top:24px;bottom:4px}
 .zlane .beat{top:2px;bottom:auto;height:16px;z-index:1}
 .zlane .beat.db{height:22px}
 .zlane .zlab{position:absolute;top:0;left:2px;font-size:10px;color:#5c656a;line-height:1}
 .zold{position:relative;height:18px;margin-top:4px}
 .zold[hidden]{display:none}
 .zph{position:absolute;top:0;bottom:0;width:0;border-left:1.5px solid #c0453a;z-index:4;pointer-events:none}
-.zshot,.osl{position:absolute;top:24px;bottom:4px;border-radius:3px;overflow:hidden;font-size:12px;line-height:1.2;padding:2px 4px;border:1px solid rgba(0,0,0,.12);color:#2e3336}
+.zshot{top:0;bottom:0;z-index:1;color:#2e3336;font-size:12px;line-height:1.15}
+.zrow .flurry-run{top:0;bottom:0}
+.osl{position:absolute;top:1px;bottom:1px;border-radius:3px;overflow:hidden;font-size:10px;line-height:1.2;padding:2px 4px;border:1px dashed #c5c9c6;color:#8a9094;background:#eceae4}
 .r-ruler .lane,.r-wave .lane,.r-reg .lane,.r-phrase .lane,.r-shot .lane{touch-action:none}
-.zshot.fast{color:#fff}
-.osl{top:1px;bottom:1px;background:#eceae4;color:#8a9094;font-size:10px;border-style:dashed}
 #slot-detail p{margin:0 0 4px;font-size:12px;line-height:1.4}
 #how-list{margin:0;padding-left:16px;font-size:12px;line-height:1.4;color:var(--ink2)}
 .typelegend{font-size:11px;color:var(--mute);line-height:1.4}
@@ -261,6 +265,34 @@ def _span_style(start: float, end: float, duration: float) -> str:
     left = start / duration * 100
     width = (end - start) / duration * 100
     return f"left:{left:.3f}%;width:{width:.3f}%"
+
+
+def _edge_milli(moment: float, origin: float, span: float) -> int:
+    """Thousandths of a percent. Shared edges use the same integer, so neighbors abut."""
+
+    if span <= 0:
+        return 0
+    return int(round((float(moment) - origin) / span * 100000))
+
+
+def _fmt_milli(milli: int) -> str:
+    sign = "-" if milli < 0 else ""
+    whole, frac = divmod(abs(int(milli)), 1000)
+    return f"{sign}{whole}.{frac:03d}"
+
+
+def _shot_box_style(start: float, end: float, origin: float, span: float) -> str:
+    """Exact time position. The extra pixel covers subpixel cracks without moving the next left."""
+
+    left = _edge_milli(start, origin, span)
+    width = max(0, _edge_milli(end, origin, span) - left)
+    return f"left:{_fmt_milli(left)}%;width:calc({_fmt_milli(width)}% + 1px)"
+
+
+def _span_milli_style(start: float, end: float, origin: float, span: float) -> str:
+    left = _edge_milli(start, origin, span)
+    width = max(0, _edge_milli(end, origin, span) - left)
+    return f"left:{_fmt_milli(left)}%;width:{_fmt_milli(width)}%"
 
 
 def _item_at(items: list, moment: float) -> dict | None:
@@ -522,26 +554,55 @@ def _pace_alpha(pace: str) -> float:
     return 0.55
 
 
+def _slot_title(slot: dict) -> str:
+    kind = str(slot.get("shot_type") or "")
+    dur = float(slot["end"]) - float(slot["start"])
+    reason = str(slot.get("reason_zh") or "")
+    text = f"{kind} · {dur:.2f}s"
+    if reason:
+        text += f" · {reason}"
+    return html.escape(text)
+
+
+def _slot_face(slot: dict, pixels: float, *, detail: bool) -> str:
+    """Hide or shorten the label when the block is narrower than the text. Hover keeps the full line."""
+
+    kind = html.escape(str(slot.get("shot_type") or ""))
+    dur = float(slot["end"]) - float(slot["start"])
+    type_at = 14 if detail else 18
+    time_at = 40 if detail else 46
+    mark_at = 52 if detail else 64
+    body = ""
+    if pixels >= type_at and kind:
+        body += f"<b>{kind}</b>"
+    if pixels >= time_at:
+        body += f"<em>{dur:.2f}s</em>"
+    if pixels >= mark_at:
+        body += _slot_marks(slot)
+    return body
+
+
 def _planned_slot_div(
     slot: dict,
     duration: float,
     *,
     zoom: tuple[float, float] | None = None,
     active: bool = False,
+    hair: bool = False,
+    alt: bool = False,
 ) -> str:
     start = float(slot["start"])
     end = float(slot["end"])
     if zoom is None:
-        left = start / duration * 100
-        width = (end - start) / duration * 100
-        pixels = (end - start) / duration * 1200
+        origin, span = 0.0, duration
+        pixels = (end - start) / duration * 1200 if duration else 0.0
         css = "sl"
+        detail = False
     else:
         origin, span = zoom
-        left = (start - origin) / span * 100
-        width = (end - start) / span * 100
-        pixels = (end - start) / span * 1200
+        pixels = (end - start) / span * 1100 if span else 0.0
         css = "zshot"
+        detail = True
     role = str(slot.get("role") or "")
     pace = str(slot.get("pace") or "medium")
     classes = [css, "fast" if pace == "fast" else "hold" if pace == "hold" else "med"]
@@ -551,28 +612,52 @@ def _planned_slot_div(
         classes.append("on")
     if slot.get("flurry_group") or slot.get("pattern_role") == "flurry":
         classes.append("flurry")
+    if hair:
+        classes.append("hair")
+    if alt and slot.get("shot_type") != "?":
+        classes.append("alt")
+    box = _shot_box_style(start, end, origin, span)
     if slot.get("shot_type") == "?":
         classes.append("pending")
-        style = f"left:{left:.3f}%;width:{max(width, 0.2):.3f}%"
+        style = box
     else:
         color = ROLE_COLORS.get(role, "#7f9e9c")
-        style = (
-            f"left:{left:.3f}%;width:{max(width, 0.2):.3f}%;"
-            f"background:{_rgba(color, _pace_alpha(pace))}"
-        )
-    label = ""
-    if pixels >= 13:
-        label = f"<b>{html.escape(str(slot.get('shot_type') or ''))}</b>"
-    if pixels >= 40:
-        label += f"<em>{end - start:.2f}s</em>"
+        style = f"{box};background-color:{_rgba(color, _pace_alpha(pace))}"
     extra = '<i class="exc"></i>' if slot.get("budget_exception") else ""
-    edge = '<i class="cutedge"></i>' if css == "sl" else ""
-    title = html.escape(str(slot.get("reason_zh") or ""))
+    flurry_attr = (
+        f' data-flurry-group="{html.escape(str(slot.get("flurry_group")))}"'
+        if slot.get("flurry_group")
+        else ""
+    )
     return (
         f'<div class="{" ".join(classes)}" data-slot-id="{html.escape(str(slot["slot_id"]))}" '
-        f'data-region-id="{html.escape(str(slot["region_id"]))}" style="{style}" title="{title}">'
-        f"{edge}{label}{extra}{_slot_marks(slot)}</div>"
+        f'data-region-id="{html.escape(str(slot["region_id"]))}"{flurry_attr} '
+        f'data-start="{start:.6f}" data-end="{end:.6f}" style="{style}" title="{_slot_title(slot)}">'
+        f"{_slot_face(slot, pixels, detail=detail)}{extra}</div>"
     )
+
+
+def _flurry_brackets(slots: list[dict], origin: float, span: float) -> str:
+    """One under-bracket per flurry group. Members stay separate blocks with hairlines between them."""
+
+    parts: list[str] = []
+    index = 0
+    while index < len(slots):
+        group = slots[index].get("flurry_group")
+        if not group:
+            index += 1
+            continue
+        end_index = index + 1
+        while end_index < len(slots) and slots[end_index].get("flurry_group") == group:
+            end_index += 1
+        start = float(slots[index]["start"])
+        end = float(slots[end_index - 1]["end"])
+        parts.append(
+            f'<div class="flurry-run" data-flurry-group="{html.escape(str(group))}" '
+            f'style="{_span_milli_style(start, end, origin, span)}"><i class="bracket"></i></div>'
+        )
+        index = end_index
+    return "".join(parts)
 
 
 def _with_role(view: dict, slot: dict) -> dict:
@@ -604,7 +689,8 @@ def _planned_shots_html(view: dict, duration: float, active_id: str = "") -> str
             )
         bucket.clear()
 
-    for slot in slots:
+    emitted: list[dict] = []
+    for index, slot in enumerate(slots):
         tiny = threshold > 0 and float(slot["end"]) - float(slot["start"]) < threshold
         if tiny and (not bucket or bucket[-1]["region_id"] == slot["region_id"]):
             bucket.append(slot)
@@ -613,8 +699,18 @@ def _planned_shots_html(view: dict, duration: float, active_id: str = "") -> str
         if tiny:
             bucket.append(slot)
         else:
-            parts.append(_planned_slot_div(slot, duration, active=str(slot.get("slot_id")) == active_id))
+            parts.append(
+                _planned_slot_div(
+                    slot,
+                    duration,
+                    active=str(slot.get("slot_id")) == active_id,
+                    hair=index > 0,
+                    alt=not slot.get("flurry_group") and index % 2 == 1,
+                )
+            )
+            emitted.append(slot)
     flush()
+    parts.append(_flurry_brackets(emitted, 0.0, duration))
     for slot in slots:
         if slot.get("accent_at_start"):
             moment = float(slot["start"])
@@ -731,9 +827,12 @@ def _detail_html(view: dict, duration: float, playhead: float) -> str:
             duration,
             zoom=(origin, span),
             active=str(slot.get("slot_id")) == active_id,
+            hair=index > 0 or float(slot["start"]) > 1e-6,
+            alt=not slot.get("flurry_group") and index % 2 == 1,
         )
-        for slot in slots
+        for index, slot in enumerate(slots)
     )
+    shot_html = f'<div class="zrow">{shot_html}{_flurry_brackets(slots, origin, span)}</div>'
     play_left = (playhead - origin) / span * 100
     window_label = f"{origin:.1f}–{limit:.1f}s"
     return (
@@ -1483,6 +1582,39 @@ function togglePlay() {{
     track.pause();
   }}
 }}
+function fmtMilli(milli) {{
+  var sign = milli < 0 ? "-" : "";
+  var value = Math.abs(milli);
+  var whole = Math.floor(value / 1000);
+  var frac = value - whole * 1000;
+  var digits = String(frac);
+  while (digits.length < 3) digits = "0" + digits;
+  return sign + String(whole) + "." + digits;
+}}
+function edgeMilli(moment, origin, span) {{
+  if (!(span > 0)) return 0;
+  return Math.round((Number(moment) - origin) / span * 100000);
+}}
+function shotBoxStyle(start, end, origin, span) {{
+  var left = edgeMilli(start, origin, span);
+  var width = edgeMilli(end, origin, span) - left;
+  if (width < 0) width = 0;
+  return "left:" + fmtMilli(left) + "%;width:calc(" + fmtMilli(width) + "% + 1px)";
+}}
+function spanMilliStyle(start, end, origin, span) {{
+  var left = edgeMilli(start, origin, span);
+  var width = edgeMilli(end, origin, span) - left;
+  if (width < 0) width = 0;
+  return "left:" + fmtMilli(left) + "%;width:" + fmtMilli(width) + "%";
+}}
+function attrEscape(text) {{
+  return String(text == null ? "" : text).replace(/[&<>"]/g, function (ch) {{
+    if (ch === "&") return "&amp;";
+    if (ch === "<") return "&lt;";
+    if (ch === ">") return "&gt;";
+    return "&quot;";
+  }});
+}}
 function renderDetail(seconds) {{
   var lane = document.getElementById("zoom-lane");
   if (!lane || !state) return;
@@ -1517,23 +1649,46 @@ function renderDetail(seconds) {{
     else html += '<div class="beat" style="left:' + left + '%"></div>';
   }});
   var active = slotAt(seconds);
-  (state.shot_slots || []).forEach(function (slot) {{
+  var lanePx = lane.clientWidth || 1100;
+  var shotHtml = "";
+  var runs = [];
+  (state.shot_slots || []).forEach(function (slot, index) {{
     var start = Number(slot.start);
     var end = Number(slot.end);
     if (end <= origin || start >= limit) return;
-    var left = ((start - origin) / span * 100);
-    var width = ((end - start) / span * 100);
     var role = "";
     (state.regions || []).forEach(function (region) {{
       if (region.region_id === slot.region_id) role = region.edit_role;
     }});
     var color = COLORS[role] || "#7f9e9c";
+    var pace = slot.pace === "fast" || slot.pace === "hold" ? slot.pace : "med";
     var on = active && slot.slot_id === active.slot_id ? " on" : "";
     var flurry = (slot.flurry_group || slot.pattern_role === "flurry") ? " flurry" : "";
+    var hair = index > 0 ? " hair" : "";
+    var alt = !slot.flurry_group && slot.shot_type !== "?" && index % 2 === 1 ? " alt" : "";
+    var pending = slot.shot_type === "?" ? " pending" : "";
     var type = String(slot.shot_type || "");
-    var safe = type.replace(/[&<>]/g, function (ch) {{ return ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : "&gt;"; }});
-    html += '<div class="zshot med' + on + flurry + '" data-slot-id="' + slot.slot_id + '" data-region-id="' + slot.region_id + '" style="left:' + left.toFixed(3) + '%;width:' + Math.max(width, 0.2).toFixed(3) + '%;background:' + color + '8c"><b>' + safe + '</b><em>' + (end - start).toFixed(2) + 's</em>' + slotMarks(slot) + '</div>';
+    var safe = attrEscape(type);
+    var pixels = span > 0 ? (end - start) / span * lanePx : 0;
+    var face = "";
+    if (pixels >= 14 && safe) face += "<b>" + safe + "</b>";
+    if (pixels >= 40) face += "<em>" + (end - start).toFixed(2) + "s</em>";
+    if (pixels >= 52) face += slotMarks(slot);
+    var tip = type + " · " + (end - start).toFixed(2) + "s";
+    if (slot.reason_zh) tip += " · " + slot.reason_zh;
+    var bg = pending ? "" : ";background-color:" + color + "8c";
+    if (slot.flurry_group) {{
+      var last = runs.length ? runs[runs.length - 1] : null;
+      if (last && last.id === slot.flurry_group) last.end = end;
+      else runs.push({{id: slot.flurry_group, start: start, end: end}});
+    }}
+    var groupAttr = slot.flurry_group ? ' data-flurry-group="' + attrEscape(slot.flurry_group) + '"' : "";
+    shotHtml += '<div class="zshot ' + pace + on + flurry + hair + alt + pending + '" data-slot-id="' + attrEscape(slot.slot_id) + '" data-region-id="' + attrEscape(slot.region_id) + '"' + groupAttr + ' data-start="' + start.toFixed(6) + '" data-end="' + end.toFixed(6) + '" style="' + shotBoxStyle(start, end, origin, span) + bg + '" title="' + attrEscape(tip) + '">' + face + "</div>";
   }});
+  runs.forEach(function (run) {{
+    shotHtml += '<div class="flurry-run" data-flurry-group="' + attrEscape(run.id) + '" style="' + spanMilliStyle(run.start, run.end, origin, span) + '"><i class="bracket"></i></div>';
+  }});
+  html += '<div class="zrow">' + shotHtml + "</div>";
   var playLeft = ((seconds - origin) / span * 100).toFixed(3);
   html += '<div class="zph" style="left:' + playLeft + '%"></div>';
   lane.innerHTML = html;

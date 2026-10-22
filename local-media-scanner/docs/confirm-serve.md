@@ -78,7 +78,7 @@ Clicking a block seeks there and selects it. **播放本段** plays that span fr
 
 The music lane uses wavesurfer.js 7.12.12 (BSD-3-Clause), vendored under `director/vendor/wavesurfer/` with the Regions and Timeline plugins and `LICENSE`. The desk serves those files from `/vendor/wavesurfer/`. There is no CDN and no npm build at runtime. Peaks are precomputed on the server, not decoded in the browser: ffmpeg writes mono 8 kHz PCM when it is on `PATH`, and a 16-bit wav falls back to the stdlib `wave` module. Buckets are about 20 per second and capped at 20,000, so a 10-minute track stays a small JSON file (12,000 peaks). `GET /api/waveform-peaks` returns them. The cache file is `{sha256}.json` outside the project (`TRAVEL_DIRECTOR_PEAKS_CACHE`, or `~/.cache/travel-director/waveform-peaks`). It is not recorded in `project_state.json` and is not a project artifact. The Regions plugin only highlights the selected span, with drag and resize off.
 
-`/export` says `导出：后续版本开放`.
+`/export` points at the music page. After a version is confirmed, **导出剪辑** is enabled and `POST /api/regions-export` writes `delivery/regions/<version>/project.fcpxml` plus `edit-sheet.md`. The package is the confirmed snapshot: a music audio clip, one gap per shot slot named with the slot id and `content_hint`, and markers for each region and for the drop (`peak_cut`). Times are rounded to 30 fps because the regions document has no frame rate of its own and the shot planner uses 30. A draft is refused and no directory is created. Jianying on macOS 11.4.0 imported FCPXML video and audio clips on 2026-09-09. Markers, gap names, and gap placeholders from this export have not been checked in Jianying. The page says that, and does not call the file compatible.
 
 ## Other routes
 

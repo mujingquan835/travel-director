@@ -7,8 +7,9 @@ network. This is not a public internet service.
 
 ``/`` explains the desk in Chinese and shows four steps. ``/music`` is the
 timeline desk for the open draft (created from analyzer candidates only when
-nothing is confirmed yet) and can lock it. ``/export`` says the export page
-is not open yet.
+nothing is confirmed yet) and can lock it. ``/export`` points at the music-page
+button. That button writes a 30 fps FCPXML package from a confirmed snapshot.
+Jianying support for markers, gap names, and gaps is unverified.
 
 ``POST /api/regions-draft`` accepts only an ``edit_role`` change for each
 existing region id, plus ``expected_revision``. A role change sets
@@ -125,8 +126,8 @@ _PROGRESS_STEPS = (
     {
         "id": "export",
         "title": "已导出剪映工程",
-        "meaning": "剪映工程已经生成，可以拿去剪辑。",
-        "instruction": "导出剪映工程会在后续版本开放。",
+        "meaning": "已确认快照已经写成 FCPXML 和剪辑单。剪映能否导入 marker、占位名和 gap 还没验证。",
+        "instruction": "在音乐页确认之后，点导出剪辑。",
     },
 )
 
@@ -355,8 +356,9 @@ _EXPORT_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <main>
-    <p>导出：后续版本开放</p>
-    <p><a href="/">返回项目</a></p>
+    <p>导出在音乐页。确认分区之后，点「导出剪辑」。只导出已确认快照，按 30fps 写成 FCPXML 和剪辑单。</p>
+    <p>剪映能否导入 marker、占位名和 gap 还没在这台机器上验证。已知 macOS 剪映 11.4.0（2026-09-09）能导入 FCPXML 的视频和音频片段。不要把这份导出当成已经兼容剪映。</p>
+    <p><a href="/music">去音乐页</a> · <a href="/">返回项目</a></p>
   </main>
 </body>
 </html>
@@ -1277,6 +1279,53 @@ def _draft_from_confirmed_unlocked(project: Path, body: bytes) -> ServeResponse:
     return _json_response(200, _desk_view(paths, saved))
 
 
+def _regions_export_request(project: Path, body: bytes) -> ServeResponse:
+    from director.music_edit_regions_versions import (
+        RegionsConfirmGateError,
+        export_fcpxml_for_confirmed_regions,
+    )
+    from director.regions_fcpxml import JIANYING_FCPXML_NOTICE
+
+    paths, error = _open(project)
+    if error is not None or paths is None:
+        assert error is not None
+        return error
+    try:
+        payload = _json_body(body)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return _error(400, f"invalid export request: {exc}", "POST /api/regions-export")
+    if _client_write_path(payload):
+        return _error(
+            400,
+            "refusing to write a client path; the package stays inside the project root",
+            "POST /api/regions-export",
+        )
+    version_id = payload.get("version_id")
+    if not isinstance(version_id, str) or not version_id.strip():
+        return _error(400, "要写明导出哪一版已确认分段。", "POST /api/regions-export")
+    version_id = version_id.strip()
+    output = paths.root / "delivery" / "regions" / version_id
+    try:
+        result = export_fcpxml_for_confirmed_regions(paths, version_id, output)
+    except RegionsConfirmGateError:
+        return _error(400, "草稿不能导出。请先确认。", "POST /api/regions-export")
+    except RegionsVersionError as exc:
+        return _error(400, str(exc), "POST /api/regions-export")
+    except ProjectConflict as exc:
+        return _error(409, str(exc), "POST /api/regions-export")
+    root = paths.root.resolve()
+    return _json_response(
+        200,
+        {
+            "version_id": result.version_id,
+            "fcpxml": result.fcpxml_path.resolve().relative_to(root).as_posix(),
+            "sheet": result.sheet_path.resolve().relative_to(root).as_posix(),
+            "frame_rate": result.frame_rate,
+            "notice": JIANYING_FCPXML_NOTICE,
+        },
+    )
+
+
 def render_music_page(
     project: Path,
     version_id: str | None = None,
@@ -1644,6 +1693,8 @@ def _dispatch_confirm_request(
         return _adopt_boundaries_request(project, body)
     if method == "POST" and path == "/api/regions-draft/shot-style":
         return _shot_style_request(project, body)
+    if method == "POST" and path == "/api/regions-export":
+        return _regions_export_request(project, body)
     if method not in {"GET", "HEAD"}:
         return _error(405, "method is not allowed", "GET /api/status")
     if path == "/":

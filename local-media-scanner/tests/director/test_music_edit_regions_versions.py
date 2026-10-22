@@ -342,7 +342,7 @@ def test_export_gate_accepts_only_an_explicit_confirmed_or_history_id(tmp_path: 
     selected = require_confirmed_regions_version(paths, first.version_id)
     assert selected.version_id == first.version_id
     assert require_confirmed_regions_version(paths, second.version_id).version_id == second.version_id
-    with pytest.raises(NotImplementedError, match="Slice 1"):
+    with pytest.raises(RegionsVersionError, match="配乐"):
         export_fcpxml_for_confirmed_regions(paths, second.version_id, output)
 
     assert not output.exists()

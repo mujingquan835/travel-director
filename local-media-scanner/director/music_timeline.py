@@ -19,6 +19,8 @@ import json
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
+from director.regions_fcpxml import EXPORT_PAGE_NOTE
+
 ROLE_COLORS = {
     "hook": "#c27a62",
     "establish": "#7f9e9c",
@@ -460,6 +462,7 @@ def _version_chrome(view: dict) -> str:
         f'<button type="button" class="btn ghost" id="save"{save_disabled}>保存草稿</button>'
         f'<button type="button" class="btn ghost danger" id="discard"{save_disabled}>丢弃草稿</button>'
         f'<button type="button" class="btn primary" id="confirm-version"{confirm_disabled}>确认分区</button>'
+        f'<button type="button" class="btn" id="export-fcpxml"{"" if read_only else " disabled"}>导出剪辑</button>'
         f'<p id="unknown-warning"{warning_attr}>{html.escape(warning)}</p>'
         '<label><input type="checkbox" id="force-confirm"> 强制确认</label>'
         '<input id="force-reason" type="text" placeholder="强制确认的原因">'
@@ -854,7 +857,7 @@ def _detail_html(view: dict, duration: float, playhead: float) -> str:
         '<section class="zoom" id="zoom">'
         '<h3 id="detail-title">局部细节 · 跟随播放头 · 前后 4 秒 '
         f'<small id="detail-range">{html.escape(window_label)}</small></h3>'
-        '<p class="note">镜头轨只是建议，不能拖动。导出按已确认的分区边界；分析或采纳之后，分区和刀口是同一条时间。'
+        f'<p class="note" id="export-note">{html.escape(EXPORT_PAGE_NOTE)} '
         "拖动这一条也可以挪播放头。"
         '<label class="note"><input type="checkbox" id="compare-old"> 对比旧版</label></p>'
         f'<div class="zlane" id="zoom-lane" data-origin="{origin:.6f}" data-limit="{limit:.6f}">'
@@ -989,7 +992,7 @@ def _slot_panel(view: dict, region: dict, slot: dict | None = None) -> str:
     return (
         '<div id="slot-detail"><div class="sub">选中镜头</div>'
         + body
-        + '<p class="note">镜头轨只是建议，不能拖动。导出按已确认的分区边界；分析或采纳之后，分区和刀口是同一条时间。</p></div>'
+        + f'<p class="note">{html.escape(EXPORT_PAGE_NOTE)}</p></div>'
         + _snap_notes_html(view)
         + '<div class="sub">各段怎么剪</div><ul id="how-list">'
         + "".join(lines)
@@ -2281,6 +2284,22 @@ if (discardButton) {{
       return response.json().then(function (data) {{
         if (!response.ok) {{ showError(data.error || "丢弃失败"); return; }}
         return refreshDesk();
+      }});
+    }});
+  }});
+}}
+var exportButton = document.getElementById("export-fcpxml");
+if (exportButton) {{
+  exportButton.addEventListener("click", function () {{
+    if (!state || !state.read_only) return;
+    fetch("/api/regions-export", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{version_id: state.version_id}})
+    }}).then(function (response) {{
+      return response.json().then(function (data) {{
+        if (!response.ok) {{ showError(data.error || "导出失败"); return; }}
+        showError("已写出 " + (data.fcpxml || "") + " 。" + (data.notice || ""));
       }});
     }});
   }});

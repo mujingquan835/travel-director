@@ -829,3 +829,142 @@ def test_old_confirmed_without_snapshot_prompts_and_migrates(tmp_path, monkeypat
     assert migrated.regions.shot_style == "travel"
     assert _confirmed_bytes(paths, listing.version_id) == before
     assert b"shot_track_locked" not in before
+
+
+def _silent_wav(path: Path, seconds: float, rate: int = 8000) -> None:
+    import wave
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(rate)
+        handle.writeframes(b"\x00\x00" * int(seconds * rate))
+
+
+def _freeze_music(paths, seconds: float) -> None:
+    import hashlib
+
+    from director.audio_import import ImportedMusicAsset
+    from director.project import record_supporting_artifact
+
+    relative = Path("generation") / "assets" / "music-export.wav"
+    target = paths.root / relative
+    _silent_wav(target, seconds)
+    payload = target.read_bytes()
+    digest = hashlib.sha256(payload).hexdigest()
+    asset = ImportedMusicAsset(
+        original_absolute_path=str(target.resolve()),
+        frozen_relative_path=relative.as_posix(),
+        source_sha256=digest,
+        size_bytes=len(payload),
+        duration_seconds=seconds,
+        sample_rate=8000,
+        channels=1,
+        mime_type="audio/wav",
+    )
+    record_supporting_artifact(paths, paths.generated_music, asset, state_key="music_asset")
+
+
+def _fcpx_seconds(value: str) -> float:
+    text = value.removesuffix("s")
+    if "/" in text:
+        num, den = text.split("/", 1)
+        return int(num) / int(den)
+    return float(text)
+
+
+def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -> None:
+    import xml.etree.ElementTree as ET
+
+    from director.confirm_serve import render_music_page
+    from director.music_edit_regions_versions import (
+        RegionsConfirmGateError,
+        export_fcpxml_for_confirmed_regions,
+    )
+    from director.regions_fcpxml import EXPORT_FPS
+    import director.shot_slots as shot_slots
+
+    draft_only = _project(tmp_path / "draft")
+    save_regions_draft(draft_only, plan_shot_slots(_covered_song(), style="travel"))
+    with pytest.raises(RegionsConfirmGateError):
+        export_fcpxml_for_confirmed_regions(draft_only, "regions-v01", tmp_path / "nope")
+    assert not (tmp_path / "nope").exists()
+
+    document = plan_shot_slots(_covered_song(), style="travel")
+    paths = _project(tmp_path / "locked")
+    save_regions_draft(paths, document)
+    listing = confirm_regions_draft(paths)
+    before = _confirmed_bytes(paths, listing.version_id)
+    _freeze_music(paths, document.duration_seconds)
+    page = render_music_page(paths.root, version_id=listing.version_id)
+    assert 'id="export-fcpxml"' in page
+    assert 'id="export-fcpxml" disabled' not in page
+    assert "导出按已确认的分区边界" not in page
+    assert "还没在这台机器上验证" in page
+    assert "30fps" in page
+
+    result = export_fcpxml_for_confirmed_regions(paths, listing.version_id, tmp_path / "package")
+    root = ET.parse(result.fcpxml_path).getroot()
+    assert root.tag == "fcpxml"
+    gaps = [node for node in root.findall(".//gap") if node.attrib.get("name") != "空隙"]
+    stored = load_regions_version(paths, listing.version_id).regions
+    assert len(gaps) == len(stored.shot_slots)
+    half = 0.5 / EXPORT_FPS
+    for gap, slot in zip(gaps, stored.shot_slots):
+        start = _fcpx_seconds(gap.attrib["offset"])
+        end = start + _fcpx_seconds(gap.attrib["duration"])
+        assert abs(start - slot.start) <= half + 1e-9
+        assert abs(end - slot.end) <= half + 1e-9
+        assert slot.slot_id in gap.attrib["name"]
+        if slot.content_hint:
+            assert slot.content_hint[:24] in gap.attrib["name"]
+    music = root.find(".//asset-clip")
+    assert music is not None and music.attrib["audioRole"] == "music"
+    assert (result.fcpxml_path.parent / "asset").is_dir()
+    marker_values = [node.attrib["value"] for node in root.findall(".//marker")]
+    for region in stored.regions:
+        assert any(region.region_id in value and value.startswith("分区") for value in marker_values)
+    assert any(value.startswith("落点") for value in marker_values)
+    sheet = result.sheet_path.read_text(encoding="utf-8")
+    assert "| 序号 | 起点 | 终点 | 景别 | 转场 | 声音 | 画面建议 |" in sheet
+    assert "00:" in sheet
+    assert "还没在这台机器上验证" in sheet
+    assert "30fps" in sheet
+    assert _confirmed_bytes(paths, listing.version_id) == before
+
+    def explode(regions, style=None):
+        raise AssertionError("export must not replan")
+
+    monkeypatch.setattr(shot_slots, "plan_shot_slots", explode)
+    monkeypatch.setitem(shot_slots_cycles(), "establish", ["脸"])
+    again = export_fcpxml_for_confirmed_regions(paths, listing.version_id, tmp_path / "package-again")
+    again_root = ET.parse(again.fcpxml_path).getroot()
+    again_gaps = [node for node in again_root.findall(".//gap") if node.attrib.get("name") != "空隙"]
+    assert [node.attrib["name"] for node in again_gaps] == [node.attrib["name"] for node in gaps]
+    assert _confirmed_bytes(paths, listing.version_id) == before
+
+    server = start_confirm_desk(paths.root, host="127.0.0.1", port=0)
+    try:
+        port = _port(server)
+        code, body = _post_json(port, "/api/regions-export", {"version_id": "draft"})
+        assert code == 400
+        assert "草稿" in body["error"]
+        code, body = _post_json(port, "/api/regions-export", {"version_id": listing.version_id, "path": "/tmp/nope"})
+        assert code == 400
+        code, body = _post_json(port, "/api/regions-export", {"version_id": listing.version_id})
+        assert code == 200, body
+        assert body["frame_rate"] == 30
+        assert "还没在这台机器上验证" in body["notice"]
+        assert (paths.root / body["fcpxml"]).is_file()
+        assert (paths.root / body["sheet"]).is_file()
+        ET.parse(paths.root / body["fcpxml"])
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def shot_slots_cycles():
+    from director.shot_track.fastcut import SHOT_CYCLES
+
+    return SHOT_CYCLES["travel"]["base"]

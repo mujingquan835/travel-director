@@ -43,10 +43,10 @@ file from before snapshots existed stays byte-identical; the desk says so and
 ``migrate_unlocked_confirmed_regions`` opens a new draft under the current rules.
 
 ``require_confirmed_regions_version`` is the export gate. Missing ids,
-``latest``, and drafts are refused. ``export_fcpxml_for_confirmed_regions`` is
-the Slice 1 hook only: it does not build an ``FcpxmlEditDecision`` or write
-``project.fcpxml``. Re-run and export receipt writers record the action; they
-are not a job runner or an export UI.
+``latest``, and drafts are refused. ``export_fcpxml_for_confirmed_regions``
+writes a 30 fps FCPXML package and a markdown edit sheet from that snapshot
+only. It does not replan. Markers, gap names, and gap placeholders are not
+claimed to survive a Jianying import.
 """
 
 from __future__ import annotations
@@ -638,31 +638,59 @@ def require_confirmed_regions_version(
     return load_regions_version(paths, selected)
 
 
-def export_fcpxml_for_confirmed_regions(
-    paths: ProjectPaths, version_id: str | None, output_dir: Path
-) -> None:
-    """Confirm-gate hook for a future regions → FCPXML export.
+def _frozen_audio_for_export(paths: ProjectPaths):
+    from director.audio_import import ImportedMusicAsset
+    from director.regions_fcpxml import FrozenAudio
 
-    Slice 1 does not build an ``FcpxmlEditDecision`` and does not write
-    ``project.fcpxml``. ``output_dir`` is unused until that builder exists.
+    state = load_project_state(paths)
+    recorded = state.completed_artifact_hashes.get("music_asset")
+    asset_path = paths.generated_music
+    if recorded is None or not asset_path.is_file():
+        raise RegionsVersionError("还没有冻结的配乐，不能导出。")
+    if _sha256_file(asset_path) != recorded:
+        raise ProjectConflict("supporting artifact hash drifted: music_asset")
+    asset = ImportedMusicAsset.model_validate_json(asset_path.read_text(encoding="utf-8"))
+    relative = Path(asset.frozen_relative_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise RegionsVersionError("冻结的配乐路径不在项目里，不能导出。")
+    frozen = (paths.root / relative).resolve()
+    root = paths.root.resolve()
+    if not frozen.is_file() or not frozen.is_relative_to(root):
+        raise RegionsVersionError("冻结的配乐文件不在项目里，不能导出。")
+    if _sha256_file(frozen) != asset.source_sha256:
+        raise ProjectConflict("frozen music asset hash drifted")
+    return FrozenAudio(
+        path=frozen,
+        duration_seconds=asset.duration_seconds,
+        sample_rate=asset.sample_rate,
+        channels=asset.channels,
+    )
 
-    TODO: build the decision from the confirmed snapshot, call
-    ``director.fcpxml_delivery.export_fcpxml_decision``, then
-    ``record_regions_export_receipt``.
+
+def export_fcpxml_for_confirmed_regions(paths: ProjectPaths, version_id: str | None, output_dir: Path):
+    """Write FCPXML and an edit sheet for one confirmed snapshot.
+
+    Drafts, ``latest``, and a missing id are refused before any directory is
+    created. The shot track is the one stored on that snapshot.
     """
 
-    require_confirmed_regions_version(paths, version_id)
-    raise NotImplementedError(
-        "Slice 1 confirm gate only; regions FCPXML decision builder is not implemented "
-        f"(package directory not created: {output_dir})"
-    )
+    from director.regions_fcpxml import write_regions_fcpxml
+
+    document = require_confirmed_regions_version(paths, version_id)
+    audio = _frozen_audio_for_export(paths)
+    try:
+        result = write_regions_fcpxml(document, audio, output_dir)
+    except ValueError as exc:
+        raise RegionsVersionError(str(exc)) from exc
+    record_regions_export_receipt(paths, document.version_id)
+    return result
 
 
 def record_regions_export_receipt(paths: ProjectPaths, version_id: str) -> RegionsActionReceipt:
     """Attach an export receipt to an explicit confirmed or history version.
 
-    TODO: call this after a future regions export writes ``project.fcpxml``.
-    This hook does not call ``export_fcpxml_decision`` and does not write a package.
+    The receipt records the action. ``export_fcpxml_for_confirmed_regions``
+    writes the package and then calls this.
     """
 
     document = require_confirmed_regions_version(paths, version_id)

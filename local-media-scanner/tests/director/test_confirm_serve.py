@@ -193,7 +193,8 @@ def test_project_page_shows_status_fields_refresh_and_stub_links(desk) -> None:
 
     export_status, _export_headers, export_page = _request(port, "/export")
     assert export_status == 200
-    assert "导出：后续版本开放" in export_page.decode("utf-8")
+    assert "导出剪辑" in export_page.decode("utf-8")
+    assert "还没在这台机器上验证" in export_page.decode("utf-8")
 
 
 def test_refresh_refetch_sees_new_fcpxml_and_receipt(desk) -> None:

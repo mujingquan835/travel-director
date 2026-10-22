@@ -1033,7 +1033,7 @@ def test_confirmed_write_is_409_and_new_draft_copies_without_mutating(desk) -> N
     draft = load_regions_draft(paths)
     assert draft is not None
     assert draft.parent_version_id == "regions-v01"
-    assert draft.regions_sha256 != "" 
+    assert draft.regions_sha256 != ""
 
     code, again = _post_json(
         port, "/api/regions-draft/from-confirmed", {"version_id": "regions-v01"}

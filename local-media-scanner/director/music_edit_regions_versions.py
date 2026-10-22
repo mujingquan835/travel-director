@@ -487,6 +487,28 @@ def _confirm_blockers(regions: MusicEditRegions) -> list[str]:
     return problems
 
 
+def technique_priors(paths: ProjectPaths, *, exclude: str | None = None) -> list:
+    """Confirmed technique plans on this project, oldest first. Skips snapshots with no theme."""
+
+    from director.shot_track.differentiate import prior_from_regions
+
+    index = _load_index(paths)
+    if index is None:
+        return []
+    priors = []
+    for version_id in index.confirmed_version_ids:
+        if version_id == exclude:
+            continue
+        try:
+            document = _load_confirmed(paths, version_id)
+        except (RegionsVersionError, OSError, ValueError):
+            continue
+        prior = prior_from_regions(document.regions)
+        if prior is not None:
+            priors.append(prior)
+    return priors
+
+
 def confirm_regions_draft(
     paths: ProjectPaths, *, force: bool = False, reason: str | None = None
 ) -> RegionsVersionListing:
@@ -509,7 +531,11 @@ def confirm_regions_draft(
             raise RegionsVersionError("confirm refused: " + "; ".join(blockers))
     from director.shot_slots import freeze_shot_track
 
-    frozen = freeze_shot_track(draft.regions)
+    frozen = freeze_shot_track(
+        draft.regions,
+        version_id=draft.version_id,
+        prior=technique_priors(paths, exclude=draft.version_id),
+    )
     confirmed = _make_document(
         version_id=draft.version_id,
         status="confirmed",

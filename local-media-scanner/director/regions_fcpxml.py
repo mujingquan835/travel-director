@@ -234,7 +234,8 @@ def _safe_token(text: str, limit: int) -> str:
 
 def _placeholder_filename(slot: ShotSlot) -> str:
     hint = _safe_token(slot.content_hint or "画面待定", 18)
-    return f"{_safe_token(slot.slot_id, 40)}-{hint}.mp4"
+    technique = _safe_token(slot.technique_name_zh, 8) + "-" if slot.technique_name_zh else ""
+    return f"{technique}{_safe_token(slot.slot_id, 40)}-{hint}.mp4"
 
 
 def _drop_ids(regions: MusicEditRegions) -> set[str]:
@@ -280,6 +281,8 @@ def _markers(regions: MusicEditRegions, fps: int) -> list[tuple[int, str]]:
         if region.edit_role == "peak_cut":
             marks.append((frame_index(region.start, fps), f"落点 {region.region_id}"))
             break
+    for use in regions.technique_uses:
+        marks.append((frame_index(use.anchor_s, fps), f"手法 {use.name_zh} {use.region_id}"))
     return marks
 
 
@@ -307,6 +310,25 @@ def _sheet(version_id: str, regions: MusicEditRegions, cards: list[_Card], fps: 
     if not cards:
         lines.append("|  |  |  |  |  |  | 没有镜头槽 |")
     lines.append("")
+    if regions.technique_summary_zh:
+        seed = (regions.technique_seed or "")[:4]
+        lines.extend(["", f"本版主题：{regions.technique_summary_zh}（种子 {seed}）", ""])
+    for use in regions.technique_uses:
+        lines.append(f"## {use.name_zh} · {use.region_id}")
+        lines.append("")
+        lines.append(f"为什么：{use.why_zh}")
+        lines.append("")
+        lines.append("剪映里怎么做（菜单名待核）：")
+        for index, step in enumerate(use.steps_zh, start=1):
+            lines.append(f"{index}. {step}")
+        lines.append("")
+        if use.footage_zh:
+            lines.append(f"素材：{use.footage_zh}")
+        if use.fallback_zh:
+            lines.append(f"没有素材时：{use.fallback_zh}")
+        if use.fcpxml_zh:
+            lines.append(use.fcpxml_zh)
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -380,6 +402,8 @@ def render_placeholder_image(card: _Card, font_path: Path, fps: int = EXPORT_FPS
         draw.text((WIDTH - 56 - width, 48), label, font=badge, fill=gold)
     if card.is_drop:
         draw.text((56, 130), "落点", font=badge, fill=gold)
+    if card.slot.technique_name_zh:
+        draw.text((56, 210), card.slot.technique_name_zh, font=badge, fill=gold)
     y = 500
     slot_line = card.slot.slot_id
     if card.slot.reserve_best:

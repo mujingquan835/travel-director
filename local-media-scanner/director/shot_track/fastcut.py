@@ -7,8 +7,10 @@ desk and style always produce the same slots.
 ``narrative`` is not planned here. The narrative planner in ``shot_slots``
 stays the byte-identical path.
 
-Rule version ``fastcut-0.3`` keeps the 0.2 build→drop ladder and halves the
-event establish flurries (0.2 made that section denser than the build).
+Rule version ``fastcut-0.4`` keeps the 0.3 tables when no rhythm variant is
+requested. A variant only replaces the build or peak pattern; cuts still come
+from the same beat grid. The 0.3 tables keep the 0.2 build→drop ladder and
+halve the event establish flurries (0.2 made that section denser than the build).
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-RULES_VERSION = "fastcut-0.3"
+RULES_VERSION = "fastcut-0.4"
 EPS = 0.06
 MIN_SLOT_S = 0.20
 MAX_SAME_RUN = 3
@@ -242,7 +244,87 @@ def region_ticks(r, grid, half_s):
     return pts
 
 
-def plan_region(style, role, r, pts, downbeats, phrase_ends, half_s):
+def _build_variant(name: str, k: int, nb: int):
+    """Tick pattern for one build bar. ``fit`` lands it on the bar's grid."""
+
+    last = k == nb - 1 and nb > 1
+    if name == "linear":
+        if last:
+            return [(2, "lift", {"ramp": "ramp_in"}), (6, "hero", {})]
+        table = [
+            [(5, "base", {}), (3, "base", {})],
+            [(3, "base", {}), (3, "hero", {}), (2, "base", {})],
+            [(2, "base", {}), (2, "hero", {}), (4, "base", {})],
+            [(4, "hero", {}), (2, "base", {}), (2, "base", {})],
+            [(2, "base", {}), (3, "hero", {}), (3, "base", {})],
+            [(3, "base", {}), (2, "hero", {}), (3, "base", {})],
+            [(2, "hero", {}), (4, "base", {}), (2, "base", {})],
+        ]
+        return table[k % len(table)]
+    if name == "dense_then_release":
+        if last:
+            return [(8, "breath", {"ramp": "slow"})]
+        if k < max(1, nb // 2):
+            return fl(4) + [(2, "bridge", {}), (2, "base", {})]
+        if k % 2 == 0:
+            return [(6, "hero", {}), (2, "base", {})]
+        return [(2, "base", {}), (6, "hero", {})]
+    if name == "push":
+        if last:
+            return [(4, "lift", {"ramp": "ramp_in", "transition": "zoom"}), (4, "ramp_in", {"transition": "zoom"})]
+        if k % 2 == 0:
+            return [(2, "base", {"transition": "zoom"}), (6, "hero", {})]
+        return [(6, "base", {}), (2, "hero", {"transition": "zoom"})]
+    if name == "speed":
+        if last:
+            return [(6, "lift", {"ramp": "ramp_in"}), (2, "ramp_in", {"transition": "whip"})]
+        if k % 2 == 0:
+            return [(1, "base", {"ramp": "ramp_in"}), (3, "hero", {}), (1, "base", {"ramp": "ramp_out"}), (3, "base", {})]
+        return [(3, "hero", {"ramp": "slow"}), (1, "base", {}), (4, "base", {"ramp": "ramp_in"})]
+    return None
+
+
+def _peak_variant(name: str, k: int, nb: int):
+    """Tick pattern for one peak bar. ``fit`` lands it on the bar's grid."""
+
+    last = k == nb - 1 and nb > 1
+    if name == "contrast_hold":
+        if k == 0:
+            return [(8, "hero", {})]
+        if last:
+            return [(2, "base", {}), (6, "breath", {"ramp": "slow"})]
+        if k == 1:
+            return fl(4) + [(4, "bridge", {"transition": "whip"})]
+        return [(2, "base", {}), (2, "hero", {}), (4, "base", {})]
+    if name == "half_time":
+        if last:
+            return [(3, "base", {}), (5, "breath", {"ramp": "slow"})]
+        table = [
+            [(6, "hit", {}), (2, "base", {})],
+            [(2, "base", {}), (6, "hero", {"ramp": "slow"})],
+            [(4, "hero", {}), (2, "base", {}), (2, "base", {})],
+        ]
+        return table[k % len(table)]
+    if name == "push":
+        if k == 0:
+            return [(2, "hit", {"flash": True, "transition": "zoom"}), (6, "hero", {})]
+        if last:
+            return [(4, "base", {"transition": "zoom"}), (4, "breath", {})]
+        if k % 2 == 0:
+            return [(2, "base", {"transition": "zoom"}), (4, "hero", {}), (2, "base", {})]
+        return [(4, "hero", {}), (2, "base", {"transition": "zoom"}), (2, "base", {})]
+    if name == "speed":
+        if k == 0:
+            return [(1, "hit", {"flash": True, "ramp": "ramp_in"}), (3, "base", {}), (1, "base", {"ramp": "ramp_out"}), (3, "hero", {})]
+        if last:
+            return [(2, "base", {"ramp": "slow"}), (6, "breath", {})]
+        if k % 2 == 0:
+            return [(2, "base", {"ramp": "ramp_in"}), (2, "hero", {"ramp": "slow"}), (4, "base", {})]
+        return [(4, "hero", {"ramp": "slow"}), (1, "base", {"ramp": "ramp_out"}), (3, "base", {})]
+    return None
+
+
+def plan_region(style, role, r, pts, downbeats, phrase_ends, half_s, variant=None):
     """返回 [(tick_count, role, extra), ...]，总 tick 数 = len(pts)-1"""
     S = STYLES[style]
     rule = S.get(role) or S["unknown"]
@@ -293,25 +375,33 @@ def plan_region(style, role, r, pts, downbeats, phrase_ends, half_s):
             else:
                 pat = rule["mid"][(k - 1) % len(rule["mid"])]
         elif role == "build":
-            L = rule["ladder"]
-            if k == nb - 1 and "pre_drop" in rule and nb > 1:
-                pat = rule["pre_drop"]  # 最后一小节固定是「吸气」，和 drop 形成对比
+            varied = _build_variant(variant, k, nb) if variant else None
+            if varied is not None:
+                pat = varied
             else:
-                m = nb - 1 if "pre_drop" in rule and nb > 1 else nb
-                idx = 0 if m == 1 else round(k * (len(L) - 1) / (m - 1))
-                if m < len(L) and k == m - 1:  # 段短时保证最密的一级一定出现
-                    idx = len(L) - 1
-                pat = L[idx]
+                L = rule["ladder"]
+                if k == nb - 1 and "pre_drop" in rule and nb > 1:
+                    pat = rule["pre_drop"]  # 最后一小节固定是「吸气」，和 drop 形成对比
+                else:
+                    m = nb - 1 if "pre_drop" in rule and nb > 1 else nb
+                    idx = 0 if m == 1 else round(k * (len(L) - 1) / (m - 1))
+                    if m < len(L) and k == m - 1:  # 段短时保证最密的一级一定出现
+                        idx = len(L) - 1
+                    pat = L[idx]
         elif role == "peak_cut":
-            has_rel = "release" in rule and nb >= 3
-            if k == 0:
-                pat = rule["drop"]
-            elif k == 1 and has_rel:
-                pat = rule["release"]
-            elif k == nb - 1 and nb > 1:
-                pat = rule["last"]
+            varied = _peak_variant(variant, k, nb) if variant else None
+            if varied is not None:
+                pat = varied
             else:
-                pat = rule["cycle"][(k - (2 if has_rel else 1)) % len(rule["cycle"])]
+                has_rel = "release" in rule and nb >= 3
+                if k == 0:
+                    pat = rule["drop"]
+                elif k == 1 and has_rel:
+                    pat = rule["release"]
+                elif k == nb - 1 and nb > 1:
+                    pat = rule["last"]
+                else:
+                    pat = rule["cycle"][(k - (2 if has_rel else 1)) % len(rule["cycle"])]
         else:
             pat = [(n, "base", {})]
         plan += fit(pat, n)
@@ -408,7 +498,7 @@ def _apply_lead(slots, config: FastCutConfig):
     return slots
 
 
-def generate(desk, style, density="dense", config: FastCutConfig | None = None):
+def generate(desk, style, density="dense", config: FastCutConfig | None = None, *, rhythm=None):
     """density: dense = 默认。standard（半拍镜机械两两合并）只做实验：会造成 1拍×4+ 连续等长，违反变化规则，不要直接上线。"""
     config = config or FastCutConfig()
     beats = desk["beats_seconds"]
@@ -426,8 +516,9 @@ def generate(desk, style, density="dense", config: FastCutConfig | None = None):
     for r in desk["regions"]:
         role = r["edit_role"]
         pts = region_ticks(r, grid, half_s)
+        variant = None if not rhythm else rhythm.get(r["region_id"])
         plan = tempo_guard(
-            plan_region(style, role, r, pts, downbeats, phrase_ends, half_s),
+            plan_region(style, role, r, pts, downbeats, phrase_ends, half_s, variant),
             half_s,
             force=(density == "standard"),
             min_slot_s=config.min_slot_s,

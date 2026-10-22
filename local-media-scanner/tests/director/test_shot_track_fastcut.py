@@ -204,7 +204,7 @@ def test_user_track_counts_and_event_establish_is_less_dense_than_build():
     assert event["r03"]["cuts_per_bar"] < event["r04"]["cuts_per_bar"]
     assert travel["r03"]["cuts_per_bar"] == 2.75
     assert event["r03"]["flurry_slots"] < 14
-    assert _slots("travel")[0]["rules_version"] == RULES_VERSION == "fastcut-0.3"
+    assert _slots("travel")[0]["rules_version"] == RULES_VERSION == "fastcut-0.4"
 
 
 def test_short_build_keeps_dense_step_and_short_peak_skips_release():
@@ -815,7 +815,7 @@ def test_old_confirmed_without_snapshot_prompts_and_migrates(tmp_path, monkeypat
     document = plan_shot_slots(_covered_song(), style="travel")
     paths = _project(tmp_path)
     real_freeze = shot_slots.freeze_shot_track
-    monkeypatch.setattr(shot_slots, "freeze_shot_track", lambda regions: regions)
+    monkeypatch.setattr(shot_slots, "freeze_shot_track", lambda regions, **_kwargs: regions)
     save_regions_draft(paths, document)
     listing = confirm_regions_draft(paths)
     before = _confirmed_bytes(paths, listing.version_id)
@@ -942,6 +942,8 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
         assert abs(start - slot.start) <= half + 1e-9
         assert abs(start + duration - slot.end) <= half + 1e-9
         assert slot.slot_id in clip.attrib["name"]
+        if slot.technique_name_zh:
+            assert slot.technique_name_zh in clip.attrib["name"]
         assert clip.attrib.get("lane") is None
         expected = frame_index(slot.end) - frame_index(slot.start)
         assert _video_frames(_src_path(clip, root)) == max(1, expected)
@@ -956,7 +958,12 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
     for region in stored.regions:
         assert any(region.region_id in value and value.startswith("分区") for value in marker_values)
     assert any(value.startswith("落点") for value in marker_values)
+    assert stored.technique_uses
+    for use in stored.technique_uses:
+        assert any(value.startswith("手法") and use.name_zh in value for value in marker_values)
     sheet = result.sheet_path.read_text(encoding="utf-8")
+    for use in stored.technique_uses:
+        assert use.name_zh in sheet
     assert "| 序号 | 起点 | 终点 | 景别 | 转场 | 声音 | 画面建议 |" in sheet
     assert "00:" in sheet
     assert "还没在这台机器上验证" in sheet

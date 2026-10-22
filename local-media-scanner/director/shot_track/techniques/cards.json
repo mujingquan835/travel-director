@@ -1,0 +1,224 @@
+{
+  "version": 0.1,
+  "note_zh": "来源分级：A 创作者原文，B 两篇独立转述，C 经验判断。这五张都没有可核对的原文链接，所以是 C，sources 留空。剪映菜单名都标了待核。状态停在草案：box 里的规则测试通过也不等于真机可做。",
+  "cards": [
+    {
+      "id": "contrast_rhythm",
+      "name_zh": "反差节奏",
+      "family": "rhythm",
+      "version": 0.1,
+      "intent_zh": "落点先停一小节，再接快切，让高潮和前面的密度反过来。",
+      "sources": [],
+      "evidence_level": "C",
+      "source_note_zh": "经验判断，没有可核对的原文。",
+      "status": "草案",
+      "styles": ["travel", "event"],
+      "triggers": {
+        "region_roles": ["hook", "build", "peak_cut"],
+        "anchor": "downbeat",
+        "min_region_bars": 1,
+        "song": {
+          "bpm": [80, 160]
+        }
+      },
+      "timing_contract": {
+        "anchor": "downbeat",
+        "span_beats": 4
+      },
+      "footage_needs": {
+        "shot": "远或空",
+        "motion": "慢或静",
+        "optional": "有前后景层次更好",
+        "without_footage": "退回这一段原来的爆闪落点，不硬留长镜。"
+      },
+      "jianying_steps_zh": [
+        "待核：把落点那一刀换成最好的大远景，时长占满一小节（4 拍）。",
+        "待核：下一小节再接 4 刀快闪。",
+        "待核：不要在长镜上加闪白。"
+      ],
+      "fcpxml": {
+        "expressible": ["片段名", "占位卡烧字", "剪辑单", "marker（剪映是否显示待核）"],
+        "not_expressible": ["闪白", "关键帧停顿"]
+      },
+      "cost": 1,
+      "contraindications": [
+        {"code": "low_downbeat_confidence", "max_exclusive": 0.5, "note_zh": "强拍置信度低于 0.5 时不用反差，长镜会对错拍。"},
+        {"code": "downbeat_detector", "equals": "every_fourth_beat", "note_zh": "强拍来自每四拍回退时不用反差。"}
+      ],
+      "conflicts_with": ["speed_conditional"],
+      "taboos_zh": [
+        "强拍置信度低于 0.5",
+        "强拍检测是 every_fourth_beat",
+        "慢叙事"
+      ]
+    },
+    {
+      "id": "whitespace",
+      "name_zh": "留白",
+      "family": "rhythm",
+      "version": 0.1,
+      "intent_zh": "在重音隔得开的地方少切，让音乐自己走一会儿。",
+      "sources": [],
+      "evidence_level": "C",
+      "source_note_zh": "经验判断，没有可核对的原文。",
+      "status": "草案",
+      "styles": ["travel", "event"],
+      "triggers": {
+        "region_roles": ["establish", "peak_cut", "settle_outro", "breath", "narrative_hold"],
+        "anchor": "downbeat",
+        "min_region_bars": 1,
+        "song": {}
+      },
+      "timing_contract": {
+        "anchor": "downbeat",
+        "span_beats": 4
+      },
+      "footage_needs": {
+        "shot": "空或远",
+        "motion": "静",
+        "optional": "没有人说话的环境",
+        "without_footage": "用这一段原来的常规切法，不插入黑场。"
+      },
+      "jianying_steps_zh": [
+        "待核：这一小节只放一个空镜或远景，不要切开。",
+        "待核：音量保持音乐，不叠对白。",
+        "待核：下一小节再回到正常切。"
+      ],
+      "fcpxml": {
+        "expressible": ["片段名", "占位卡烧字", "剪辑单", "marker（剪映是否显示待核）"],
+        "not_expressible": ["只留音乐的音量包络"]
+      },
+      "cost": 1,
+      "contraindications": [],
+      "conflicts_with": [],
+      "taboos_zh": ["慢叙事"]
+    },
+    {
+      "id": "freeze",
+      "name_zh": "定格",
+      "family": "speed",
+      "version": 0.1,
+      "intent_zh": "重音不在段首强拍上时，用定格把那一下停住。",
+      "sources": [],
+      "evidence_level": "C",
+      "source_note_zh": "经验判断，没有可核对的原文。剪映里定格的菜单名待核。",
+      "status": "草案",
+      "styles": ["travel", "event"],
+      "triggers": {
+        "region_roles": ["hook", "build", "peak_cut"],
+        "anchor": "downbeat",
+        "min_region_bars": 1,
+        "song": {}
+      },
+      "timing_contract": {
+        "anchor": "downbeat",
+        "span_beats": 2
+      },
+      "footage_needs": {
+        "shot": "脸或动",
+        "motion": "有一个能停住的姿态",
+        "optional": "动作顶点更清楚",
+        "without_footage": "退回普通硬切，不定格。"
+      },
+      "jianying_steps_zh": [
+        "待核：在落点镜头上使用定格，大约停半拍到两拍。",
+        "待核：定格前后仍切在拍点上。",
+        "待核：没有合适画面就不要定格，改回硬切。"
+      ],
+      "fcpxml": {
+        "expressible": ["片段名", "占位卡烧字", "剪辑单", "marker（剪映是否显示待核）"],
+        "not_expressible": ["定格曲线（timeMap 剪映是否认待核）"]
+      },
+      "cost": 1,
+      "contraindications": [],
+      "conflicts_with": ["speed_conditional"],
+      "taboos_zh": ["慢叙事"]
+    },
+    {
+      "id": "push_in",
+      "name_zh": "推近",
+      "family": "framing",
+      "version": 0.1,
+      "intent_zh": "用数码推近代替再加一刀，推进段更往前凑。",
+      "sources": [],
+      "evidence_level": "C",
+      "source_note_zh": "经验判断，没有可核对的原文。数码推近是常见快剪做法，这里没有核对到可引用的原链接。",
+      "status": "草案",
+      "styles": ["travel", "event"],
+      "triggers": {
+        "region_roles": ["hook", "build", "peak_cut"],
+        "anchor": "downbeat",
+        "min_region_bars": 1,
+        "song": {}
+      },
+      "timing_contract": {
+        "anchor": "downbeat",
+        "span_beats": 4
+      },
+      "footage_needs": {
+        "shot": "中或全",
+        "motion": "画面里有可以推近的主体",
+        "optional": "主体在画面中部",
+        "without_footage": "退回硬切，不做推近。"
+      },
+      "jianying_steps_zh": [
+        "待核：给这一镜加缩放关键帧，从 100% 推到大约 110%。",
+        "待核：关键帧落在这一镜的入点和出点，出点仍在拍上。",
+        "待核：没有主体就不要推，改回硬切。"
+      ],
+      "fcpxml": {
+        "expressible": ["片段名", "占位卡烧字", "剪辑单", "marker（剪映是否显示待核）"],
+        "not_expressible": ["缩放关键帧"]
+      },
+      "cost": 1,
+      "contraindications": [],
+      "conflicts_with": [],
+      "taboos_zh": ["慢叙事"]
+    },
+    {
+      "id": "speed_conditional",
+      "name_zh": "条件变速",
+      "family": "speed",
+      "version": 0.1,
+      "intent_zh": "只在重音贴着段首强拍时变速，不再每首歌都变速在同一个位置。",
+      "sources": [],
+      "evidence_level": "C",
+      "source_note_zh": "经验判断，没有可核对的原文。",
+      "status": "草案",
+      "styles": ["travel", "event"],
+      "triggers": {
+        "region_roles": ["hook", "build", "peak_cut"],
+        "anchor": "downbeat",
+        "min_region_bars": 1,
+        "song": {
+          "bpm": [80, 160]
+        }
+      },
+      "timing_contract": {
+        "anchor": "downbeat",
+        "span_beats": 4
+      },
+      "footage_needs": {
+        "shot": "动",
+        "motion": "有连续运动，变速才看得出来",
+        "optional": "运动方向稳定",
+        "without_footage": "退回原速硬切。"
+      },
+      "jianying_steps_zh": [
+        "待核：只在这一镜上改变速度，入点加速、出点收回原速。",
+        "待核：变速后的出点仍落在拍点上，不要把后面的刀口挤歪。",
+        "待核：画面没有运动就不要变速。"
+      ],
+      "fcpxml": {
+        "expressible": ["片段名", "占位卡烧字", "剪辑单", "marker（剪映是否显示待核）"],
+        "not_expressible": ["变速曲线（timeMap 剪映是否认待核）"]
+      },
+      "cost": 1,
+      "contraindications": [
+        {"code": "low_downbeat_confidence", "max_exclusive": 0.5, "note_zh": "拍不准时不变速。"}
+      ],
+      "conflicts_with": ["contrast_rhythm", "freeze"],
+      "taboos_zh": ["强拍置信度低于 0.5", "慢叙事"]
+    }
+  ]
+}

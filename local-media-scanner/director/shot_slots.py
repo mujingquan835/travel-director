@@ -727,7 +727,12 @@ MISSING_SNAPSHOT_NOTICE = (
 
 
 def plan_shot_slots(
-    document: MusicEditRegions, style: str | None = None
+    document: MusicEditRegions,
+    style: str | None = None,
+    *,
+    version_id: str | None = None,
+    user_options: dict | None = None,
+    prior=None,
 ) -> MusicEditRegions:
     """Plan slots. Omitted style keeps the stored style, or narrative.
 
@@ -753,7 +758,15 @@ def plan_shot_slots(
         if update:
             planned = planned.model_copy(update=update)
         return attach_guidance(planned)
-    return attach_guidance(_apply_fastcut(planned, chosen))
+    return attach_guidance(
+        _apply_fastcut(
+            planned,
+            chosen,
+            version_id=version_id,
+            user_options=user_options,
+            prior=prior,
+        )
+    )
 
 
 def unlock_shot_track(document: MusicEditRegions) -> MusicEditRegions:
@@ -764,7 +777,13 @@ def unlock_shot_track(document: MusicEditRegions) -> MusicEditRegions:
     return document.model_copy(update={"shot_track_locked": False, "guide_version": None})
 
 
-def freeze_shot_track(document: MusicEditRegions) -> MusicEditRegions:
+def freeze_shot_track(
+    document: MusicEditRegions,
+    *,
+    version_id: str | None = None,
+    user_options: dict | None = None,
+    prior=None,
+) -> MusicEditRegions:
     """Plan once, then mark regions, style, rules, and guidance as the snapshot.
 
     A document without beats stays slot-for-slot as stored. The lock is still
@@ -773,7 +792,9 @@ def freeze_shot_track(document: MusicEditRegions) -> MusicEditRegions:
 
     from director.shot_track.creator_guidance import GUIDE_VERSION
 
-    planned = plan_shot_slots(document)
+    planned = plan_shot_slots(
+        document, version_id=version_id, user_options=user_options, prior=prior
+    )
     return planned.model_copy(
         update={"shot_track_locked": True, "guide_version": GUIDE_VERSION}
     )
@@ -812,12 +833,20 @@ def snapshot_notice(document: MusicEditRegions, *, read_only: bool) -> str:
     return ""
 
 
-def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
+def _apply_fastcut(
+    document: MusicEditRegions,
+    style: str,
+    *,
+    version_id: str | None = None,
+    user_options: dict | None = None,
+    prior=None,
+) -> MusicEditRegions:
     """Replace narrative slots with a fastcut style. Region edges stay put."""
 
+    from director.music_edit_regions_schema import TechniqueUse
+    from director.shot_track.differentiate import plan_fastcut
     from director.shot_track.fastcut import (
         RULES_VERSION,
-        generate,
         region_stats_zh,
         region_summary_zh,
         stats,
@@ -842,13 +871,27 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
                 "start": region.start,
                 "end": region.end,
                 "edit_role": region.edit_role,
+                "mean_energy": region.mean_energy,
+                "onset_rate": region.onset_rate,
+                "energy_slope": region.energy_slope,
+                "confidence": region.confidence,
             }
             for region in document.regions
         ],
         "duration_seconds": document.duration_seconds,
         "bpm": document.bpm,
+        "source_sha256": document.source_sha256,
+        "downbeat_confidence": document.downbeat_confidence,
+        "downbeat_detector": document.downbeat_detector,
+        "accent_seconds": [beat.t for beat in document.beats if beat.accent],
     }
-    raw_slots, beat_s = generate(desk, style)
+    raw_slots, beat_s, technique = plan_fastcut(
+        desk,
+        style,
+        version_id=version_id,
+        user_options=user_options,
+        prior=prior,
+    )
     by_region = {region.region_id: region for region in document.regions}
     beats = list(document.beats)
     slots: list[ShotSlot] = []
@@ -856,6 +899,7 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
         region = by_region[raw["region_id"]]
         length = float(raw["end"]) - float(raw["start"])
         blen = float(raw["beats"])
+        named = technique.slot_names.get(raw["slot_id"]) if technique is not None else None
         slots.append(
             ShotSlot(
                 slot_id=raw["slot_id"],
@@ -880,6 +924,8 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
                 cut_on=raw["cut_on"],
                 rules_version=raw["rules_version"],
                 beat_length=blen,
+                technique_id=named[0] if named else None,
+                technique_name_zh=named[1] if named else None,
             )
         )
     counted = stats(raw_slots, desk, beat_s)
@@ -899,6 +945,41 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
             )
         )
     warnings = [item for item in document.warnings if item != "slot_budget_exception"]
+    technique_update: dict[str, object] = {
+        "technique_seed": None,
+        "technique_theme_id": None,
+        "technique_theme_name_zh": None,
+        "technique_summary_zh": None,
+        "technique_reselect_zh": None,
+        "technique_uses": [],
+    }
+    if technique is not None:
+        technique_update = {
+            "technique_seed": technique.seed,
+            "technique_theme_id": technique.theme_id,
+            "technique_theme_name_zh": technique.theme_name_zh,
+            "technique_summary_zh": technique.summary_zh,
+            "technique_reselect_zh": technique.reselect_zh or None,
+            "technique_uses": [
+                TechniqueUse(
+                    technique_id=use.technique_id,
+                    name_zh=use.name_zh,
+                    region_id=use.region_id,
+                    region_role=use.region_role,  # type: ignore[arg-type]
+                    anchor=use.anchor,  # type: ignore[arg-type]
+                    anchor_s=use.anchor_s,
+                    span_beats=use.span_beats,
+                    slot_ids=list(use.slot_ids),
+                    evidence_zh=use.evidence_zh,
+                    why_zh=use.why_zh,
+                    fallback_zh=use.fallback_zh,
+                    steps_zh=list(use.steps_zh),
+                    footage_zh=use.footage_zh,
+                    fcpxml_zh=use.fcpxml_zh,
+                )
+                for use in technique.uses
+            ],
+        }
     return document.model_copy(
         update={
             "regions": regions,
@@ -906,6 +987,7 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
             "warnings": warnings,
             "shot_style": style,
             "shot_rules_version": RULES_VERSION,
+            **technique_update,
         }
     )
 

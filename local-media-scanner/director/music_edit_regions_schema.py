@@ -120,6 +120,8 @@ _SLOT_STYLE_FIELDS = frozenset(
         "cut_on",
         "rules_version",
         "beat_length",
+        "technique_id",
+        "technique_name_zh",
     }
 )
 _SLOT_GUIDE_FIELDS = frozenset(
@@ -136,6 +138,15 @@ _SLOT_GUIDE_FIELDS = frozenset(
     }
 )
 _DOCUMENT_STYLE_FIELDS = frozenset({"shot_style", "shot_rules_version", "guide_version"})
+_DOCUMENT_TECHNIQUE_FIELDS = frozenset(
+    {
+        "technique_seed",
+        "technique_theme_id",
+        "technique_theme_name_zh",
+        "technique_summary_zh",
+        "technique_reselect_zh",
+    }
+)
 
 
 def _omit_empty_style_fields(data: object, keys: frozenset[str]) -> object:
@@ -246,6 +257,8 @@ class ShotSlot(StrictModel):
     content_hint: str | None = None
     reserve_best: bool | None = None
     seam_zh: str | None = None
+    technique_id: str | None = None
+    technique_name_zh: str | None = None
 
     @field_validator("reason_code")
     @classmethod
@@ -263,6 +276,25 @@ class ShotSlot(StrictModel):
     @model_serializer(mode="wrap")
     def _serialize(self, handler):
         return _omit_empty_style_fields(handler(self), _SLOT_STYLE_FIELDS | _SLOT_GUIDE_FIELDS)
+
+
+class TechniqueUse(StrictModel):
+    """One placed technique. Times stay on the beat grid; this only names them."""
+
+    technique_id: str = Field(min_length=1)
+    name_zh: str = Field(min_length=1)
+    region_id: str = Field(min_length=1)
+    region_role: EditRole
+    anchor: Literal["downbeat", "beat", "half", "accent"]
+    anchor_s: float = Field(ge=0.0)
+    span_beats: float = Field(gt=0.0)
+    slot_ids: list[str] = Field(default_factory=list)
+    evidence_zh: str = Field(min_length=1)
+    why_zh: str = Field(min_length=1)
+    fallback_zh: str = ""
+    steps_zh: list[str] = Field(default_factory=list)
+    footage_zh: str = ""
+    fcpxml_zh: str = ""
 
 
 class RegionCutAnchor(StrictModel):
@@ -308,12 +340,20 @@ class MusicEditRegions(StrictModel):
     shot_rules_version: str | None = None
     guide_version: str | None = None
     shot_track_locked: bool = False
+    technique_seed: str | None = None
+    technique_theme_id: str | None = None
+    technique_theme_name_zh: str | None = None
+    technique_summary_zh: str | None = None
+    technique_reselect_zh: str | None = None
+    technique_uses: list[TechniqueUse] = Field(default_factory=list)
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler):
-        data = _omit_empty_style_fields(handler(self), _DOCUMENT_STYLE_FIELDS)
+        data = _omit_empty_style_fields(handler(self), _DOCUMENT_STYLE_FIELDS | _DOCUMENT_TECHNIQUE_FIELDS)
         if isinstance(data, dict) and data.get("shot_track_locked") is False:
             data.pop("shot_track_locked", None)
+        if isinstance(data, dict) and data.get("technique_uses") == []:
+            data.pop("technique_uses", None)
         return data
 
     @model_validator(mode="after")

@@ -196,7 +196,15 @@ body.has-slots .insp{margin-top:8px}
 .stylelane{display:flex;align-items:center;gap:12px;height:34px;font-size:12px}
 #shot-style{height:26px;border:1px solid #d6d3c9;border-radius:5px;background:#fffefb;padding:0 6px}
 .r-shot{position:relative}
-#guide-toggle{position:absolute;left:calc(var(--hdr) + 8px);top:6px;z-index:6;height:26px;padding:0 10px;font-weight:700;background:#fff8e8;border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer}
+#guide-toggle{position:static;align-self:flex-start;height:22px;margin-top:4px;padding:0 8px;font-size:11px;font-weight:700;background:#fff8e8;border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer}
+.r-tech .lane{height:28px;position:relative}
+.tech{position:absolute;top:3px;bottom:3px;min-width:72px;border:1px solid #c9a15b;background:#f6e7d4;color:#6a3e12;font-size:11px;line-height:20px;border-radius:3px;padding:0 6px;overflow:hidden;cursor:pointer;white-space:nowrap;text-align:left}
+#technique-theme{flex-basis:100%;margin:0;font-size:12px;color:#6a3e12}
+#tech-popover{position:fixed;z-index:30;width:340px;background:#fffefb;border:1px solid #c9a15b;border-radius:8px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;line-height:1.45}
+#tech-popover[hidden]{display:none}
+#tech-pop-title{margin:0 0 6px;font-weight:700}
+#tech-pop-why,#tech-pop-footage,#tech-pop-fallback,#tech-pop-export{margin:6px 0}
+#tech-pop-steps{margin:4px 0 6px;padding-left:18px}
 #guide-rows[hidden]{display:none !important}
 .r-guide .lane{height:20px;overflow:hidden}
 .r-guide .rh{padding:1px 10px}
@@ -460,6 +468,14 @@ def _version_chrome(view: dict) -> str:
         warning_attr = " hidden"
         verdict = "还不能确认"
         pill = "bad"
+    summary = str(view.get("technique_summary_zh") or "")
+    seed = str(view.get("technique_seed") or "")
+    theme_html = ""
+    if summary:
+        theme_html = (
+            f'<p id="technique-theme">本版主题：{html.escape(summary)}'
+            f'（种子 {html.escape(seed[:4])}）</p>'
+        )
     read_only = bool(view.get("read_only"))
     confirm_disabled = " disabled" if read_only or not ok else ""
     fork_hidden = "" if read_only and not view.get("has_draft") else " hidden"
@@ -484,6 +500,34 @@ def _version_chrome(view: dict) -> str:
         '<label><input type="checkbox" id="force-confirm"> 强制确认</label>'
         '<input id="force-reason" type="text" placeholder="强制确认的原因">'
         f'<button type="button" class="btn ghost" id="draft-from-confirmed"{fork_hidden}>基于此版另开草稿</button>'
+        f"{theme_html}"
+    )
+
+
+def _technique_row(view: dict, duration: float) -> str:
+    uses = list(view.get("technique_uses") or [])
+    if not uses or duration <= 0:
+        return ""
+    regions = {str(region.get("region_id")): region for region in view.get("regions") or []}
+    bpm = float(view.get("bpm") or 120.0) or 120.0
+    beat = 60.0 / bpm
+    parts = []
+    for index, use in enumerate(uses):
+        start = float(use.get("anchor_s") or 0.0)
+        end = start + float(use.get("span_beats") or 4) * beat
+        region = regions.get(str(use.get("region_id")))
+        if region is not None:
+            end = min(end, float(region.get("end") or end))
+        if end <= start:
+            end = min(duration, start + beat * 2)
+        label = str(use.get("name_zh") or use.get("technique_id") or "")
+        parts.append(
+            f'<button type="button" class="tech" data-use-index="{index}" '
+            f'style="{_span_style(start, end, duration)}">{html.escape(label)}</button>'
+        )
+    return (
+        '<div class="row r-tech" id="track-tech"><div class="rh"><b>手法</b></div>'
+        f'<div class="lane" id="technique-lane">{"".join(parts)}</div></div>'
     )
 
 
@@ -1487,6 +1531,7 @@ def render_timeline_page(
         guide_rows = _guide_rows_html(view, duration)
         zoom_html = _detail_html(view, duration, moment)
         guide_button = '<button type="button" id="guide-toggle">展开剪辑思路</button>'
+        tech_row = _technique_row(view, duration)
         inspector = inspector.replace(
             '<div class="sub">警告</div>',
             _slot_panel(view, current, active_slot) + '<div class="sub">警告</div>',
@@ -1501,6 +1546,7 @@ def render_timeline_page(
         shot_body = _shots_html(view, duration, chosen) if view else ""
         zoom_html = ""
         guide_button = ""
+        tech_row = ""
         active_slot = None
     shot_caption = _shot_caption(active_slot) if active_slot else ""
     body_class = ' class="has-slots"' if has_slots else ""
@@ -1552,9 +1598,10 @@ def render_timeline_page(
   <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small>{_adopt_all_html(view) if view else ""}</div><div class="lane" id="track-regions">{(_blocks_html(view, duration, chosen, kind_labels) + _snap_chips_html(view, duration)) if view else ""}</div></div>
   {phrase_row}
   {style_row}
-  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div>{guide_button}<div class="lane" id="shots">{shot_body}</div></div>
+  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small>{guide_button}</div><div class="lane" id="shots">{shot_body}</div></div>
   {guide_rows}
   {how_row}
+  {tech_row}
   <div class="ov" id="ov">
     <div class="loopband" id="loopband" hidden style="{loop_style}"><div class="brk l"></div><div class="brk r"></div><div class="loopcap" id="loopcap">{html.escape(loop_text)}</div></div>
     <div class="ph" id="ph" style="left:{moment / duration * 100:.3f}%"><div class="phcap" id="phcap">{_mmss(moment)[:7]}</div></div>
@@ -1562,6 +1609,15 @@ def render_timeline_page(
 </div>
 {zoom_html}
 <div class="insp" id="insp">{inspector}</div>
+<div id="tech-popover" hidden>
+  <p id="tech-pop-title"></p>
+  <p id="tech-pop-why"></p>
+  <p class="sub">剪映里怎么做</p>
+  <ol id="tech-pop-steps"></ol>
+  <p id="tech-pop-footage"></p>
+  <p id="tech-pop-fallback"></p>
+  <p id="tech-pop-export"></p>
+</div>
 <audio id="track" src="/audio/frozen" preload="metadata"></audio>
 <script type="application/json" id="desk-data">{data}</script>
 <script type="application/json" id="kind-data">{_json_script(kind_labels)}</script>
@@ -1574,6 +1630,48 @@ var SNAP = JSON.parse(document.getElementById("snap-data").textContent);
 var COLORS = JSON.parse(document.getElementById("color-data").textContent);
 var track = document.getElementById("track");
 var state = JSON.parse(document.getElementById("desk-data").textContent);
+function closeTechnique() {{
+  var pop = document.getElementById("tech-popover");
+  if (pop) pop.hidden = true;
+}}
+function openTechnique(index, anchor) {{
+  var pop = document.getElementById("tech-popover");
+  if (!pop || !state || !state.technique_uses) return;
+  var use = state.technique_uses[index];
+  if (!use) return;
+  var title = document.getElementById("tech-pop-title");
+  var why = document.getElementById("tech-pop-why");
+  var steps = document.getElementById("tech-pop-steps");
+  var footage = document.getElementById("tech-pop-footage");
+  var fallback = document.getElementById("tech-pop-fallback");
+  var carry = document.getElementById("tech-pop-export");
+  if (title) title.textContent = use.name_zh || "";
+  if (why) why.textContent = use.why_zh || use.evidence_zh || "";
+  if (steps) {{
+    steps.textContent = "";
+    (use.steps_zh || []).forEach(function (step) {{
+      var item = document.createElement("li");
+      item.textContent = step;
+      steps.appendChild(item);
+    }});
+  }}
+  if (footage) footage.textContent = use.footage_zh || "";
+  if (fallback) fallback.textContent = use.fallback_zh || "";
+  if (carry) carry.textContent = use.fcpxml_zh || "";
+  pop.hidden = false;
+  var rect = anchor.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 360)) + "px";
+  pop.style.top = Math.max(8, rect.bottom + 6) + "px";
+}}
+document.querySelectorAll(".tech").forEach(function (node) {{
+  node.addEventListener("click", function (event) {{
+    event.stopPropagation();
+    openTechnique(Number(node.getAttribute("data-use-index")), node);
+  }});
+}});
+var techPop = document.getElementById("tech-popover");
+if (techPop) techPop.addEventListener("click", function (event) {{ event.stopPropagation(); }});
+document.addEventListener("click", function () {{ closeTechnique(); }});
 var selectedId = document.body.getAttribute("data-selected") || null;
 var selectedSlotId = null;
 try {{

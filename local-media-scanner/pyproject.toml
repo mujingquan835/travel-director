@@ -46,6 +46,7 @@ packages = ["scanner", "director"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "director/vendor" = "director/vendor"
+"director/shot_track/techniques/cards.json" = "director/shot_track/techniques/cards.json"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

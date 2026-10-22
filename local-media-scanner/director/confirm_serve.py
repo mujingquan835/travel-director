@@ -803,9 +803,14 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
     read_only = listing_status != "draft"
     display = stored
     if not read_only and stored.beats and stored.bpm:
+        from director.music_edit_regions_versions import technique_priors
         from director.shot_slots import plan_shot_slots
 
-        display = plan_shot_slots(stored)
+        display = plan_shot_slots(
+            stored,
+            version_id=document.version_id,
+            prior=technique_priors(paths, exclude=document.version_id),
+        )
     from director.shot_slots import drop_contrast_zh, snapshot_notice
 
     return {
@@ -834,6 +839,11 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
         "provider": display.provider,
         "shot_style": display.shot_style or "narrative",
         "shot_rules_version": display.shot_rules_version,
+        "technique_seed": display.technique_seed,
+        "technique_theme_id": display.technique_theme_id,
+        "technique_theme_name_zh": display.technique_theme_name_zh,
+        "technique_summary_zh": display.technique_summary_zh,
+        "technique_uses": [use.model_dump(mode="json") for use in display.technique_uses],
         "drop_contrast_zh": drop_contrast_zh(display),
         "shot_slots": [slot.model_dump(mode="json") for slot in display.shot_slots],
         "phrases": [phrase.model_dump(mode="json") for phrase in display.phrases],
@@ -1217,9 +1227,13 @@ def _shot_style_unlocked(project: Path, body: bytes) -> ServeResponse:
     from director.shot_slots import plan_shot_slots
 
     try:
+        from director.music_edit_regions_versions import technique_priors
+
         updated = plan_shot_slots(
             document.regions.model_copy(update={"shot_style": style, "shot_rules_version": None}),
             style=style,
+            version_id=version_id,
+            prior=technique_priors(paths, exclude=version_id),
         )
     except (ValidationError, ValueError) as exc:
         return _error(400, _validation_message(exc), "POST /api/regions-draft/shot-style")

@@ -758,6 +758,121 @@ def test_guide_toggle_is_collapsed_by_default() -> None:
     assert hint in page
 
 
+def _wizard_view(document, **extra):
+    view = document.model_dump(mode="json")
+    view.update(
+        {
+            "status": "draft",
+            "read_only": False,
+            "has_draft": False,
+            "acceptance": {"ok": True, "unknown_region_ids": []},
+            "versions": [{"version_id": "regions-v01", "label": "草稿"}],
+            "version_id": "regions-v01",
+            "warnings": [],
+            "region_cut_anchors": [],
+            "source_music_sha8": "aaaaaaaa",
+        }
+    )
+    view.update(extra)
+    return view
+
+
+def _render_desk(view) -> str:
+    return render_timeline_page(
+        project_title="示例数据",
+        project_id="sample",
+        project_path="/tmp/sample",
+        track_label="示例",
+        view=view,
+        message="",
+        selected=None,
+        playhead="0",
+        kind_labels={"hook": "钩子", "establish": "铺陈", "build": "推进", "peak_cut": "高潮", "settle_outro": "收束", "unknown": "待定"},
+        snap_labels={"downbeat": "强拍"},
+        warning_labels={},
+    )
+
+
+def test_wizard_step_bar_is_compact_and_drawer_starts_closed() -> None:
+    page = _render_desk(_wizard_view(plan_shot_slots(_covered_song(), style="travel")))
+    assert "height:64px;max-height:64px" in page
+    for label in ("导入音乐", "定分区角色", "确认版本", "导出剪映"):
+        assert label in page
+    assert 'class="step cur" id="step-confirm"' in page
+    confirm = page.split('id="step-confirm"', 1)[1].split('id="step-export"', 1)[0]
+    assert 'id="version-picker"' in confirm and "换一版" in confirm
+    assert 'id="drawer-body" hidden' in page
+    assert "travel-director-steps-collapsed" in page
+    drawer = page.split('id="desk-drawer"', 1)[1]
+    assert 'id="force-confirm"' in drawer
+    assert 'id="compare-previous"' in drawer and 'title="后续版本开放"' in drawer
+    assert 'id="cut-click"' in drawer
+    assert 'id="guide-rows"' in drawer
+    assert 'id="save"' in drawer and "丢弃草稿" in drawer
+    top = page.split('id="step-bar"', 1)[0]
+    assert 'id="force-confirm"' not in top
+    assert "不要把这份导出当成已经兼容剪映" not in page
+    assert "用户的 Mac 上已经验证过剪映能导入这份工程" in page
+    assert "还没在这台机器上验证" in page
+
+    unknown = _wizard_view(
+        plan_shot_slots(_covered_song(), style="travel"),
+        acceptance={"ok": False, "unknown_region_ids": ["r03"]},
+    )
+    unknown["regions"][1]["edit_role"] = "unknown"
+    pending = _render_desk(unknown)
+    assert 'class="step cur" id="step-roles"' in pending
+    assert 'id="step-roles-reason">还有 1 段待定角色' in pending
+    assert 'id="pick-unknown"' in pending
+    confirm_tag = re.search(r'<button[^>]*id="confirm-version"[^>]*>', pending)
+    assert confirm_tag is not None and "disabled" in confirm_tag.group(0)
+    assert "这些分段的角色还没定" in pending and "r03" in pending
+
+    playwright = pytest.importorskip("playwright.sync_api")
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path="/usr/local/bin/google-chrome",
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        tab = browser.new_page(viewport={"width": 1440, "height": 900})
+        tab.route("**/vendor/**", lambda route: route.abort())
+        tab.set_content(page, wait_until="domcontentloaded")
+        bar = tab.locator("#step-bar").bounding_box()
+        assert bar is not None and bar["height"] <= 64
+        overlap = tab.evaluate(
+            """() => {
+              const guide = document.getElementById("guide-toggle").getBoundingClientRect();
+              const shots = document.getElementById("shots").getBoundingClientRect();
+              return !(guide.right < shots.left || guide.left > shots.right || guide.bottom < shots.top || guide.top > shots.bottom);
+            }"""
+        )
+        assert overlap is False
+        tab.click("#steps-collapse")
+        placed = tab.evaluate(
+            """() => ({
+              collapsed: document.body.classList.contains("steps-collapsed"),
+              inCrumb: document.getElementById("crumb-version").contains(document.getElementById("version-picker"))
+            })"""
+        )
+        assert placed == {"collapsed": True, "inCrumb": True}
+        tab.click("#steps-expand")
+        restored = tab.evaluate(
+            """() => document.getElementById("version-home").contains(document.getElementById("version-picker"))"""
+        )
+        assert restored is True
+        tab.set_content(pending, wait_until="domcontentloaded")
+        tab.click("#pick-unknown")
+        focused = tab.evaluate(
+            """() => ({
+              open: document.getElementById("drawer-body").hidden === false,
+              role: document.activeElement && document.activeElement.id
+            })"""
+        )
+        assert focused["open"] is True
+        assert focused["role"] == "role"
+        browser.close()
+
+
 def _slot_blob(regions) -> bytes:
     payload = [slot.model_dump(mode="json") for slot in regions.shot_slots]
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()

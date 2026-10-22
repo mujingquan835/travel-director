@@ -249,6 +249,54 @@ body.has-slots .insp{margin-top:8px}
 #slot-detail p{margin:0 0 4px;font-size:12px;line-height:1.4}
 #how-list{margin:0;padding-left:16px;font-size:12px;line-height:1.4;color:var(--ink2)}
 .typelegend{font-size:11px;color:var(--mute);line-height:1.4}
+.steps{height:64px;max-height:64px;flex:none;display:flex;align-items:center;gap:8px;padding:0 16px;box-sizing:border-box}
+.step{flex:1;height:56px;max-height:56px;min-width:0;border:1px solid var(--line);background:#fbfaf7;border-radius:10px;padding:4px 10px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;box-sizing:border-box}
+.step .topline{display:flex;align-items:center;gap:8px;min-width:0}
+.step .n{font-size:12px;color:var(--mute);white-space:nowrap}
+.step .h{font-size:14px;font-weight:700;white-space:nowrap}
+.step.done .n{color:#3d7a5a}
+.step.cur{border-color:#2f6f62;box-shadow:inset 0 0 0 1px #2f6f62;background:#f1f7f4}
+.step.future{background:#f3f2ec}
+.step.future .h{color:var(--ink2);font-weight:600}
+.step-jump{border:0;background:transparent;padding:0;display:flex;flex-direction:row;align-items:baseline;gap:6px;min-width:0;cursor:pointer}
+.whyline{display:flex;align-items:center;gap:6px;min-width:0}
+.whyline #acceptance{flex:none;height:18px;padding:0 8px;font-size:11px}
+.whyline .why{flex:1;min-width:0}
+.step.future .step-jump{cursor:default}
+.step-act{display:none;align-items:center;gap:6px;margin-left:auto;min-width:0}
+.step.cur .step-act,.step.revisit .step-act,.step .step-act.show{display:flex}
+.step.cur .step-act .btn.primary,.step.cur .step-act .btn.export{height:32px;padding:0 14px;font-size:14px;font-weight:700}
+.btn.export{background:#2f6f62;border-color:#2f6f62;color:#fff}
+.step .why{margin:0;font-size:11px;line-height:14px;color:#7a5520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step .why:empty{display:none}
+.step .why.status{color:var(--mute)}
+#steps-collapse{flex:none}
+#step-crumb{display:none;height:36px;max-height:36px;flex:none;align-items:center;gap:6px;padding:0 16px;overflow:hidden}
+body.steps-collapsed .steps{display:none}
+body.steps-collapsed #step-crumb{display:flex}
+.crumb{border:0;background:transparent;padding:0 2px;font-size:13px;color:var(--ink2);cursor:pointer;white-space:nowrap}
+.crumb.cur{color:#2f6f62;font-weight:700}
+.crumb.future{color:var(--mute);cursor:default}
+.crumb.done{color:#3d7a5a}
+.sep{color:var(--mute)}
+.vh{height:36px;flex:none;display:flex;align-items:center;gap:12px;padding:0 16px;min-width:0}
+.vh #technique-theme{flex:1;flex-basis:auto;margin:0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl{order:1;flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
+.zoom{order:2}
+.row{flex:none}
+.r-wave{flex:1 1 auto;min-height:72px}
+.r-wave .lane{height:100%}
+.drawer{order:3;flex:none;background:#fff;border-top:1px solid #d6d3c9}
+.drawer-handle{height:36px;display:flex;align-items:center;gap:10px;padding:0 16px}
+.drawer-hint{color:var(--ink2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#drawer-body[hidden]{display:none}
+#drawer-body{max-height:42vh;overflow:auto;padding:8px 16px 12px;border-top:1px solid var(--line)}
+.drawer .insp{flex:none;margin:8px 0;min-height:0;max-height:220px;overflow:auto}
+.drawer #unknown-warning{flex-basis:auto;margin:8px 0}
+#force-panel{margin:8px 0}
+#version-switch{display:flex;align-items:center;gap:6px;min-width:0}
+#version-switch .ver{max-width:210px}
+#version-home,#crumb-version{display:flex;align-items:center;min-width:0}
 """
 
 
@@ -440,68 +488,163 @@ def _role_options(current: str, kind_labels: dict[str, str]) -> str:
     return "".join(parts)
 
 
-def _version_chrome(view: dict) -> str:
-    options = []
-    for item in view.get("versions") or []:
-        selected = " selected" if item["version_id"] == view["version_id"] else ""
-        options.append(
-            f'<option value="{html.escape(str(item["version_id"]))}"{selected}>'
-            f'{html.escape(str(item["label"]))}</option>'
-        )
-    when = view.get("confirmed_at") or "尚未确认"
-    meta = f"{html.escape(str(view.get('source_music_sha8') or ''))} · {html.escape(str(when))}"
+_STEP_ORDER = ("import", "roles", "confirm", "export")
+_STEP_TITLES = {
+    "import": "导入音乐",
+    "roles": "定分区角色",
+    "confirm": "确认版本",
+    "export": "导出剪映",
+}
+
+
+def _current_step(view: dict | None) -> str:
+    regions = list((view or {}).get("regions") or [])
+    if not view or not regions:
+        return "import"
     acceptance = view.get("acceptance") or {}
+    unknown = list(acceptance.get("unknown_region_ids") or [])
+    if unknown and not view.get("read_only"):
+        return "roles"
+    if view.get("read_only"):
+        return "export"
+    return "confirm"
+
+
+def _acceptance_bits(view: dict | None) -> tuple[bool, list[str], str, str, str, str]:
+    """ok, unknown ids, verdict, pill, warning text, warning hidden attribute."""
+
+    acceptance = (view or {}).get("acceptance") or {}
     ok = bool(acceptance.get("ok"))
     unknown = [str(item) for item in (acceptance.get("unknown_region_ids") or [])]
     if unknown:
         warning = "这些分段的角色还没定：" + ", ".join(unknown) + "。普通确认已停用。"
-        warning_attr = ""
-        verdict = f"还有 {len(unknown)} 段待定角色"
-        pill = "bad"
-    elif ok:
-        warning = ""
-        warning_attr = " hidden"
-        verdict = "验收通过"
-        pill = "ok"
-    else:
-        warning = ""
-        warning_attr = " hidden"
-        verdict = "还不能确认"
-        pill = "bad"
-    summary = str(view.get("technique_summary_zh") or "")
-    seed = str(view.get("technique_seed") or "")
-    theme_html = ""
-    if summary:
-        theme_html = (
-            f'<p id="technique-theme">本版主题：{html.escape(summary)}'
-            f'（种子 {html.escape(seed[:4])}）</p>'
+        return False, unknown, f"还有 {len(unknown)} 段待定角色", "bad", warning, ""
+    if ok:
+        return True, [], "验收通过", "ok", "", " hidden"
+    if view and view.get("regions"):
+        return False, [], "还不能确认", "bad", "", " hidden"
+    return False, [], "还不能确认", "bad", "", " hidden"
+
+
+def _wizard_bar(view: dict | None, import_html: str) -> tuple[str, str]:
+    """Compact 4-step bar plus the one-line breadcrumb it collapses to."""
+
+    current = _current_step(view)
+    ok, unknown, verdict, pill, _warning, _warning_attr = _acceptance_bits(view)
+    read_only = bool(view and view.get("read_only"))
+    regions = list((view or {}).get("regions") or [])
+    order = {step: index for index, step in enumerate(_STEP_ORDER)}
+    current_index = order[current]
+    options = []
+    for item in (view or {}).get("versions") or []:
+        selected = " selected" if item["version_id"] == (view or {}).get("version_id") else ""
+        options.append(
+            f'<option value="{html.escape(str(item["version_id"]))}"{selected}>'
+            f'{html.escape(str(item["label"]))}</option>'
         )
-    read_only = bool(view.get("read_only"))
-    confirm_disabled = " disabled" if read_only or not ok else ""
-    fork_hidden = "" if read_only and not view.get("has_draft") else " hidden"
-    save_disabled = " disabled" if read_only else ""
-    pick_unknown = (
-        '<button type="button" class="btn" id="pick-unknown">去选角色</button>'
-        if unknown and not read_only
-        else ""
+    confirm_disabled = " disabled" if (not view) or read_only or not ok else ""
+    export_disabled = "" if read_only else " disabled"
+    fork_hidden = "" if read_only and view and not view.get("has_draft") else " hidden"
+    pick_hidden = "" if unknown and not read_only else " hidden"
+    version_switch = (
+        '<div id="version-switch"><label class="ver">换一版 '
+        f'<select id="version-picker">{"".join(options)}</select></label></div>'
     )
-    return (
-        f'<label class="ver">版本 <select id="version-picker">{"".join(options)}</select></label>'
-        f'<span id="version-meta">{meta}</span>'
-        '<button type="button" class="btn ghost" id="compare-previous" disabled title="后续版本开放">对比上次</button>'
-        '<div class="sp"></div>'
-        f'<p id="acceptance" class="{pill}">{verdict}</p>'
-        f"{pick_unknown}"
-        f'<button type="button" class="btn ghost" id="save"{save_disabled}>保存草稿</button>'
-        f'<button type="button" class="btn ghost danger" id="discard"{save_disabled}>丢弃草稿</button>'
-        f'<button type="button" class="btn primary" id="confirm-version"{confirm_disabled}>确认分区</button>'
-        f'<button type="button" class="btn" id="export-fcpxml"{"" if read_only else " disabled"}>导出剪辑</button>'
-        f'<p id="unknown-warning"{warning_attr}>{html.escape(warning)}</p>'
-        '<label><input type="checkbox" id="force-confirm"> 强制确认</label>'
-        '<input id="force-reason" type="text" placeholder="强制确认的原因">'
-        f'<button type="button" class="btn ghost" id="draft-from-confirmed"{fork_hidden}>基于此版另开草稿</button>'
-        f"{theme_html}"
+    reasons = {
+        "import": "" if regions else "先导入一首配乐",
+        "roles": (
+            f"还有 {len(unknown)} 段待定角色"
+            if unknown
+            else (f"{len(regions)} 段全部已定" if regions else "")
+        ),
+        "confirm": (
+            "已锁定，只读"
+            if read_only
+            else (
+                f"还有 {len(unknown)} 段待定角色，普通确认已停用。"
+                if unknown
+                else ("" if ok else "还不能确认")
+            )
+        ),
+        "export": "" if read_only else "先确认这一版",
+    }
+    reason_class = {
+        "import": "why",
+        "roles": "why" if unknown else "why status",
+        "confirm": "why status" if read_only else "why",
+        "export": "why",
+    }
+    blocked = {
+        "import": not regions,
+        "roles": bool(unknown) and not read_only,
+        "confirm": bool(view) and not read_only and not ok,
+        "export": not read_only,
+    }
+    acts = {
+        "import": import_html,
+        "roles": (
+            f'<button type="button" class="btn primary" id="pick-unknown"{pick_hidden}>去选角色</button>'
+        ),
+        "confirm": (
+            f'<button type="button" class="btn primary" id="confirm-version"{confirm_disabled}>确认分区</button>'
+        ),
+        "export": (
+            f'<button type="button" class="btn ghost" id="draft-from-confirmed"{fork_hidden}>基于此版另开草稿</button>'
+            f'<button type="button" class="btn export" id="export-fcpxml"{export_disabled}>导出剪辑</button>'
+        ),
+    }
+    steps = []
+    crumbs = []
+    for index, step in enumerate(_STEP_ORDER):
+        if index < current_index:
+            state = "done"
+            mark = "✓ "
+            crumb_mark = "✓ "
+        elif index == current_index:
+            state = "cur"
+            mark = "● "
+            crumb_mark = "● "
+        else:
+            state = "future"
+            mark = ""
+            crumb_mark = ""
+        act_class = "step-act show" if blocked[step] and state != "cur" else "step-act"
+        extra = f'<div id="version-home">{version_switch}</div>' if step == "confirm" else ""
+        reason = (
+            f'<p class="{reason_class[step]}" id="step-{step}-reason">{html.escape(reasons[step])}</p>'
+        )
+        if step == "confirm":
+            reason = (
+                '<div class="whyline">'
+                f'<p id="acceptance" class="{pill}">{html.escape(verdict)}</p>{reason}</div>'
+            )
+        steps.append(
+            f'<div class="step {state}" id="step-{step}" data-step="{step}">'
+            '<div class="topline">'
+            f'<button type="button" class="step-jump" data-step="{step}">'
+            f'<span class="n">{mark}第 {index + 1} 步</span>'
+            f'<span class="h">{_STEP_TITLES[step]}</span></button>'
+            f"{extra}"
+            f'<div class="{act_class}">{acts[step]}</div>'
+            "</div>"
+            f"{reason}"
+            "</div>"
+        )
+        crumbs.append(
+            f'<button type="button" class="crumb {state}" data-step="{step}">'
+            f"{crumb_mark}{_STEP_TITLES[step]}</button>"
+        )
+    bar = (
+        f'<div class="steps" id="step-bar">{"".join(steps)}'
+        '<button type="button" class="btn ghost" id="steps-collapse">收起</button></div>'
     )
+    crumb = (
+        '<div id="step-crumb">'
+        + '<span class="sep">→</span>'.join(crumbs)
+        + '<div id="crumb-version"></div><span class="sp"></span>'
+        '<button type="button" class="btn ghost" id="steps-expand">展开步骤</button></div>'
+    )
+    return bar, crumb
 
 
 def _technique_row(view: dict, duration: float) -> str:
@@ -924,8 +1067,7 @@ def _detail_html(view: dict, duration: float, playhead: float) -> str:
         '<section class="zoom" id="zoom">'
         '<h3 id="detail-title">局部细节 · 跟随播放头 · 前后 4 秒 '
         f'<small id="detail-range">{html.escape(window_label)}</small></h3>'
-        f'<p class="note" id="export-note">{html.escape(EXPORT_PAGE_NOTE)} '
-        "拖动这一条也可以挪播放头。"
+        '<p class="note" id="export-note">镜头轨只是建议，不能拖。拖动这一条也可以挪播放头。'
         '<label class="note"><input type="checkbox" id="compare-old"> 对比旧版</label></p>'
         f'<div class="zlane" id="zoom-lane" data-origin="{origin:.6f}" data-limit="{limit:.6f}">'
         f'{_detail_ticks(view, origin, limit, span)}{shot_html}'
@@ -1424,7 +1566,7 @@ def _guide_rows_html(view: dict, duration: float) -> str:
     return f'<div id="guide-rows" hidden>{rows}</div>'
 
 
-def _music_import_html(music_family: list[dict] | None) -> str:
+def _music_import_html(music_family: list[dict] | None, *, prominent: bool = False) -> str:
     options = []
     for item in music_family or []:
         selected = " selected" if item.get("current") else ""
@@ -1438,7 +1580,7 @@ def _music_import_html(music_family: list[dict] | None) -> str:
             f'<label class="ver">配乐 <select id="music-picker">{"".join(options)}</select></label>'
         )
     return (
-        '<label class="btn" id="import-music-label" title="只接受本机的 mp3、m4a、wav，不超过 100MB、10 分钟。旧版本会留下来。">'
+        f'<label class="btn{" primary" if prominent else ""}" id="import-music-label" title="只接受本机的 mp3、m4a、wav，不超过 100MB、10 分钟。旧版本会留下来。">'
         "导入 / 换音乐"
         '<input id="import-music" type="file" accept=".mp3,.m4a,.wav" hidden>'
         "</label>"
@@ -1550,11 +1692,54 @@ def render_timeline_page(
         active_slot = None
     shot_caption = _shot_caption(active_slot) if active_slot else ""
     body_class = ' class="has-slots"' if has_slots else ""
-    import_html = _music_import_html(music_family)
-    chrome = _version_chrome(view) if view else (
-        '<div class="sp"></div>'
-        '<button type="button" class="btn ghost" id="save" disabled>保存草稿</button>'
-        '<button type="button" class="btn ghost danger" id="discard" disabled>丢弃草稿</button>'
+    import_html = _music_import_html(music_family, prominent=_current_step(view) == "import")
+    steps_html, crumb_html = _wizard_bar(view, import_html)
+    summary = str((view or {}).get("technique_summary_zh") or "")
+    seed = str((view or {}).get("technique_seed") or "")
+    theme_html = ""
+    if summary:
+        theme_html = (
+            f'<p id="technique-theme">本版主题：{html.escape(summary)}'
+            f'（种子 {html.escape(seed[:4])}）</p>'
+        )
+    _ok, _unknown_ids, _verdict, _pill, warning, warning_attr = _acceptance_bits(view)
+    read_only = bool(view and view.get("read_only"))
+    save_disabled = " disabled" if (not view) or read_only else ""
+    when = (view or {}).get("confirmed_at") or "尚未确认"
+    meta = (
+        f"{html.escape(str((view or {}).get('source_music_sha8') or ''))} · "
+        f"{html.escape(str(when))}"
+    )
+    meta_html = (
+        f'<div class="meta" id="desk-meta"><span>BPM {bpm_text}</span>'
+        f'<span>节拍 {beat_count}</span><span>整体置信度 {overall * 100:.0f}%</span>'
+        f'<span>分析器 {provider} · schema {schema}</span></div>'
+    )
+    drawer_html = (
+        '<div class="drawer" id="desk-drawer">'
+        '<div class="drawer-handle">'
+        '<button type="button" class="btn ghost" id="drawer-toggle">展开</button>'
+        '<span class="drawer-hint">剪辑思路 · 对比上次 · 后端说明 · 刀口嗒嗒声</span>'
+        '<span class="sp"></span>'
+        f"{guide_button}"
+        "</div>"
+        '<div id="drawer-body" hidden>'
+        f"{style_row}{guide_rows}{how_row}"
+        f'<div class="insp" id="insp">{inspector}</div>'
+        f"{notice_html}{note_html}"
+        f'<p id="unknown-warning"{warning_attr}>{html.escape(warning)}</p>'
+        f'<div class="legend">{_legend(kind_labels)}</div>'
+        f'<p id="version-meta">{meta}</p>'
+        f"{meta_html}"
+        '<p><button type="button" class="btn ghost" id="compare-previous" disabled title="后续版本开放">对比上次</button></p>'
+        '<label class="note" id="cut-click-label"><input type="checkbox" id="cut-click"> 刀口嗒嗒声</label>'
+        '<details id="force-panel"><summary>更多</summary>'
+        f'<button type="button" class="btn ghost" id="save"{save_disabled}>保存草稿</button> '
+        f'<button type="button" class="btn ghost danger" id="discard"{save_disabled}>丢弃草稿</button> '
+        '<label><input type="checkbox" id="force-confirm"> 强制确认</label> '
+        '<input id="force-reason" type="text" placeholder="强制确认的原因">'
+        "</details>"
+        "</div></div>"
     )
     data = "null" if view is None else _json_script(view)
     page = f"""<!DOCTYPE html>
@@ -1574,22 +1759,18 @@ def render_timeline_page(
     <div class="pname" id="project-title">{html.escape(project_title)}</div>
     <div class="psub"><span id="project-name">{html.escape(project_id)}</span> · {html.escape(track_label)} · <span id="hdrdur">{_mmss(float((view or {}).get("duration_seconds") or 0))}</span></div>
   </div>
+  <div class="sp"></div>
   <a href="/">项目</a>
-  {chrome}
 </div>
 <section id="error" class="panel"{hidden}>{html.escape(message)}</section>
-{notice_html}
-<div class="transport">
-  {import_html}
+{steps_html}
+{crumb_html}
+<div class="vh">
+  {theme_html}
   <button type="button" class="btn" id="transport-play" style="width:34px;padding:0">▶</button>
-  <label class="note" id="cut-click-label"><input type="checkbox" id="cut-click"> 刀口嗒嗒声</label>
   <div class="tc"><span id="playhead">{_mmss(moment)}</span> <small>/ <span id="duration-readout">{_mmss(float((view or {}).get("duration_seconds") or 0))}</span></small></div>
   <span class="now-shot" id="now-shot">{html.escape(shot_caption)}</span>
-  <div class="meta"><span>BPM {bpm_text}</span><span>节拍 {beat_count}</span><span>整体置信度 {overall * 100:.0f}%</span><span>分析器 {provider} · schema {schema}</span></div>
-  <div class="sp"></div>
-  <div class="legend">{_legend(kind_labels)}</div>
 </div>
-{note_html}
 <div class="tl" id="tl">
   <div class="row r-mark"><div class="rh" style="padding:2px 12px"><small>循环 / 播放头</small></div><div class="lane"></div></div>
   <div class="row r-ruler"><div class="rh"><small>时间 (mm:ss)</small></div><div class="lane"><div id="ruler"></div></div></div>
@@ -1597,18 +1778,15 @@ def render_timeline_page(
   <div class="row r-beat"><div class="rh" style="padding:2px 12px"><small>节拍 · 重拍加粗</small></div><div class="lane" id="track-beats">{_beats_html(view, duration) if view else ""}</div></div>
   <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small>{_adopt_all_html(view) if view else ""}</div><div class="lane" id="track-regions">{(_blocks_html(view, duration, chosen, kind_labels) + _snap_chips_html(view, duration)) if view else ""}</div></div>
   {phrase_row}
-  {style_row}
-  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small>{guide_button}</div><div class="lane" id="shots">{shot_body}</div></div>
-  {guide_rows}
-  {how_row}
+  <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
   {tech_row}
   <div class="ov" id="ov">
     <div class="loopband" id="loopband" hidden style="{loop_style}"><div class="brk l"></div><div class="brk r"></div><div class="loopcap" id="loopcap">{html.escape(loop_text)}</div></div>
     <div class="ph" id="ph" style="left:{moment / duration * 100:.3f}%"><div class="phcap" id="phcap">{_mmss(moment)[:7]}</div></div>
   </div>
 </div>
+{drawer_html}
 {zoom_html}
-<div class="insp" id="insp">{inspector}</div>
 <div id="tech-popover" hidden>
   <p id="tech-pop-title"></p>
   <p id="tech-pop-why"></p>
@@ -2227,6 +2405,94 @@ function renderChrome() {{
   if (save) save.disabled = !!state.read_only;
   if (discard) discard.disabled = !!state.read_only;
   syncConfirm();
+  applySteps();
+}}
+function applySteps() {{
+  if (!document.getElementById("step-bar")) return;
+  var ids = (state && state.acceptance && state.acceptance.unknown_region_ids) || [];
+  var current = "import";
+  if (state && state.regions && state.regions.length) {{
+    if (ids.length && !state.read_only) current = "roles";
+    else if (state.read_only) current = "export";
+    else current = "confirm";
+  }}
+  var order = {{import: 0, roles: 1, confirm: 2, export: 3}};
+  var currentIndex = order[current];
+  ["import", "roles", "confirm", "export"].forEach(function (id) {{
+    var node = document.getElementById("step-" + id);
+    var crumb = document.querySelector('.crumb[data-step="' + id + '"]');
+    var stateName = id === current ? "cur" : (order[id] < currentIndex ? "done" : "future");
+    if (node) {{
+      node.classList.remove("cur", "done", "future");
+      node.classList.add(stateName);
+    }}
+    if (crumb) {{
+      crumb.classList.remove("cur", "done", "future");
+      crumb.classList.add(stateName);
+    }}
+  }});
+  var roleReason = document.getElementById("step-roles-reason");
+  if (roleReason) {{
+    if (ids.length) {{
+      roleReason.className = "why";
+      roleReason.textContent = "还有 " + ids.length + " 段待定角色";
+    }} else if (state && state.regions && state.regions.length) {{
+      roleReason.className = "why status";
+      roleReason.textContent = state.regions.length + " 段全部已定";
+    }}
+  }}
+  var confirmReason = document.getElementById("step-confirm-reason");
+  if (confirmReason && state) {{
+    if (state.read_only) {{
+      confirmReason.className = "why status";
+      confirmReason.textContent = "已锁定，只读";
+    }} else if (ids.length) {{
+      confirmReason.className = "why";
+      confirmReason.textContent = "还有 " + ids.length + " 段待定角色，普通确认已停用。";
+    }} else if (!(state.acceptance && state.acceptance.ok)) {{
+      confirmReason.className = "why";
+      confirmReason.textContent = "还不能确认";
+    }} else {{
+      confirmReason.className = "why";
+      confirmReason.textContent = "";
+    }}
+  }}
+  var exportReason = document.getElementById("step-export-reason");
+  if (exportReason && state) exportReason.textContent = state.read_only ? "" : "先确认这一版";
+  ["confirm", "export"].forEach(function (id) {{
+    var step = document.getElementById("step-" + id);
+    if (!step) return;
+    var act = step.querySelector(".step-act");
+    if (!act) return;
+    var blocked = id === "export" ? !(state && state.read_only) : (state && !state.read_only && !(state.acceptance && state.acceptance.ok));
+    act.classList.toggle("show", !!blocked && !step.classList.contains("cur"));
+  }});
+}}
+function openDrawer() {{
+  var body = document.getElementById("drawer-body");
+  var toggle = document.getElementById("drawer-toggle");
+  if (body) body.hidden = false;
+  document.body.classList.add("drawer-open");
+  if (toggle) toggle.textContent = "收起";
+}}
+function closeDrawer() {{
+  var body = document.getElementById("drawer-body");
+  var toggle = document.getElementById("drawer-toggle");
+  if (body) body.hidden = true;
+  document.body.classList.remove("drawer-open");
+  if (toggle) toggle.textContent = "展开";
+}}
+function placeVersionSwitch(collapsed) {{
+  var node = document.getElementById("version-switch");
+  var home = document.getElementById("version-home");
+  var slot = document.getElementById("crumb-version");
+  if (!node || !home || !slot) return;
+  (collapsed ? slot : home).appendChild(node);
+}}
+function setStepsCollapsed(collapsed) {{
+  document.body.classList.toggle("steps-collapsed", !!collapsed);
+  placeVersionSwitch(!!collapsed);
+  try {{ localStorage.setItem("travel-director-steps-collapsed", collapsed ? "1" : "0"); }} catch (err) {{}}
 }}
 function syncConfirm() {{
   var button = document.getElementById("confirm-version");
@@ -2300,7 +2566,9 @@ function bootWave() {{
     return response.json();
   }}).then(function (payload) {{
     var regionsPlugin = WaveSurfer.Regions.create();
+    var waveLane = document.querySelector("#track-wave .lane");
     var waveHeight = document.body.classList.contains("has-slots") ? 56 : 108;
+    if (waveLane && waveLane.clientHeight > waveHeight + 8) waveHeight = waveLane.clientHeight - 8;
     var ws = WaveSurfer.create({{
       container: "#wave",
       height: waveHeight,
@@ -2436,7 +2704,9 @@ if (guideToggle && guideRows) {{
   try {{ storedGuide = localStorage.getItem(guideKey) === "1"; }} catch (err) {{}}
   setGuideOpen(storedGuide);
   guideToggle.addEventListener("click", function () {{
-    setGuideOpen(!!guideRows.hidden);
+    var open = !!guideRows.hidden;
+    setGuideOpen(open);
+    if (open) openDrawer();
   }});
 }}
 var cutClick = document.getElementById("cut-click");
@@ -2490,8 +2760,12 @@ if (pickUnknown) {{
     selectedId = ids[0];
     document.body.setAttribute("data-selected", selectedId);
     paint();
+    openDrawer();
     var role = document.getElementById("role");
-    if (role && !role.disabled) role.focus();
+    if (role && !role.disabled) {{
+      role.focus();
+      if (role.scrollIntoView) role.scrollIntoView({{block: "nearest"}});
+    }}
   }});
 }}
 var roleSelect = document.getElementById("role");
@@ -2804,6 +3078,31 @@ var musicPicker = document.getElementById("music-picker");
 if (musicPicker) {{
   musicPicker.addEventListener("change", function () {{
     if (musicPicker.value) switchMusic(musicPicker.value);
+  }});
+}}
+var stepKeyStored = false;
+try {{ stepKeyStored = localStorage.getItem("travel-director-steps-collapsed") === "1"; }} catch (err) {{}}
+if (stepKeyStored) setStepsCollapsed(true);
+var stepsCollapse = document.getElementById("steps-collapse");
+if (stepsCollapse) stepsCollapse.addEventListener("click", function () {{ setStepsCollapsed(true); }});
+var stepsExpand = document.getElementById("steps-expand");
+if (stepsExpand) stepsExpand.addEventListener("click", function () {{ setStepsCollapsed(false); }});
+document.querySelectorAll(".step-jump, .crumb").forEach(function (node) {{
+  node.addEventListener("click", function () {{
+    var id = node.getAttribute("data-step");
+    var step = id ? document.getElementById("step-" + id) : null;
+    if (!step || step.classList.contains("future")) return;
+    if (document.body.classList.contains("steps-collapsed")) setStepsCollapsed(false);
+    document.querySelectorAll(".step.revisit").forEach(function (item) {{ item.classList.remove("revisit"); }});
+    if (!step.classList.contains("cur")) step.classList.add("revisit");
+  }});
+}});
+var drawerToggle = document.getElementById("drawer-toggle");
+if (drawerToggle) {{
+  drawerToggle.addEventListener("click", function () {{
+    var body = document.getElementById("drawer-body");
+    if (body && body.hidden) openDrawer();
+    else closeDrawer();
   }});
 }}
 setTimeout(markReady, 4000);

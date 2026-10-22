@@ -178,6 +178,18 @@ body.has-slots .insp{margin-top:8px}
 .sl.faint,.zshot.faint{border-style:dashed}
 .sl.pending{color:#5a4a2a;background:repeating-linear-gradient(-45deg,#efe4cc 0 4px,#e2d3b1 4px 8px)}
 .sl.on,.zshot.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:2}
+.sl.flurry,.zshot.flurry{box-shadow:inset 0 -5px 0 #1c1c1c}
+.sl.on.flurry,.zshot.on.flurry{box-shadow:inset 0 -5px 0 #1c1c1c, inset 0 0 0 2px #2e3336}
+.mark{position:absolute;right:2px;bottom:2px;color:#9c2b22;font-size:10px;font-weight:700;background:rgba(255,252,248,.94);padding:0 2px;border-radius:2px;line-height:1.3;z-index:3}
+.zshot .mark{font-size:12px;top:2px;bottom:auto}
+.stylelane{display:flex;align-items:center;gap:12px;height:34px;font-size:12px}
+#shot-style{height:26px;border:1px solid #d6d3c9;border-radius:5px;background:#fffefb;padding:0 6px}
+#drop-contrast{color:#8a3b32;font-weight:650}
+#detail-contrast{margin:4px 0 0;color:#8a3b32;font-weight:650;font-size:12px}
+#detail-contrast:empty{display:none}
+.marklegend{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:#3c4448;margin:6px 0 0}
+.marklegend .mark{position:static;font-size:12px}
+.flurrykey{display:inline-block;width:36px;height:12px;border-radius:2px;background:#d9d3cc;box-shadow:inset 0 -5px 0 #1c1c1c;vertical-align:-2px}
 .sl .cutedge{position:absolute;left:0;top:0;bottom:0;width:2px;background:#2e3336}
 .sl b{font-weight:650}
 .sl em{display:block;font-style:normal;font-size:10px;opacity:.85}
@@ -224,6 +236,19 @@ def brief_title(brief_path: Path, fallback: str) -> str:
     return line[:80] or fallback
 
 
+def _beat_words(slot: dict) -> str:
+    length = slot.get("beat_length")
+    if not isinstance(length, (int, float)):
+        return f"{int(slot.get('beats') or 0)} 拍"
+    value = float(length)
+    if abs(value - 0.5) < 1e-6:
+        return "½拍"
+    if abs(value * 2 - round(value * 2)) < 1e-6 and abs(value - round(value)) > 0.2:
+        whole = int(value)
+        return ("½拍" if whole == 0 else f"{whole}½拍")
+    return f"{value:g}拍"
+
+
 def _mmss(seconds: float) -> str:
     if seconds < 0 or seconds != seconds:
         seconds = 0.0
@@ -253,12 +278,82 @@ def _item_at(items: list, moment: float) -> dict | None:
 
 
 def _display_slot_id(slot_id: str) -> str:
-    if "-s" not in slot_id:
-        return slot_id
-    head, tail = slot_id.rsplit("-s", 1)
-    if tail.isdigit():
-        tail = str(int(tail))
-    return f"{head}-s{tail}"
+    for marker in ("-s", "-t", "-e"):
+        if marker not in slot_id:
+            continue
+        head, tail = slot_id.rsplit(marker, 1)
+        if tail.isdigit():
+            return f"{head}{marker}{int(tail)}"
+    return slot_id
+
+
+_MARK_ZH = {
+    "flash": "闪",
+    "ramp_in": "冲",
+    "ramp_out": "落",
+    "slow": "慢",
+    "freeze": "定",
+    "whip": "甩",
+    "match": "配",
+    "zoom": "推",
+    "mask": "遮",
+    "fade": "隐",
+}
+
+
+def _slot_marks(slot: dict) -> str:
+    parts: list[str] = []
+    if slot.get("flash"):
+        parts.append(_MARK_ZH["flash"])
+    ramp = slot.get("ramp")
+    if ramp:
+        parts.append(_MARK_ZH.get(str(ramp), "变速"))
+    transition = slot.get("transition")
+    if transition and transition != "cut":
+        parts.append(_MARK_ZH.get(str(transition), "转"))
+    if not parts:
+        return ""
+    return f'<span class="mark">{html.escape("·".join(parts))}</span>'
+
+
+def _style_options(current: str) -> str:
+    labels = (("narrative", "叙事"), ("travel", "旅拍快剪"), ("event", "活动快剪"))
+    parts = []
+    for value, label in labels:
+        selected = " selected" if value == current else ""
+        parts.append(f'<option value="{value}"{selected}>{label}</option>')
+    return "".join(parts)
+
+
+def _style_row(view: dict) -> str:
+    current = str(view.get("shot_style") or "narrative")
+    blocked = bool(view.get("read_only") and view.get("has_draft"))
+    disabled = " disabled" if blocked else ""
+    title = (
+        "已经有打开的草稿。先确认或丢弃它，再基于确认版另开。"
+        if blocked
+        else "换剪法会重排镜头轨。已确认的版本不会被改写。"
+    )
+    rules = str(view.get("shot_rules_version") or "")
+    rules_html = f'<span class="note">{html.escape(rules)}</span>' if rules else ""
+    contrast = html.escape(str(view.get("drop_contrast_zh") or ""))
+    return (
+        '<div class="row r-style" id="track-style"><div class="rh"><b>剪法</b></div>'
+        f'<div class="lane stylelane"><label>镜头轨 <select id="shot-style" title="{html.escape(title)}"'
+        f'{disabled}>{_style_options(current)}</select></label>{rules_html}'
+        f'<span id="drop-contrast">{contrast}</span></div></div>'
+    )
+
+
+def _mark_legend() -> str:
+    return (
+        '<p class="marklegend" id="mark-legend">'
+        '<span class="mark">闪</span> 闪白'
+        '<span class="mark">慢</span> 变速（冲 加速 / 落 转慢 / 慢 慢放 / 定 定格）'
+        '<span class="mark">甩</span> 转场（甩镜 / 推 推镜 / 配 匹配 / 遮 遮挡 / 隐 渐隐）'
+        '<i class="flurrykey"></i> 快闪组'
+        "</p>"
+    )
 
 
 def _shot_caption(slot: dict) -> str:
@@ -454,6 +549,8 @@ def _planned_slot_div(
         classes.append("faint")
     if active:
         classes.append("on")
+    if slot.get("flurry_group") or slot.get("pattern_role") == "flurry":
+        classes.append("flurry")
     if slot.get("shot_type") == "?":
         classes.append("pending")
         style = f"left:{left:.3f}%;width:{max(width, 0.2):.3f}%"
@@ -474,7 +571,7 @@ def _planned_slot_div(
     return (
         f'<div class="{" ".join(classes)}" data-slot-id="{html.escape(str(slot["slot_id"]))}" '
         f'data-region-id="{html.escape(str(slot["region_id"]))}" style="{style}" title="{title}">'
-        f"{edge}{label}{extra}</div>"
+        f"{edge}{label}{extra}{_slot_marks(slot)}</div>"
     )
 
 
@@ -649,6 +746,8 @@ def _detail_html(view: dict, duration: float, playhead: float) -> str:
         f'<div class="zlane" id="zoom-lane" data-origin="{origin:.6f}" data-limit="{limit:.6f}">'
         f'{_detail_ticks(view, origin, limit, span)}{shot_html}'
         f'<div class="zph" style="left:{play_left:.3f}%"></div></div>'
+        f'{_mark_legend()}'
+        f'<p id="detail-contrast">{html.escape(str(view.get("drop_contrast_zh") or ""))}</p>'
         f'<div class="zold" id="compare-row" hidden title="旧：按均长平分">'
         f'{_detail_old_row(view, playhead, origin, limit, span)}</div></section>'
     )
@@ -753,7 +852,7 @@ def _slot_panel(view: dict, region: dict, slot: dict | None = None) -> str:
         budget = slot.get("budget_exception") or "在镜长范围内"
         body = (
             f'<p id="slot-when">{html.escape(_mmss(float(slot["start"])))} – '
-            f'{html.escape(_mmss(float(slot["end"])))} · {int(slot.get("beats") or 0)} 拍 · {length:.3f}s</p>'
+            f'{html.escape(_mmss(float(slot["end"])))} · {html.escape(_beat_words(slot))} · {length:.3f}s</p>'
             f'<p id="slot-why"><b>为什么切</b> {html.escape(str(slot.get("reason_zh") or ""))}</p>'
             f'<p id="slot-type">建议镜头 {html.escape(str(slot.get("shot_type") or ""))} · '
             f'{html.escape(str(slot.get("reason_code") or ""))}</p>'
@@ -978,6 +1077,7 @@ def render_timeline_page(
         )
         shot_small = "建议 · 按拍，不能拖"
         shot_body = _planned_shots_html(view, duration, active_id)
+        style_row = _style_row(view)
         zoom_html = _detail_html(view, duration, moment)
         inspector = inspector.replace(
             '<div class="sub">警告</div>',
@@ -987,6 +1087,7 @@ def render_timeline_page(
     else:
         phrase_row = ""
         how_row = ""
+        style_row = ""
         shot_small = "（预留·未启用）"
         shot_body = _shots_html(view, duration, chosen) if view else ""
         zoom_html = ""
@@ -1036,6 +1137,7 @@ def render_timeline_page(
   <div class="row r-beat"><div class="rh" style="padding:2px 12px"><small>节拍 · 重拍加粗</small></div><div class="lane" id="track-beats">{_beats_html(view, duration) if view else ""}</div></div>
   <div class="row r-reg"><div class="rh"><b>分区轨</b><small id="regcount">{html.escape(count_label)}</small>{_adopt_all_html(view) if view else ""}</div><div class="lane" id="track-regions">{(_blocks_html(view, duration, chosen, kind_labels) + _snap_chips_html(view, duration)) if view else ""}</div></div>
   {phrase_row}
+  {style_row}
   <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
   {how_row}
   <div class="ov" id="ov">
@@ -1290,6 +1392,24 @@ function activeSlot() {{
   }}
   return rows[0];
 }}
+function beatWords(slot) {{
+  if (slot.beat_length == null || slot.beat_length === "") return (slot.beats || 0) + " 拍";
+  var value = Number(slot.beat_length);
+  if (Math.abs(value - 0.5) < 1e-6) return "½拍";
+  if (Math.abs(value * 2 - Math.round(value * 2)) < 1e-6 && Math.abs(value - Math.round(value)) > 0.2) {{
+    var whole = Math.floor(value);
+    return whole ? (whole + "½拍") : "½拍";
+  }}
+  return String(value) + "拍";
+}}
+function slotMarks(slot) {{
+  var map = {{flash: "闪", ramp_in: "冲", ramp_out: "落", slow: "慢", freeze: "定", whip: "甩", match: "配", zoom: "推", mask: "遮", fade: "隐"}};
+  var parts = [];
+  if (slot.flash) parts.push(map.flash);
+  if (slot.ramp) parts.push(map[slot.ramp] || "变速");
+  if (slot.transition && slot.transition !== "cut") parts.push(map[slot.transition] || "转");
+  return parts.length ? '<span class="mark">' + parts.join("·") + "</span>" : "";
+}}
 function fillSlot() {{
   var slot = activeSlot();
   document.querySelectorAll(".sl,.zshot").forEach(function (node) {{
@@ -1302,7 +1422,7 @@ function fillSlot() {{
   var budget = document.getElementById("slot-budget");
   var evidence = document.getElementById("slot-evidence");
   var info = slot.evidence || {{}};
-  if (when) when.textContent = formatClock(Number(slot.start)) + " – " + formatClock(Number(slot.end)) + " · " + (slot.beats || 0) + " 拍";
+  if (when) when.textContent = formatClock(Number(slot.start)) + " – " + formatClock(Number(slot.end)) + " · " + beatWords(slot);
   if (why) why.textContent = "为什么切 " + (slot.reason_zh || "");
   if (kind) kind.textContent = "建议镜头 " + (slot.shot_type || "") + " · " + (slot.reason_code || "");
   if (budget) budget.textContent = "预算 " + (slot.budget_exception || "在镜长范围内");
@@ -1409,9 +1529,10 @@ function renderDetail(seconds) {{
     }});
     var color = COLORS[role] || "#7f9e9c";
     var on = active && slot.slot_id === active.slot_id ? " on" : "";
+    var flurry = (slot.flurry_group || slot.pattern_role === "flurry") ? " flurry" : "";
     var type = String(slot.shot_type || "");
     var safe = type.replace(/[&<>]/g, function (ch) {{ return ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : "&gt;"; }});
-    html += '<div class="zshot med' + on + '" data-slot-id="' + slot.slot_id + '" data-region-id="' + slot.region_id + '" style="left:' + left.toFixed(3) + '%;width:' + Math.max(width, 0.2).toFixed(3) + '%;background:' + color + '8c"><b>' + safe + '</b><em>' + (end - start).toFixed(2) + 's</em></div>';
+    html += '<div class="zshot med' + on + flurry + '" data-slot-id="' + slot.slot_id + '" data-region-id="' + slot.region_id + '" style="left:' + left.toFixed(3) + '%;width:' + Math.max(width, 0.2).toFixed(3) + '%;background:' + color + '8c"><b>' + safe + '</b><em>' + (end - start).toFixed(2) + 's</em>' + slotMarks(slot) + '</div>';
   }});
   var playLeft = ((seconds - origin) / span * 100).toFixed(3);
   html += '<div class="zph" style="left:' + playLeft + '%"></div>';
@@ -1870,6 +1991,31 @@ document.addEventListener("keydown", function (event) {{
   }}
   seekAt(neighborMark(marks, track.currentTime || 0, step));
 }});
+var stylePicker = document.getElementById("shot-style");
+if (stylePicker) {{
+  stylePicker.addEventListener("change", function () {{
+    if (!state) return;
+    var next = stylePicker.value;
+    fetch("/api/regions-draft/shot-style", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{
+        expected_revision: state.revision,
+        version_id: state.version_id,
+        style: next
+      }})
+    }}).then(function (response) {{
+      return response.json().then(function (data) {{
+        if (!response.ok) {{
+          showError(data.error || "换剪法失败");
+          stylePicker.value = state.shot_style || "narrative";
+          return;
+        }}
+        window.location.href = musicHref(data.version_id || state.version_id);
+      }});
+    }});
+  }});
+}}
 var compareOld = document.getElementById("compare-old");
 if (compareOld) {{
   compareOld.addEventListener("change", function () {{

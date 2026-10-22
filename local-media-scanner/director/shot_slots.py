@@ -527,7 +527,7 @@ def _anchor_for(region: MusicEditRegion, choice) -> RegionCutAnchor:
     )
 
 
-def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
+def _plan_narrative_slots(document: MusicEditRegions) -> MusicEditRegions:
     """Fill shot slots from beats already stored on ``document``.
 
     No beats, or no tempo: the document is returned unchanged. Slot edges
@@ -715,6 +715,214 @@ def plan_shot_slots(document: MusicEditRegions) -> MusicEditRegions:
             "downbeat_cluster_times": [round(moment, 6) for moment in cluster],
         }
     )
+
+
+DEFAULT_SHOT_STYLE = "travel"
+_SHOT_STYLES = frozenset({"narrative", "travel", "event"})
+
+
+def plan_shot_slots(
+    document: MusicEditRegions, style: str | None = None
+) -> MusicEditRegions:
+    """Plan slots. Omitted style keeps the stored style, or narrative.
+
+    ``narrative`` is the historical planner. Calling this with no style on a
+    document that has no ``shot_style`` returns that planner's document, with
+    the same JSON as before fastcut fields existed. The product default for a
+    new analysis is ``travel`` (see ``DEFAULT_SHOT_STYLE``); the CLI passes it
+    in. This function does not, so older callers stay on the narrative track.
+    """
+
+    chosen = style if style is not None else (document.shot_style or "narrative")
+    if chosen not in _SHOT_STYLES:
+        raise ValueError(f"unknown shot style {chosen}")
+    if not document.beats or not document.bpm:
+        return document
+    planned = _plan_narrative_slots(document)
+    if chosen == "narrative":
+        update: dict[str, object] = {}
+        if style == "narrative" or document.shot_style == "narrative":
+            update["shot_style"] = "narrative"
+        if planned.shot_rules_version is not None:
+            update["shot_rules_version"] = None
+        if update:
+            planned = planned.model_copy(update=update)
+        return planned
+    return _apply_fastcut(planned, chosen)
+
+
+def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
+    """Replace narrative slots with a fastcut style. Region edges stay put."""
+
+    from director.shot_track.fastcut import (
+        RULES_VERSION,
+        generate,
+        region_summary_zh,
+        stats,
+    )
+
+    desk = {
+        "beats_seconds": [beat.t for beat in document.beats] or list(document.beats_seconds),
+        "downbeats_seconds": list(document.downbeats_seconds)
+        or [beat.t for beat in document.beats if beat.is_downbeat],
+        "onsets_seconds": [onset.t for onset in document.onsets],
+        "shot_slots": [
+            {"start": slot.start, "accent_at_start": slot.accent_at_start}
+            for slot in document.shot_slots
+        ],
+        "phrases": [
+            {"id": phrase.id, "start": phrase.start, "end": phrase.end}
+            for phrase in document.phrases
+        ],
+        "regions": [
+            {
+                "region_id": region.region_id,
+                "start": region.start,
+                "end": region.end,
+                "edit_role": region.edit_role,
+            }
+            for region in document.regions
+        ],
+        "duration_seconds": document.duration_seconds,
+        "bpm": document.bpm,
+    }
+    raw_slots, beat_s = generate(desk, style)
+    by_region = {region.region_id: region for region in document.regions}
+    beats = list(document.beats)
+    slots: list[ShotSlot] = []
+    for raw in raw_slots:
+        region = by_region[raw["region_id"]]
+        length = float(raw["end"]) - float(raw["start"])
+        blen = float(raw["beats"])
+        slots.append(
+            ShotSlot(
+                slot_id=raw["slot_id"],
+                region_id=raw["region_id"],
+                start=float(raw["start"]),
+                end=float(raw["end"]),
+                beats=int(blen) if blen >= 1 else 0,
+                pace=_pace(length),  # type: ignore[arg-type]
+                shot_type=raw["shot_type"],
+                reason_code=raw["reason_code"],
+                reason_zh=raw["reason_zh"],
+                accent_at_start=raw["cut_on"] == "accent",
+                breath_after=raw["pattern_role"] in {"breath", "final"},
+                confidence=float(min(1.0, max(0.0, region.confidence))),
+                evidence=_fastcut_evidence(raw, document, beats),
+                style=style,  # type: ignore[arg-type]
+                pattern_role=raw["pattern_role"],
+                flurry_group=raw["flurry_group"],
+                ramp=raw["ramp"],
+                transition=raw["transition"],
+                flash=bool(raw["flash"]),
+                cut_on=raw["cut_on"],
+                rules_version=raw["rules_version"],
+                beat_length=blen,
+            )
+        )
+    counted = stats(raw_slots, desk, beat_s)
+    regions = []
+    for region in document.regions:
+        stat = counted.get(region.region_id)
+        if stat is None:
+            regions.append(region)
+            continue
+        regions.append(
+            region.model_copy(
+                update={
+                    "slot_count": stat["count"],
+                    "cut_summary_zh": region_summary_zh(style, region.edit_role, stat),
+                }
+            )
+        )
+    warnings = [item for item in document.warnings if item != "slot_budget_exception"]
+    return document.model_copy(
+        update={
+            "regions": regions,
+            "shot_slots": slots,
+            "warnings": warnings,
+            "shot_style": style,
+            "shot_rules_version": RULES_VERSION,
+        }
+    )
+
+
+def _fastcut_evidence(raw: dict, document: MusicEditRegions, beats: list[BeatEvent]) -> SlotEvidence:
+    start = float(raw["start"])
+    end = float(raw["end"])
+    beat_ids = [beat.i for beat in beats if start - 0.02 <= beat.t < end - 1e-6]
+    if not beat_ids:
+        nearest = min(beats, key=lambda beat: abs(beat.t - start), default=None)
+        if nearest is not None and abs(nearest.t - start) <= 0.06:
+            beat_ids = [nearest.i]
+    chosen = set(beat_ids)
+    downbeat_ids = [beat.i for beat in beats if beat.is_downbeat and beat.i in chosen]
+    onset_ids = [onset.id for onset in document.onsets if abs(onset.t - start) <= 0.03]
+    phrase_id = None
+    for phrase in document.phrases:
+        if phrase.start - 0.02 <= start < phrase.end:
+            phrase_id = phrase.id
+            break
+    energy_bins = [
+        index
+        for index, point in enumerate(document.energy_curve)
+        if start <= point.time_seconds < end
+    ][:24]
+    return SlotEvidence(
+        beat_ids=beat_ids,
+        downbeat_ids=downbeat_ids,
+        onset_ids=onset_ids,
+        phrase_id=phrase_id,
+        energy_bins=energy_bins,
+        region_id=raw["region_id"],
+        rule=raw["reason_code"],
+        params={"beat_length": float(raw["beats"])},
+    )
+
+
+def drop_contrast_zh(document: MusicEditRegions) -> str:
+    """One sentence for the build→drop release, or empty when it does not apply."""
+
+    from director.shot_track.fastcut import drop_contrast, stats
+
+    if not document.shot_slots or not document.bpm:
+        return ""
+    build = next((region.region_id for region in document.regions if region.edit_role == "build"), None)
+    peak = next((region.region_id for region in document.regions if region.edit_role == "peak_cut"), None)
+    if build is None or peak is None:
+        return ""
+    desk = {
+        "regions": [
+            {
+                "region_id": region.region_id,
+                "start": region.start,
+                "end": region.end,
+                "edit_role": region.edit_role,
+            }
+            for region in document.regions
+        ],
+        "downbeats_seconds": list(document.downbeats_seconds),
+        "duration_seconds": document.duration_seconds,
+    }
+    rows = [
+        {
+            "region_id": slot.region_id,
+            "start": slot.start,
+            "end": slot.end,
+            "beats": slot.beat_length if slot.beat_length is not None else float(slot.beats),
+            "pattern_role": slot.pattern_role,
+            "flash": bool(slot.flash),
+            "ramp": slot.ramp,
+            "transition": slot.transition,
+            "flurry_group": slot.flurry_group,
+        }
+        for slot in document.shot_slots
+    ]
+    try:
+        contrast = drop_contrast(stats(rows, desk, 60.0 / document.bpm), build, peak)
+    except (KeyError, ZeroDivisionError, ValueError):
+        return ""
+    return f"落点 {contrast['drop_bar_cuts']} 刀 vs 进场前 {contrast['pre_drop_bar_cuts']} 刀"
 
 
 def apply_boundary_snaps(document: MusicEditRegions, ids: set[str] | None) -> MusicEditRegions:

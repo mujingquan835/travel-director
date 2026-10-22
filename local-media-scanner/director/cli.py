@@ -547,6 +547,11 @@ def analyze_music_edit_regions_command(
     target_duration_seconds: float | None = typer.Option(
         None, "--target-duration-seconds", min=0.001
     ),
+    shot_style: str = typer.Option(
+        "travel",
+        "--shot-style",
+        help="narrative, travel, or event. New analyses default to travel (旅拍快剪).",
+    ),
 ) -> None:
     """Write unconfirmed music edit-region candidates bound to the project's frozen music."""
 
@@ -554,17 +559,91 @@ def analyze_music_edit_regions_command(
         EditRegionConfig,
         build_project_music_edit_regions,
     )
+    if shot_style not in {"narrative", "travel", "event"}:
+        raise typer.BadParameter("shot style must be narrative, travel, or event")
 
     try:
         config = EditRegionConfig(
             provider=provider,
             enable_hook_region=not disable_hook_region,
             target_duration_seconds=target_duration_seconds,
+            shot_style=shot_style,  # type: ignore[arg-type]
         )
         result = build_project_music_edit_regions(project, config)
     except (ValueError, RuntimeError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def _print_shot_track_stats(desk: dict, style: str) -> None:
+    from director.shot_track.fastcut import RULES_VERSION, STYLES, drop_contrast, generate, stats
+    import statistics
+
+    if style == "narrative":
+        slots = [
+            dict(slot, beats=float(slot.get("beat_length", slot.get("beats", 0))), length_s=float(slot["end"]) - float(slot["start"]), flurry_group=slot.get("flurry_group"))
+            for slot in desk.get("shot_slots") or []
+        ]
+        beats = desk["beats_seconds"]
+        beat_s = statistics.median([b - a for a, b in zip(beats, beats[1:])])
+        label = "叙事"
+    else:
+        slots, beat_s = generate(desk, style)
+        label = STYLES[style]["label_zh"]
+    summary = stats(slots, desk, beat_s)
+    build = next((region["region_id"] for region in desk["regions"] if region.get("edit_role") == "build"), "r04")
+    peak = next((region["region_id"] for region in desk["regions"] if region.get("edit_role") == "peak_cut"), "r05")
+    contrast = drop_contrast(summary, build, peak) if build in summary and peak in summary else {}
+    typer.echo(f"{style} {label} rules={RULES_VERSION if style != 'narrative' else 'narrative'}")
+    for region_id, row in summary.items():
+        typer.echo(
+            f"  {region_id} {row['role']} count={row['count']} cuts_per_bar={row['cuts_per_bar']} "
+            f"bar_cuts={row['bar_cuts']} flurry={row['flurry_slots']}"
+        )
+    typer.echo(f"  drop_contrast {contrast}")
+
+
+shot_track_app = typer.Typer(no_args_is_help=True, help="Inspect shot-track density.")
+app.add_typer(shot_track_app, name="shot-track")
+
+
+@shot_track_app.command("stats")
+def shot_track_stats_command(
+    desk_path: Path = typer.Argument(..., exists=True, dir_okay=False, help="Desk JSON or music_edit_regions JSON."),
+    shot_style: str = typer.Option(
+        "all",
+        "--shot-style",
+        help="narrative, travel, event, or all.",
+    ),
+) -> None:
+    """Print per-region shot-track density and the build→drop contrast."""
+
+    payload = json.loads(desk_path.read_text(encoding="utf-8"))
+    if "beats_seconds" not in payload and "beats" in payload:
+        payload = {
+            "beats_seconds": [item["t"] if isinstance(item, dict) else item for item in payload["beats"]],
+            "downbeats_seconds": payload.get("downbeats_seconds")
+            or [item["t"] for item in payload["beats"] if isinstance(item, dict) and item.get("is_downbeat")],
+            "onsets_seconds": [item["t"] if isinstance(item, dict) else item for item in payload.get("onsets") or []],
+            "phrases": payload.get("phrases") or [],
+            "regions": [
+                {
+                    "region_id": region["region_id"],
+                    "start": region["start"],
+                    "end": region["end"],
+                    "edit_role": region["edit_role"],
+                }
+                for region in payload["regions"]
+            ],
+            "duration_seconds": payload["duration_seconds"],
+            "bpm": payload.get("bpm"),
+            "shot_slots": payload.get("shot_slots") or [],
+        }
+    styles = ("narrative", "travel", "event") if shot_style == "all" else (shot_style,)
+    if any(item not in {"narrative", "travel", "event"} for item in styles):
+        raise typer.BadParameter("shot style must be narrative, travel, event, or all")
+    for item in styles:
+        _print_shot_track_stats(payload, item)
 
 
 @app.command("run-local")

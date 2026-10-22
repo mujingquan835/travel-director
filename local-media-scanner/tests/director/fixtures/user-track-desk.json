@@ -1,0 +1,2024 @@
+{
+  "revision": "fd02baad1e11246b18567fc0f28e8632b63d003779476c01dea671dd0294cdc5",
+  "version_id": "regions-v01",
+  "edited_at": "2026-10-20T07:46:20.375651+00:00",
+  "duration_seconds": 59.935,
+  "warnings": [
+    {
+      "code": "meter_assumed_4_4",
+      "label": "拍号按 4/4 估计，曲子如果不是 4/4，强拍会偏"
+    },
+    {
+      "code": "boundary_snapped",
+      "label": "分区边界已经吸到拍上，吸附前的时间记在每条边界的原始时间里。"
+    },
+    {
+      "code": "downbeat_cluster",
+      "label": "有的强拍相距不足半小节，较晚的那一个已忽略（15.22）"
+    },
+    {
+      "code": "slot_budget_exception",
+      "label": "有的镜头短于本段镜长下限，属于列出的加速或转场"
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "r01",
+      "start": 0.0,
+      "end": 2.74,
+      "edit_role": "hook",
+      "musical_label": null,
+      "musical_proxy": "intro",
+      "mean_energy": 0.74634,
+      "onset_rate": 2.333333,
+      "energy_slope": 0.033226,
+      "suggested_shot_mean_s": 0.9,
+      "shot_min_s": 0.6,
+      "shot_max_s": 1.2,
+      "snap_policy": "downbeat",
+      "desired_motion": "high",
+      "content_need": "attention_hook",
+      "confidence": 0.75,
+      "evidence_basis": "energy",
+      "cut_summary_zh": "开场跟着拍点切，短镜头轮换，先动再收到细节和人脸。",
+      "slot_count": 3,
+      "start_raw_s": null,
+      "end_raw_s": 3.0,
+      "kind_label": "可卡点",
+      "source": "analyzer"
+    },
+    {
+      "region_id": "r02",
+      "start": 2.74,
+      "end": 8.74,
+      "edit_role": "unknown",
+      "musical_label": null,
+      "musical_proxy": "unknown",
+      "mean_energy": 0.466976,
+      "onset_rate": 3.0,
+      "energy_slope": -0.105995,
+      "suggested_shot_mean_s": 3.0,
+      "shot_min_s": 1.5,
+      "shot_max_s": 5.0,
+      "snap_policy": "free",
+      "desired_motion": "medium",
+      "content_need": "unspecified",
+      "confidence": 0.4,
+      "evidence_basis": "energy",
+      "cut_summary_zh": "角色未定：先按小节占位，确认角色后再排。不给镜头建议。",
+      "slot_count": 3,
+      "start_raw_s": 3.0,
+      "end_raw_s": 8.0,
+      "kind_label": "未定",
+      "source": "analyzer"
+    },
+    {
+      "region_id": "r03",
+      "start": 8.74,
+      "end": 24.74,
+      "edit_role": "establish",
+      "musical_label": null,
+      "musical_proxy": "intro",
+      "mean_energy": 0.733903,
+      "onset_rate": 4.529412,
+      "energy_slope": 0.055563,
+      "suggested_shot_mean_s": 3.2,
+      "shot_min_s": 2.5,
+      "shot_max_s": 4.0,
+      "snap_policy": "free",
+      "desired_motion": "low",
+      "content_need": "orientation_detail",
+      "confidence": 0.65,
+      "evidence_basis": "energy",
+      "cut_summary_zh": "前奏按乐句走，大约两小节一个镜头，段尾留一刀转场。",
+      "slot_count": 5,
+      "start_raw_s": 8.0,
+      "end_raw_s": 25.0,
+      "kind_label": "前奏",
+      "source": "analyzer"
+    },
+    {
+      "region_id": "r04",
+      "start": 24.74,
+      "end": 40.74,
+      "edit_role": "build",
+      "musical_label": null,
+      "musical_proxy": "rise",
+      "mean_energy": 0.637126,
+      "onset_rate": 4.066667,
+      "energy_slope": 0.086901,
+      "suggested_shot_mean_s": 2.0,
+      "shot_min_s": 1.5,
+      "shot_max_s": 2.5,
+      "snap_policy": "downbeat",
+      "desired_motion": "medium",
+      "content_need": "forward_motion",
+      "confidence": 0.4,
+      "evidence_basis": "energy",
+      "cut_summary_zh": "铺垫每小节一刀往前推；进高潮前两小节加快，最后一拍甩进去。",
+      "slot_count": 12,
+      "start_raw_s": 25.0,
+      "end_raw_s": 40.0,
+      "kind_label": "铺垫",
+      "source": "analyzer"
+    },
+    {
+      "region_id": "r05",
+      "start": 40.74,
+      "end": 52.74,
+      "edit_role": "peak_cut",
+      "musical_label": null,
+      "musical_proxy": "climax",
+      "mean_energy": 0.870558,
+      "onset_rate": 4.608295,
+      "energy_slope": -0.009786,
+      "suggested_shot_mean_s": 0.5,
+      "shot_min_s": 0.5,
+      "shot_max_s": 1.4,
+      "snap_policy": "downbeat",
+      "desired_motion": "high",
+      "content_need": "high_visual_impact",
+      "confidence": 0.720674,
+      "evidence_basis": "energy",
+      "cut_summary_zh": "高潮先在乐句起点停一下，密剪和两拍喘气交替，段尾减速。",
+      "slot_count": 13,
+      "start_raw_s": 40.0,
+      "end_raw_s": 51.935,
+      "kind_label": "高潮",
+      "source": "analyzer"
+    },
+    {
+      "region_id": "r06",
+      "start": 52.74,
+      "end": 59.935,
+      "edit_role": "settle_outro",
+      "musical_label": null,
+      "musical_proxy": "outro",
+      "mean_energy": 0.699612,
+      "onset_rate": 2.625,
+      "energy_slope": -0.420035,
+      "suggested_shot_mean_s": 3.5,
+      "shot_min_s": 2.5,
+      "shot_max_s": 4.5,
+      "snap_policy": "free",
+      "desired_motion": "low",
+      "content_need": "closing_image",
+      "confidence": 0.75,
+      "evidence_basis": "energy",
+      "cut_summary_zh": "收尾先留一个长镜头换气，最后一个镜头停到本段结束。",
+      "slot_count": 2,
+      "start_raw_s": 51.935,
+      "end_raw_s": null,
+      "kind_label": "收尾",
+      "source": "analyzer"
+    }
+  ],
+  "read_only": false,
+  "status": "draft",
+  "source_music_sha8": "2c7eaa45",
+  "confirmed_at": null,
+  "has_draft": true,
+  "acceptance": {
+    "ok": false,
+    "unknown_region_ids": [
+      "r02"
+    ],
+    "blockers": [
+      "unknown regions: r02"
+    ]
+  },
+  "versions": [
+    {
+      "version_id": "regions-v01",
+      "status": "draft",
+      "source_music_sha8": "2c7eaa45",
+      "confirmed_at": null,
+      "label": "草稿 v01"
+    }
+  ],
+  "bpm": 120.0,
+  "beats_seconds": [
+    0.22,
+    0.72,
+    1.24,
+    1.74,
+    2.24,
+    2.74,
+    3.24,
+    3.74,
+    4.24,
+    4.74,
+    5.24,
+    5.74,
+    6.24,
+    6.74,
+    7.24,
+    7.74,
+    8.24,
+    8.74,
+    9.24,
+    9.74,
+    10.24,
+    10.72,
+    11.24,
+    11.74,
+    12.24,
+    12.74,
+    13.24,
+    13.74,
+    14.24,
+    14.72,
+    15.22,
+    15.74,
+    16.24,
+    16.72,
+    17.22,
+    17.74,
+    18.24,
+    18.72,
+    19.24,
+    19.72,
+    20.22,
+    20.74,
+    21.22,
+    21.74,
+    22.24,
+    22.74,
+    23.22,
+    23.72,
+    24.22,
+    24.74,
+    25.24,
+    25.72,
+    26.22,
+    26.72,
+    27.22,
+    27.72,
+    28.22,
+    28.72,
+    29.22,
+    29.72,
+    30.22,
+    30.74,
+    31.22,
+    31.72,
+    32.22,
+    32.74,
+    33.24,
+    33.74,
+    34.24,
+    34.74,
+    35.22,
+    35.74,
+    36.24,
+    36.74,
+    37.22,
+    37.74,
+    38.22,
+    38.74,
+    39.22,
+    39.72,
+    40.22,
+    40.74,
+    41.24,
+    41.72,
+    42.24,
+    42.72,
+    43.24,
+    43.74,
+    44.24,
+    44.74,
+    45.24,
+    45.72,
+    46.22,
+    46.72,
+    47.24,
+    47.72,
+    48.24,
+    48.72,
+    49.24,
+    49.74,
+    50.22,
+    50.72,
+    51.24,
+    51.74,
+    52.24,
+    52.74,
+    53.24,
+    53.72,
+    54.22,
+    54.72,
+    55.22,
+    55.74,
+    56.22,
+    56.74,
+    57.24,
+    57.74,
+    58.24
+  ],
+  "downbeats_seconds": [
+    0.72,
+    2.74,
+    4.74,
+    6.74,
+    8.74,
+    10.72,
+    12.74,
+    14.72,
+    16.72,
+    18.72,
+    20.74,
+    22.74,
+    24.74,
+    26.72,
+    28.72,
+    30.74,
+    32.74,
+    34.74,
+    36.74,
+    38.74,
+    40.74,
+    42.72,
+    44.74,
+    46.72,
+    48.72,
+    50.72,
+    52.74,
+    54.72,
+    56.74,
+    58.24
+  ],
+  "downbeat_cluster_times": [
+    15.22
+  ],
+  "provider": "beat_this+heuristic",
+  "shot_slots": [
+    {
+      "slot_id": "r01-s01",
+      "region_id": "r01",
+      "start": 0.0,
+      "end": 1.24,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "HOOK_BEAT",
+      "reason_zh": "开场按拍下刀，这一刀隔 2 拍，落在拍点上。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.75,
+      "evidence": {
+        "beat_ids": [
+          0,
+          1
+        ],
+        "downbeat_ids": [
+          1
+        ],
+        "onset_ids": [],
+        "phrase_id": null,
+        "energy_bins": [
+          0,
+          1
+        ],
+        "region_id": "r01",
+        "rule": "HOOK_BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 0.0,
+          "end": 1.24
+        }
+      }
+    },
+    {
+      "slot_id": "r01-s02",
+      "region_id": "r01",
+      "start": 1.24,
+      "end": 2.24,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "细",
+      "reason_code": "HOOK_BEAT",
+      "reason_zh": "开场按拍下刀，这一刀隔 2 拍，落在拍点上。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.75,
+      "evidence": {
+        "beat_ids": [
+          2,
+          3
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0003"
+        ],
+        "phrase_id": "p01",
+        "energy_bins": [
+          2
+        ],
+        "region_id": "r01",
+        "rule": "HOOK_BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 1.24,
+          "end": 2.24
+        }
+      }
+    },
+    {
+      "slot_id": "r01-s03",
+      "region_id": "r01",
+      "start": 2.24,
+      "end": 2.74,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "脸",
+      "reason_code": "HOOK_BEAT",
+      "reason_zh": "开场按拍下刀，这一刀隔 1 拍，落在拍点上。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.75,
+      "evidence": {
+        "beat_ids": [
+          4
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0006"
+        ],
+        "phrase_id": "p01",
+        "energy_bins": [
+          2
+        ],
+        "region_id": "r01",
+        "rule": "HOOK_BEAT",
+        "params": {
+          "beats": 1.0,
+          "start": 2.24,
+          "end": 2.74
+        }
+      }
+    },
+    {
+      "slot_id": "r02-s01",
+      "region_id": "r02",
+      "start": 2.74,
+      "end": 4.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "?",
+      "reason_code": "ROLE_UNKNOWN_BAR_GRID",
+      "reason_zh": "角色还没定，先按小节占位，确认后再重排。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "downbeat_ids": [
+          5
+        ],
+        "onset_ids": [
+          "o0007"
+        ],
+        "phrase_id": "p01",
+        "energy_bins": [
+          3,
+          4
+        ],
+        "region_id": "r02",
+        "rule": "ROLE_UNKNOWN_BAR_GRID",
+        "params": {
+          "beats": 4.0,
+          "start": 2.74,
+          "end": 4.74
+        }
+      }
+    },
+    {
+      "slot_id": "r02-s02",
+      "region_id": "r02",
+      "start": 4.74,
+      "end": 6.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "?",
+      "reason_code": "ROLE_UNKNOWN_BAR_GRID",
+      "reason_zh": "角色还没定，先按小节占位，确认后再重排。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "downbeat_ids": [
+          9
+        ],
+        "onset_ids": [
+          "o0013"
+        ],
+        "phrase_id": "p01",
+        "energy_bins": [
+          5,
+          6
+        ],
+        "region_id": "r02",
+        "rule": "ROLE_UNKNOWN_BAR_GRID",
+        "params": {
+          "beats": 4.0,
+          "start": 4.74,
+          "end": 6.74
+        }
+      }
+    },
+    {
+      "slot_id": "r02-s03",
+      "region_id": "r02",
+      "start": 6.74,
+      "end": 8.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "?",
+      "reason_code": "ROLE_UNKNOWN_BAR_GRID",
+      "reason_zh": "角色还没定，先按小节占位，确认后再重排。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          13,
+          14,
+          15,
+          16
+        ],
+        "downbeat_ids": [
+          13
+        ],
+        "onset_ids": [
+          "o0019"
+        ],
+        "phrase_id": "p01",
+        "energy_bins": [
+          7,
+          8
+        ],
+        "region_id": "r02",
+        "rule": "ROLE_UNKNOWN_BAR_GRID",
+        "params": {
+          "beats": 4.0,
+          "start": 6.74,
+          "end": 8.74
+        }
+      }
+    },
+    {
+      "slot_id": "r03-s01",
+      "region_id": "r03",
+      "start": 8.74,
+      "end": 12.74,
+      "beats": 8,
+      "pace": "hold",
+      "shot_type": "远",
+      "reason_code": "PHRASE_START",
+      "reason_zh": "乐句从强拍开始，这一镜走 8 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.65,
+      "evidence": {
+        "beat_ids": [
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24
+        ],
+        "downbeat_ids": [
+          17,
+          21
+        ],
+        "onset_ids": [],
+        "phrase_id": "p02",
+        "energy_bins": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "region_id": "r03",
+        "rule": "PHRASE_START",
+        "params": {
+          "beats": 8.0,
+          "start": 8.74,
+          "end": 12.74
+        }
+      }
+    },
+    {
+      "slot_id": "r03-s02",
+      "region_id": "r03",
+      "start": 12.74,
+      "end": 16.72,
+      "beats": 8,
+      "pace": "hold",
+      "shot_type": "细",
+      "reason_code": "DOWNBEAT_HOLD",
+      "reason_zh": "在强拍上换镜，这一镜留 8 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.65,
+      "evidence": {
+        "beat_ids": [
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32
+        ],
+        "downbeat_ids": [
+          25,
+          29
+        ],
+        "onset_ids": [
+          "o0043"
+        ],
+        "phrase_id": "p03",
+        "energy_bins": [
+          13,
+          14,
+          15,
+          16
+        ],
+        "region_id": "r03",
+        "rule": "DOWNBEAT_HOLD",
+        "params": {
+          "beats": 8.0,
+          "start": 12.74,
+          "end": 16.72
+        }
+      }
+    },
+    {
+      "slot_id": "r03-s03",
+      "region_id": "r03",
+      "start": 16.72,
+      "end": 20.74,
+      "beats": 8,
+      "pace": "hold",
+      "shot_type": "脸",
+      "reason_code": "PHRASE_START",
+      "reason_zh": "乐句从强拍开始，这一镜走 8 拍。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.65,
+      "evidence": {
+        "beat_ids": [
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "downbeat_ids": [
+          33,
+          37
+        ],
+        "onset_ids": [
+          "o0063"
+        ],
+        "phrase_id": "p04",
+        "energy_bins": [
+          17,
+          18,
+          19,
+          20
+        ],
+        "region_id": "r03",
+        "rule": "PHRASE_START",
+        "params": {
+          "beats": 8.0,
+          "start": 16.72,
+          "end": 20.74
+        }
+      }
+    },
+    {
+      "slot_id": "r03-s04",
+      "region_id": "r03",
+      "start": 20.74,
+      "end": 23.72,
+      "beats": 6,
+      "pace": "hold",
+      "shot_type": "细",
+      "reason_code": "LONG_SHORT",
+      "reason_zh": "这一刀故意改成 6 拍，避免整段镜头一样长。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.65,
+      "evidence": {
+        "beat_ids": [
+          41,
+          42,
+          43,
+          44,
+          45,
+          46
+        ],
+        "downbeat_ids": [
+          41,
+          45
+        ],
+        "onset_ids": [],
+        "phrase_id": "p04",
+        "energy_bins": [
+          21,
+          22,
+          23
+        ],
+        "region_id": "r03",
+        "rule": "LONG_SHORT",
+        "params": {
+          "beats": 6.0,
+          "start": 20.74,
+          "end": 23.72
+        }
+      }
+    },
+    {
+      "slot_id": "r03-s05",
+      "region_id": "r03",
+      "start": 23.72,
+      "end": 24.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "转",
+      "reason_code": "SECTION_TRANSITION",
+      "reason_zh": "段尾留 2 拍做转场，再进下一段。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_transition",
+      "confidence": 0.65,
+      "evidence": {
+        "beat_ids": [
+          47,
+          48
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0095"
+        ],
+        "phrase_id": "p05",
+        "energy_bins": [
+          24
+        ],
+        "region_id": "r03",
+        "rule": "SECTION_TRANSITION",
+        "params": {
+          "beats": 2.0,
+          "start": 23.72,
+          "end": 24.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s01",
+      "region_id": "r04",
+      "start": 24.74,
+      "end": 26.72,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "PHRASE_START",
+      "reason_zh": "乐句从强拍开始，这一镜走 4 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          49,
+          50,
+          51,
+          52
+        ],
+        "downbeat_ids": [
+          49
+        ],
+        "onset_ids": [
+          "o0099"
+        ],
+        "phrase_id": "p05",
+        "energy_bins": [
+          25,
+          26
+        ],
+        "region_id": "r04",
+        "rule": "PHRASE_START",
+        "params": {
+          "beats": 4.0,
+          "start": 24.74,
+          "end": 26.72
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s02",
+      "region_id": "r04",
+      "start": 26.72,
+      "end": 28.72,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "细",
+      "reason_code": "DOWNBEAT_CUT",
+      "reason_zh": "每小节在强拍上切一刀，这一镜 4 拍。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          53,
+          54,
+          55,
+          56
+        ],
+        "downbeat_ids": [
+          53
+        ],
+        "onset_ids": [
+          "o0104"
+        ],
+        "phrase_id": "p06",
+        "energy_bins": [
+          27,
+          28
+        ],
+        "region_id": "r04",
+        "rule": "DOWNBEAT_CUT",
+        "params": {
+          "beats": 4.0,
+          "start": 26.72,
+          "end": 28.72
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s03",
+      "region_id": "r04",
+      "start": 28.72,
+      "end": 30.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "DOWNBEAT_CUT",
+      "reason_zh": "每小节在强拍上切一刀，这一镜 4 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          57,
+          58,
+          59,
+          60
+        ],
+        "downbeat_ids": [
+          57
+        ],
+        "onset_ids": [
+          "o0113"
+        ],
+        "phrase_id": "p07",
+        "energy_bins": [
+          29,
+          30
+        ],
+        "region_id": "r04",
+        "rule": "DOWNBEAT_CUT",
+        "params": {
+          "beats": 4.0,
+          "start": 28.72,
+          "end": 30.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s04",
+      "region_id": "r04",
+      "start": 30.74,
+      "end": 32.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "DOWNBEAT_CUT",
+      "reason_zh": "每小节在强拍上切一刀，这一镜 4 拍。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          61,
+          62,
+          63,
+          64
+        ],
+        "downbeat_ids": [
+          61
+        ],
+        "onset_ids": [
+          "o0120"
+        ],
+        "phrase_id": "p07",
+        "energy_bins": [
+          31,
+          32
+        ],
+        "region_id": "r04",
+        "rule": "DOWNBEAT_CUT",
+        "params": {
+          "beats": 4.0,
+          "start": 30.74,
+          "end": 32.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s05",
+      "region_id": "r04",
+      "start": 32.74,
+      "end": 34.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "细",
+      "reason_code": "DOWNBEAT_CUT",
+      "reason_zh": "每小节在强拍上切一刀，这一镜 4 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          65,
+          66,
+          67,
+          68
+        ],
+        "downbeat_ids": [
+          65
+        ],
+        "onset_ids": [
+          "o0126"
+        ],
+        "phrase_id": "p08",
+        "energy_bins": [
+          33,
+          34
+        ],
+        "region_id": "r04",
+        "rule": "DOWNBEAT_CUT",
+        "params": {
+          "beats": 4.0,
+          "start": 32.74,
+          "end": 34.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s06",
+      "region_id": "r04",
+      "start": 34.74,
+      "end": 36.74,
+      "beats": 4,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "DOWNBEAT_CUT",
+      "reason_zh": "每小节在强拍上切一刀，这一镜 4 拍。",
+      "accent_at_start": true,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          69,
+          70,
+          71,
+          72
+        ],
+        "downbeat_ids": [
+          69
+        ],
+        "onset_ids": [
+          "o0135"
+        ],
+        "phrase_id": "p09",
+        "energy_bins": [
+          35,
+          36
+        ],
+        "region_id": "r04",
+        "rule": "DOWNBEAT_CUT",
+        "params": {
+          "beats": 4.0,
+          "start": 34.74,
+          "end": 36.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s07",
+      "region_id": "r04",
+      "start": 36.74,
+      "end": 37.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "BUILD_RAMP",
+      "reason_zh": "进高潮前加快，这一镜只留 2 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_ramp",
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          73,
+          74
+        ],
+        "downbeat_ids": [
+          73
+        ],
+        "onset_ids": [],
+        "phrase_id": "p09",
+        "energy_bins": [
+          37
+        ],
+        "region_id": "r04",
+        "rule": "BUILD_RAMP",
+        "params": {
+          "beats": 2.0,
+          "start": 36.74,
+          "end": 37.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s08",
+      "region_id": "r04",
+      "start": 37.74,
+      "end": 38.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "细",
+      "reason_code": "BUILD_RAMP",
+      "reason_zh": "进高潮前加快，这一镜只留 2 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_ramp",
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          75,
+          76
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [],
+        "phrase_id": "p09",
+        "energy_bins": [
+          38
+        ],
+        "region_id": "r04",
+        "rule": "BUILD_RAMP",
+        "params": {
+          "beats": 2.0,
+          "start": 37.74,
+          "end": 38.74
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s09",
+      "region_id": "r04",
+      "start": 38.74,
+      "end": 39.22,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "动",
+      "reason_code": "BUILD_RAMP",
+      "reason_zh": "进高潮前加快，这一镜只留 1 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_ramp",
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          77
+        ],
+        "downbeat_ids": [
+          77
+        ],
+        "onset_ids": [],
+        "phrase_id": "p09",
+        "energy_bins": [
+          39
+        ],
+        "region_id": "r04",
+        "rule": "BUILD_RAMP",
+        "params": {
+          "beats": 1.0,
+          "start": 38.74,
+          "end": 39.22
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s10",
+      "region_id": "r04",
+      "start": 39.22,
+      "end": 39.72,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "细",
+      "reason_code": "BUILD_RAMP",
+      "reason_zh": "进高潮前加快，这一镜只留 1 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_ramp",
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          78
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0158"
+        ],
+        "phrase_id": "p09",
+        "energy_bins": [
+          39
+        ],
+        "region_id": "r04",
+        "rule": "BUILD_RAMP",
+        "params": {
+          "beats": 1.0,
+          "start": 39.22,
+          "end": 39.72
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s11",
+      "region_id": "r04",
+      "start": 39.72,
+      "end": 40.22,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "动",
+      "reason_code": "BUILD_RAMP",
+      "reason_zh": "进高潮前加快，这一镜只留 1 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_ramp",
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          79
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0160"
+        ],
+        "phrase_id": "p09",
+        "energy_bins": [
+          40
+        ],
+        "region_id": "r04",
+        "rule": "BUILD_RAMP",
+        "params": {
+          "beats": 1.0,
+          "start": 39.72,
+          "end": 40.22
+        }
+      }
+    },
+    {
+      "slot_id": "r04-s12",
+      "region_id": "r04",
+      "start": 40.22,
+      "end": 40.74,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "动",
+      "reason_code": "PRE_DROP_WHIP",
+      "reason_zh": "最后 1 拍用甩镜冲进高潮。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": "below_min_ramp",
+      "confidence": 0.4,
+      "evidence": {
+        "beat_ids": [
+          80
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0162"
+        ],
+        "phrase_id": "p09",
+        "energy_bins": [
+          40
+        ],
+        "region_id": "r04",
+        "rule": "PRE_DROP_WHIP",
+        "params": {
+          "beats": 1.0,
+          "start": 40.22,
+          "end": 40.74
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s01",
+      "region_id": "r05",
+      "start": 40.74,
+      "end": 41.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "远",
+      "reason_code": "HIT_HOLD",
+      "reason_zh": "重音或乐句起点先停 2 拍，再往下切。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          81,
+          82
+        ],
+        "downbeat_ids": [
+          81
+        ],
+        "onset_ids": [
+          "o0164"
+        ],
+        "phrase_id": "p09",
+        "energy_bins": [
+          41
+        ],
+        "region_id": "r05",
+        "rule": "HIT_HOLD",
+        "params": {
+          "beats": 2.0,
+          "start": 40.74,
+          "end": 41.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s02",
+      "region_id": "r05",
+      "start": 41.72,
+      "end": 42.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          83,
+          84
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0167"
+        ],
+        "phrase_id": "p10",
+        "energy_bins": [
+          42
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 41.72,
+          "end": 42.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s03",
+      "region_id": "r05",
+      "start": 42.72,
+      "end": 43.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "远",
+      "reason_code": "HIT_HOLD",
+      "reason_zh": "重音或乐句起点先停 2 拍，再往下切。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          85,
+          86
+        ],
+        "downbeat_ids": [
+          85
+        ],
+        "onset_ids": [],
+        "phrase_id": "p10",
+        "energy_bins": [
+          43
+        ],
+        "region_id": "r05",
+        "rule": "HIT_HOLD",
+        "params": {
+          "beats": 2.0,
+          "start": 42.72,
+          "end": 43.74
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s04",
+      "region_id": "r05",
+      "start": 43.74,
+      "end": 44.24,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "细",
+      "reason_code": "LONG_SHORT",
+      "reason_zh": "这一刀故意改成 1 拍，避免整段镜头一样长。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          87
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0176"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          44
+        ],
+        "region_id": "r05",
+        "rule": "LONG_SHORT",
+        "params": {
+          "beats": 1.0,
+          "start": 43.74,
+          "end": 44.24
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s05",
+      "region_id": "r05",
+      "start": 44.24,
+      "end": 44.74,
+      "beats": 1,
+      "pace": "fast",
+      "shot_type": "动",
+      "reason_code": "LONG_SHORT",
+      "reason_zh": "这一刀故意改成 1 拍，避免整段镜头一样长。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          88
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0179"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          44
+        ],
+        "region_id": "r05",
+        "rule": "LONG_SHORT",
+        "params": {
+          "beats": 1.0,
+          "start": 44.24,
+          "end": 44.74
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s06",
+      "region_id": "r05",
+      "start": 44.74,
+      "end": 45.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          89,
+          90
+        ],
+        "downbeat_ids": [
+          89
+        ],
+        "onset_ids": [
+          "o0181"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          45
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 44.74,
+          "end": 45.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s07",
+      "region_id": "r05",
+      "start": 45.72,
+      "end": 46.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          91,
+          92
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0184"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          46
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 45.72,
+          "end": 46.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s08",
+      "region_id": "r05",
+      "start": 46.72,
+      "end": 47.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          93,
+          94
+        ],
+        "downbeat_ids": [
+          93
+        ],
+        "onset_ids": [
+          "o0190"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          47
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 46.72,
+          "end": 47.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s09",
+      "region_id": "r05",
+      "start": 47.72,
+      "end": 48.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          95,
+          96
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0195"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          48
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 47.72,
+          "end": 48.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s10",
+      "region_id": "r05",
+      "start": 48.72,
+      "end": 49.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          97,
+          98
+        ],
+        "downbeat_ids": [
+          97
+        ],
+        "onset_ids": [],
+        "phrase_id": "p11",
+        "energy_bins": [
+          49
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 48.72,
+          "end": 49.74
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s11",
+      "region_id": "r05",
+      "start": 49.74,
+      "end": 50.72,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "动",
+      "reason_code": "PEAK_BREATH_2BEAT",
+      "reason_zh": "高潮里留 2 拍喘气，不要连着密剪。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          99,
+          100
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [
+          "o0203"
+        ],
+        "phrase_id": "p11",
+        "energy_bins": [
+          50
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_BREATH_2BEAT",
+        "params": {
+          "beats": 2.0,
+          "start": 49.74,
+          "end": 50.72
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s12",
+      "region_id": "r05",
+      "start": 50.72,
+      "end": 51.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "脸",
+      "reason_code": "PEAK_DECEL",
+      "reason_zh": "高潮最后一小节放慢，这一镜 2 拍。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          101,
+          102
+        ],
+        "downbeat_ids": [
+          101
+        ],
+        "onset_ids": [],
+        "phrase_id": "p11",
+        "energy_bins": [
+          51
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_DECEL",
+        "params": {
+          "beats": 2.0,
+          "start": 50.72,
+          "end": 51.74
+        }
+      }
+    },
+    {
+      "slot_id": "r05-s13",
+      "region_id": "r05",
+      "start": 51.74,
+      "end": 52.74,
+      "beats": 2,
+      "pace": "medium",
+      "shot_type": "空",
+      "reason_code": "PEAK_DECEL",
+      "reason_zh": "高潮最后一小节放慢，这一镜 2 拍。",
+      "accent_at_start": false,
+      "breath_after": true,
+      "budget_exception": null,
+      "confidence": 0.720674,
+      "evidence": {
+        "beat_ids": [
+          103,
+          104
+        ],
+        "downbeat_ids": [],
+        "onset_ids": [],
+        "phrase_id": "p12",
+        "energy_bins": [
+          52
+        ],
+        "region_id": "r05",
+        "rule": "PEAK_DECEL",
+        "params": {
+          "beats": 2.0,
+          "start": 51.74,
+          "end": 52.74
+        }
+      }
+    },
+    {
+      "slot_id": "r06-s01",
+      "region_id": "r06",
+      "start": 52.74,
+      "end": 56.74,
+      "beats": 8,
+      "pace": "hold",
+      "shot_type": "空",
+      "reason_code": "POST_PEAK_BREATH",
+      "reason_zh": "高潮刚过，先停 8 拍换气。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.75,
+      "evidence": {
+        "beat_ids": [
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112
+        ],
+        "downbeat_ids": [
+          105,
+          109
+        ],
+        "onset_ids": [],
+        "phrase_id": "p12",
+        "energy_bins": [
+          53,
+          54,
+          55,
+          56
+        ],
+        "region_id": "r06",
+        "rule": "POST_PEAK_BREATH",
+        "params": {
+          "beats": 8.0,
+          "start": 52.74,
+          "end": 56.74
+        }
+      }
+    },
+    {
+      "slot_id": "r06-s02",
+      "region_id": "r06",
+      "start": 56.74,
+      "end": 59.935,
+      "beats": 4,
+      "pace": "hold",
+      "shot_type": "空",
+      "reason_code": "FINAL_HOLD",
+      "reason_zh": "最后一个镜头停到这段结束，不再切。",
+      "accent_at_start": false,
+      "breath_after": false,
+      "budget_exception": null,
+      "confidence": 0.75,
+      "evidence": {
+        "beat_ids": [
+          113,
+          114,
+          115,
+          116
+        ],
+        "downbeat_ids": [
+          113,
+          116
+        ],
+        "onset_ids": [
+          "o0236"
+        ],
+        "phrase_id": "p13",
+        "energy_bins": [
+          57,
+          58,
+          59
+        ],
+        "region_id": "r06",
+        "rule": "FINAL_HOLD",
+        "params": {
+          "beats": 4.0,
+          "start": 56.74,
+          "end": 59.935
+        }
+      }
+    }
+  ],
+  "phrases": [
+    {
+      "id": "p01",
+      "start": 0.72,
+      "end": 6.74,
+      "bars": 3,
+      "source": "bar_grid_4",
+      "confidence": 0.935
+    },
+    {
+      "id": "p02",
+      "start": 6.74,
+      "end": 8.74,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p03",
+      "start": 8.74,
+      "end": 14.72,
+      "bars": 3,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p04",
+      "start": 14.72,
+      "end": 22.74,
+      "bars": 4,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p05",
+      "start": 22.74,
+      "end": 24.74,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p06",
+      "start": 24.74,
+      "end": 26.72,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p07",
+      "start": 26.72,
+      "end": 30.74,
+      "bars": 2,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p08",
+      "start": 30.74,
+      "end": 32.74,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p09",
+      "start": 32.74,
+      "end": 40.74,
+      "bars": 4,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p10",
+      "start": 40.74,
+      "end": 42.72,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p11",
+      "start": 42.72,
+      "end": 50.72,
+      "bars": 4,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p12",
+      "start": 50.72,
+      "end": 52.74,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p13",
+      "start": 52.74,
+      "end": 58.24,
+      "bars": 3,
+      "source": "energy_step",
+      "confidence": 0.935
+    },
+    {
+      "id": "p14",
+      "start": 58.24,
+      "end": 59.935,
+      "bars": 1,
+      "source": "energy_step",
+      "confidence": 0.935
+    }
+  ],
+  "region_cut_anchors": [
+    {
+      "region_id": "r01",
+      "boundary_s": 0.0,
+      "snapped_s": 0.0,
+      "offset_s": 0.0,
+      "rule": "edge",
+      "boundary_raw_s": null,
+      "explanation_zh": "",
+      "pending": false
+    },
+    {
+      "region_id": "r02",
+      "boundary_s": 2.74,
+      "snapped_s": 2.74,
+      "offset_s": 0.0,
+      "rule": "downbeat",
+      "boundary_raw_s": 3.0,
+      "explanation_zh": "已从 3.00s 吸到 2.74s（强拍）。",
+      "pending": false
+    },
+    {
+      "region_id": "r03",
+      "boundary_s": 8.74,
+      "snapped_s": 8.74,
+      "offset_s": 0.0,
+      "rule": "downbeat",
+      "boundary_raw_s": 8.0,
+      "explanation_zh": "已从 8.00s 吸到 8.74s（强拍）。",
+      "pending": false
+    },
+    {
+      "region_id": "r04",
+      "boundary_s": 24.74,
+      "snapped_s": 24.74,
+      "offset_s": 0.0,
+      "rule": "downbeat",
+      "boundary_raw_s": 25.0,
+      "explanation_zh": "已从 25.00s 吸到 24.74s（强拍）。",
+      "pending": false
+    },
+    {
+      "region_id": "r05",
+      "boundary_s": 40.74,
+      "snapped_s": 40.74,
+      "offset_s": 0.0,
+      "rule": "downbeat",
+      "boundary_raw_s": 40.0,
+      "explanation_zh": "已从 40.00s 吸到 40.74s（强拍）。",
+      "pending": false
+    },
+    {
+      "region_id": "r06",
+      "boundary_s": 52.74,
+      "snapped_s": 52.74,
+      "offset_s": 0.0,
+      "rule": "downbeat",
+      "boundary_raw_s": 51.935,
+      "explanation_zh": "已从 51.94s 吸到 52.74s（强拍）。",
+      "pending": false
+    },
+    {
+      "region_id": "r06",
+      "boundary_s": 59.935,
+      "snapped_s": 59.935,
+      "offset_s": 0.0,
+      "rule": "edge",
+      "boundary_raw_s": null,
+      "explanation_zh": "",
+      "pending": false
+    }
+  ],
+  "breath_marks": [
+    52.74
+  ],
+  "beat_grid": {
+    "period_s": 0.5,
+    "coverage": 0.976062,
+    "gaps": []
+  },
+  "beat_backend": "beat_this",
+  "beat_backend_note": "拍点后端：beat_this。权重在首次运行时下载到本机缓存，之后可以离线使用。",
+  "downbeat_confidence": 0.935484,
+  "downbeat_detector": "beat_this",
+  "schema_version": "0.1.0",
+  "confidence": 0.588963
+}

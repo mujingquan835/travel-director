@@ -8,9 +8,10 @@ evidence.
 
 from __future__ import annotations
 
-from typing import Literal
+import re
+from typing import Literal, get_args
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_serializer, model_validator
 
 from director.schema import (
     BeatEvent,
@@ -54,6 +55,23 @@ DownbeatDetector = Literal[
 ]
 ShotType = Literal["远", "细", "动", "脸", "空", "转", "?"]
 ShotPace = Literal["hold", "medium", "fast"]
+ShotStyle = Literal["narrative", "travel", "event"]
+PatternRole = Literal[
+    "hero",
+    "base",
+    "flurry",
+    "bridge",
+    "hit",
+    "ramp_in",
+    "lift",
+    "breath",
+    "final",
+    "pickup",
+    "placeholder",
+]
+RampKind = Literal["ramp_in", "ramp_out", "slow", "freeze"]
+TransitionKind = Literal["whip", "match", "zoom", "mask", "fade", "cut"]
+CutOn = Literal["downbeat", "beat", "half", "edge", "accent"]
 ReasonCode = Literal[
     "HOOK_BEAT",
     "PHRASE_START",
@@ -75,6 +93,32 @@ ReasonCode = Literal[
     "PHRASE_REGULAR",
 ]
 BudgetException = Literal["below_min_ramp", "below_min_transition"]
+_NARRATIVE_REASONS = frozenset(get_args(ReasonCode))
+_FASTCUT_REASON = re.compile(r"^(TRAVEL|EVENT)_[A-Z0-9_]+$")
+_SLOT_STYLE_FIELDS = frozenset(
+    {
+        "style",
+        "pattern_role",
+        "flurry_group",
+        "ramp",
+        "transition",
+        "flash",
+        "cut_on",
+        "rules_version",
+        "beat_length",
+    }
+)
+_DOCUMENT_STYLE_FIELDS = frozenset({"shot_style", "shot_rules_version"})
+
+
+def _omit_empty_style_fields(data: object, keys: frozenset[str]) -> object:
+    """Drop unset fastcut fields so a narrative dump stays byte-identical."""
+
+    if isinstance(data, dict):
+        for key in keys:
+            if data.get(key) is None:
+                data.pop(key, None)
+    return data
 
 
 def outro_window_seconds(duration: float) -> float:
@@ -139,19 +183,39 @@ class ShotSlot(StrictModel):
     beats: int = Field(ge=0)
     pace: ShotPace
     shot_type: ShotType
-    reason_code: ReasonCode
+    reason_code: str = Field(min_length=1)
     reason_zh: str = Field(min_length=1)
     accent_at_start: bool = False
     breath_after: bool = False
     budget_exception: BudgetException | None = None
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: SlotEvidence
+    style: ShotStyle | None = None
+    pattern_role: PatternRole | None = None
+    flurry_group: str | None = None
+    ramp: RampKind | None = None
+    transition: TransitionKind | None = None
+    flash: bool | None = None
+    cut_on: CutOn | None = None
+    rules_version: str | None = None
+    beat_length: float | None = Field(default=None, ge=0.0)
+
+    @field_validator("reason_code")
+    @classmethod
+    def known_reason(cls, value: str) -> str:
+        if value in _NARRATIVE_REASONS or _FASTCUT_REASON.fullmatch(value):
+            return value
+        raise ValueError(f"unknown reason_code {value}")
 
     @model_validator(mode="after")
     def positive_length(self) -> "ShotSlot":
         if self.end <= self.start:
             raise ValueError(f"slot {self.slot_id} must have end > start")
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        return _omit_empty_style_fields(handler(self), _SLOT_STYLE_FIELDS)
 
 
 class RegionCutAnchor(StrictModel):
@@ -193,6 +257,12 @@ class MusicEditRegions(StrictModel):
     region_cut_anchors: list[RegionCutAnchor] = Field(default_factory=list)
     shot_slots: list[ShotSlot] = Field(default_factory=list)
     breath_marks: list[float] = Field(default_factory=list)
+    shot_style: ShotStyle | None = None
+    shot_rules_version: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        return _omit_empty_style_fields(handler(self), _DOCUMENT_STYLE_FIELDS)
 
     @model_validator(mode="after")
     def region_invariants(self) -> "MusicEditRegions":
@@ -327,6 +397,10 @@ def slot_reference_violations(document: MusicEditRegions) -> list[str]:
             }
             if not accents.intersection(evidence.beat_ids):
                 problems.append(f"slot {slot.slot_id} HIT_HOLD is not on an accent beat")
-        if slot.shot_type == "?" and slot.reason_code != "ROLE_UNKNOWN_BAR_GRID":
+        if (
+            slot.shot_type == "?"
+            and slot.reason_code != "ROLE_UNKNOWN_BAR_GRID"
+            and slot.pattern_role != "placeholder"
+        ):
             problems.append(f"slot {slot.slot_id} pending type needs ROLE_UNKNOWN_BAR_GRID")
     return problems

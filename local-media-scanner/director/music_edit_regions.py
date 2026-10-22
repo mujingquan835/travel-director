@@ -15,7 +15,7 @@ Confirmed edit-region versions are a different store. See
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from pydantic import Field
@@ -61,6 +61,7 @@ class EditRegionConfig(StrictModel):
     narrative_onset_percentile: float = Field(default=50.0, gt=0.0, lt=100.0)
     entry_lookback_seconds: float = Field(default=4.0, gt=0.0)
     onset_rate_tolerance: float = Field(default=0.05, ge=0.0, lt=1.0)
+    shot_style: Literal["narrative", "travel", "event"] | None = None
 
 
 # Contract §7 defaults: (mean, min, max, motion, content_need, proxy).
@@ -462,7 +463,11 @@ def analyze_music_edit_regions(
     if document.beats:
         from director.shot_slots import plan_shot_slots
 
-        document = plan_shot_slots(document)
+        if config.shot_style:
+            document = document.model_copy(update={"shot_style": config.shot_style})
+            document = plan_shot_slots(document, style=config.shot_style)
+        else:
+            document = plan_shot_slots(document)
     return document
 
 

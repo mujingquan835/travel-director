@@ -37,7 +37,9 @@ New analysis assigns roles on the raw section bounds, then snaps the stored `sta
 
 An older draft or confirmed version is not rewritten on open. The desk recomputes suggestions for display only. Each pending boundary gets a Chinese chip (建议 …s，偏移 …s) whose title states the distance and the half-bar threshold. **采纳** moves that region's start and the previous region's end. **全部采纳** moves every pending downbeat or beat suggestion and skips `beyond_bar`. Adopting on a confirmed or history version writes a new draft and leaves the confirmed file untouched. If a draft is already open, the buttons stay disabled and the API returns 409 「已经有打开的草稿。先确认或丢弃它，再基于确认版另开。」 Adopting an open draft updates that draft. `POST /api/regions-draft` is still role-only.
 
-Changing a region's role on a draft recomputes that document's shot slots when beat events are already stored. Times stay put.
+Changing a region's role on a draft recomputes that document's shot slots when beat events are already stored. Times stay put. The recompute keeps the draft's shot style.
+
+Above the shot track, a draft can switch 剪法: 叙事, 旅拍快剪, or 活动快剪. A new `analyze-music-edit-regions` run defaults to 旅拍快剪 (`--shot-style travel`). The narrative planner is unchanged: choosing 叙事 writes the same slot JSON as before this switch existed. 旅拍快剪 and 活动快剪 are deterministic rules (`fastcut-0.3` on the draft). They do not call a model and they do not move region boundaries. 活动快剪 keeps the establish section less dense than the build. Flash, ramp, and transition marks are suggestions for the editor. The detail lane legend reads 闪 闪白, 慢 变速, 甩 转场, and a black bar for a flurry group. `POST /api/regions-draft/shot-style` saves the style on the open draft and re-renders the shot track, 本段怎么剪, the current-shot line, and the detail lane. A confirmed version stays read-only and keeps the style it was locked with. Switching from a confirmed version forks a draft; if a draft is already open the call returns 409. `shot-track stats <desk.json>` prints per-region cuts and the build→drop line.
 
 ## Beat backend and weights
 

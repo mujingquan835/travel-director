@@ -15,6 +15,9 @@ existing region id, plus ``expected_revision``. A role change sets
 ``evidence_basis`` to ``manual``. ``edited_at`` stays on the draft document
 (``RegionsVersionDocument``), not on the analyzer region schema. Times, adds,
 and deletes are refused. A confirmed version is read-only. ``POST
+/api/regions-draft/shot-style`` replans the shot track for narrative, travel,
+or event. An open draft is updated in place. A confirmed version is not
+rewritten: the same call forks a draft, unless one is already open. ``POST
 /api/regions-draft/confirm`` locks the open draft. ``POST
 /api/regions-draft/from-confirmed`` copies a locked snapshot into a new draft.
 Exceptions while rendering a page or API become a Chinese error body. This
@@ -791,6 +794,8 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
         from director.shot_slots import plan_shot_slots
 
         display = plan_shot_slots(stored)
+    from director.shot_slots import drop_contrast_zh
+
     return {
         "revision": document.regions_sha256,
         "version_id": document.version_id,
@@ -814,6 +819,9 @@ def _desk_view(paths: ProjectPaths, document) -> dict:
         "downbeats_seconds": list(display.downbeats_seconds),
         "downbeat_cluster_times": list(display.downbeat_cluster_times),
         "provider": display.provider,
+        "shot_style": display.shot_style or "narrative",
+        "shot_rules_version": display.shot_rules_version,
+        "drop_contrast_zh": drop_contrast_zh(display),
         "shot_slots": [slot.model_dump(mode="json") for slot in display.shot_slots],
         "phrases": [phrase.model_dump(mode="json") for phrase in display.phrases],
         "region_cut_anchors": [
@@ -1147,6 +1155,75 @@ def _adopt_boundaries_unlocked(project: Path, body: bytes) -> ServeResponse:
         saved = save_regions_draft(paths, updated)
     except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
         return _error(400, _validation_message(exc), "POST /api/regions-draft/adopt-boundaries")
+    return _json_response(200, _desk_view(paths, saved))
+
+
+def _shot_style_request(project: Path, body: bytes) -> ServeResponse:
+    with _DRAFT_LOCK:
+        return _shot_style_unlocked(project, body)
+
+
+def _shot_style_unlocked(project: Path, body: bytes) -> ServeResponse:
+    """Replan the shot track. Confirmed bytes stay untouched."""
+
+    paths, error = _open(project)
+    if error is not None or paths is None:
+        assert error is not None
+        return error
+    try:
+        payload = _json_body(body)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return _error(400, f"invalid shot-style request: {exc}", "POST /api/regions-draft/shot-style")
+    if _client_write_path(payload):
+        return _error(
+            400,
+            "refusing to write a client path; drafts stay inside the project root",
+            "POST /api/regions-draft/shot-style",
+        )
+    extra = set(payload) - {"expected_revision", "version_id", "style"}
+    if extra:
+        return _error(400, "只能提交剪法。", "POST /api/regions-draft/shot-style")
+    style = payload.get("style")
+    if style not in {"narrative", "travel", "event"}:
+        return _error(400, "剪法只能是叙事、旅拍快剪或活动快剪。", "POST /api/regions-draft/shot-style")
+    version_id = payload.get("version_id")
+    if not isinstance(version_id, str) or not version_id.strip():
+        return _error(400, "要写明基于哪一版分段更换剪法。", "POST /api/regions-draft/shot-style")
+    version_id = version_id.strip()
+    try:
+        document = load_regions_version(paths, version_id)
+    except RegionsVersionError:
+        return _error(404, f"没有这个分段版本：{version_id}", _regions_hint(paths.root))
+    if payload.get("expected_revision") != document.regions_sha256:
+        return _error(409, _STALE_REVISION, "GET /api/music-desk")
+    if not document.regions.beats or not document.regions.bpm:
+        return _error(400, "还没有节拍，不能换剪法。", "POST /api/regions-draft/shot-style")
+    current = document.regions.shot_style or "narrative"
+    if current == style:
+        return _json_response(200, _desk_view(paths, document))
+    from director.shot_slots import plan_shot_slots
+
+    try:
+        updated = plan_shot_slots(
+            document.regions.model_copy(update={"shot_style": style, "shot_rules_version": None}),
+            style=style,
+        )
+    except (ValidationError, ValueError) as exc:
+        return _error(400, _validation_message(exc), "POST /api/regions-draft/shot-style")
+    if document.status == "draft":
+        try:
+            saved = save_regions_draft(paths, updated)
+        except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
+            return _error(400, _validation_message(exc), "POST /api/regions-draft/shot-style")
+        return _json_response(200, _desk_view(paths, saved))
+    if document.status not in {"confirmed", "history"}:
+        return _error(409, "只能在草稿里改，或基于已确认的版本另开草稿。", "GET /music")
+    if load_regions_draft(paths) is not None:
+        return _error(409, _DRAFT_OPEN, "GET /music")
+    try:
+        saved = save_regions_draft(paths, updated)
+    except (ValidationError, ValueError, RegionsVersionError, ProjectConflict) as exc:
+        return _error(400, _validation_message(exc), "POST /api/regions-draft/shot-style")
     return _json_response(200, _desk_view(paths, saved))
 
 
@@ -1551,6 +1628,8 @@ def _dispatch_confirm_request(
         return _discard_draft_request(project, body)
     if method == "POST" and path == "/api/regions-draft/adopt-boundaries":
         return _adopt_boundaries_request(project, body)
+    if method == "POST" and path == "/api/regions-draft/shot-style":
+        return _shot_style_request(project, body)
     if method not in {"GET", "HEAD"}:
         return _error(405, "method is not allowed", "GET /api/status")
     if path == "/":

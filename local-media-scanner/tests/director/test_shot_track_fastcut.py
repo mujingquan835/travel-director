@@ -886,13 +886,14 @@ def _fcpx_seconds(value: str) -> float:
 
 def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -> None:
     import xml.etree.ElementTree as ET
+    from urllib.parse import unquote, urlparse
 
     from director.confirm_serve import render_music_page
     from director.music_edit_regions_versions import (
         RegionsConfirmGateError,
         export_fcpxml_for_confirmed_regions,
     )
-    from director.regions_fcpxml import EXPORT_FPS
+    from director.regions_fcpxml import EXPORT_FPS, frame_index
     import director.shot_slots as shot_slots
 
     draft_only = _project(tmp_path / "draft")
@@ -913,25 +914,44 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
     assert "导出按已确认的分区边界" not in page
     assert "还没在这台机器上验证" in page
     assert "30fps" in page
+    assert "正在生成占位" in page
+    assert "顶部角标" in page
 
     result = export_fcpxml_for_confirmed_regions(paths, listing.version_id, tmp_path / "package")
     root = ET.parse(result.fcpxml_path).getroot()
     assert root.tag == "fcpxml"
-    gaps = [node for node in root.findall(".//gap") if node.attrib.get("name") != "空隙"]
+    assert root.findall(".//gap") == []
     stored = load_regions_version(paths, listing.version_id).regions
-    assert len(gaps) == len(stored.shot_slots)
+    spine = root.find(".//spine")
+    assert spine is not None
+    clips = [node for node in list(spine) if node.tag == "asset-clip"]
+    assert len(clips) == len(stored.shot_slots)
+    fmt = root.find(".//format")
+    assert fmt is not None
+    assert fmt.attrib["width"] == "1080"
+    assert fmt.attrib["height"] == "1920"
     half = 0.5 / EXPORT_FPS
-    for gap, slot in zip(gaps, stored.shot_slots):
-        start = _fcpx_seconds(gap.attrib["offset"])
-        end = start + _fcpx_seconds(gap.attrib["duration"])
+    cursor = None
+    for clip, slot in zip(clips, stored.shot_slots):
+        start = _fcpx_seconds(clip.attrib["offset"])
+        duration = _fcpx_seconds(clip.attrib["duration"])
+        if cursor is None:
+            cursor = start
+        assert abs(start - cursor) < 1e-6
+        cursor += duration
         assert abs(start - slot.start) <= half + 1e-9
-        assert abs(end - slot.end) <= half + 1e-9
-        assert slot.slot_id in gap.attrib["name"]
-        if slot.content_hint:
-            assert slot.content_hint[:24] in gap.attrib["name"]
-    music = root.find(".//asset-clip")
-    assert music is not None and music.attrib["audioRole"] == "music"
-    assert (result.fcpxml_path.parent / "asset").is_dir()
+        assert abs(start + duration - slot.end) <= half + 1e-9
+        assert slot.slot_id in clip.attrib["name"]
+        assert clip.attrib.get("lane") is None
+        expected = frame_index(slot.end) - frame_index(slot.start)
+        assert _video_frames(_src_path(clip, root)) == max(1, expected)
+    assert all(node.attrib.get("lane") != "1" for node in root.findall(".//asset-clip"))
+    music = clips[0].find("asset-clip")
+    assert music is not None and music.attrib["lane"] == "-1" and music.attrib["audioRole"] == "music"
+    assert abs(_fcpx_seconds(music.attrib["duration"]) - stored.duration_seconds) <= 1 / EXPORT_FPS
+    assert all(node.find("asset-clip") is None for node in clips[1:])
+    for asset in root.findall(".//asset"):
+        assert Path(unquote(urlparse(asset.attrib["src"]).path)).is_file()
     marker_values = [node.attrib["value"] for node in root.findall(".//marker")]
     for region in stored.regions:
         assert any(region.region_id in value and value.startswith("分区") for value in marker_values)
@@ -941,6 +961,7 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
     assert "00:" in sheet
     assert "还没在这台机器上验证" in sheet
     assert "30fps" in sheet
+    assert "顶部角标" in sheet
     assert _confirmed_bytes(paths, listing.version_id) == before
 
     def explode(regions, style=None):
@@ -948,10 +969,12 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
 
     monkeypatch.setattr(shot_slots, "plan_shot_slots", explode)
     monkeypatch.setitem(shot_slots_cycles(), "establish", ["脸"])
-    again = export_fcpxml_for_confirmed_regions(paths, listing.version_id, tmp_path / "package-again")
+    again = export_fcpxml_for_confirmed_regions(paths, listing.version_id, tmp_path / "package")
     again_root = ET.parse(again.fcpxml_path).getroot()
-    again_gaps = [node for node in again_root.findall(".//gap") if node.attrib.get("name") != "空隙"]
-    assert [node.attrib["name"] for node in again_gaps] == [node.attrib["name"] for node in gaps]
+    again_spine = again_root.find(".//spine")
+    assert again_spine is not None
+    again_clips = [node for node in list(again_spine) if node.tag == "asset-clip"]
+    assert [node.attrib["name"] for node in again_clips] == [node.attrib["name"] for node in clips]
     assert _confirmed_bytes(paths, listing.version_id) == before
 
     server = start_confirm_desk(paths.root, host="127.0.0.1", port=0)
@@ -962,7 +985,9 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
         assert "草稿" in body["error"]
         code, body = _post_json(port, "/api/regions-export", {"version_id": listing.version_id, "path": "/tmp/nope"})
         assert code == 400
-        code, body = _post_json(port, "/api/regions-export", {"version_id": listing.version_id})
+        code, body = _post_json(
+            port, "/api/regions-export", {"version_id": listing.version_id}, timeout=120
+        )
         assert code == 200, body
         assert body["frame_rate"] == 30
         assert "还没在这台机器上验证" in body["notice"]
@@ -972,6 +997,46 @@ def test_export_fcpxml_uses_the_confirmed_snapshot_only(tmp_path, monkeypatch) -
     finally:
         server.shutdown()
         server.server_close()
+
+
+def _src_path(clip, root):
+    from urllib.parse import unquote, urlparse
+
+    asset = root.find(f".//asset[@id='{clip.attrib['ref']}']")
+    assert asset is not None
+    return Path(unquote(urlparse(asset.attrib["src"]).path))
+
+
+def _video_frames(path: Path) -> int:
+    payload = subprocess.check_output(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-count_frames",
+            "-show_entries",
+            "stream=nb_read_frames",
+            "-of",
+            "csv=p=0",
+            str(path),
+        ],
+        text=True,
+    )
+    return int(payload.strip())
+
+
+def test_placeholder_tools_missing_are_chinese(monkeypatch) -> None:
+    import director.regions_fcpxml as exporter
+
+    monkeypatch.setattr(exporter.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(exporter, "_HOMEBREW_FFMPEG", Path("/no/such/ffmpeg"))
+    with pytest.raises(ValueError, match="找不到 ffmpeg"):
+        exporter.ffmpeg_executable()
+    monkeypatch.setattr(exporter, "_FONT_CANDIDATES", (Path("/no/such/font.ttc"),))
+    with pytest.raises(ValueError, match="找不到中文字体"):
+        exporter.cjk_font_path()
 
 
 def shot_slots_cycles():

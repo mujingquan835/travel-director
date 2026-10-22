@@ -11,8 +11,10 @@ refuse bodies larger than 64KB.
 ``/`` explains the desk in Chinese and shows four steps. ``/music`` is the
 timeline desk for the open draft (created from analyzer candidates only when
 nothing is confirmed yet) and can lock it. ``/export`` points at the music-page
-button. That button writes a 30 fps FCPXML package from a confirmed snapshot.
-Jianying support for markers, gap names, and gaps is unverified.
+button. That button writes a 30 fps FCPXML package of real portrait
+placeholders from a confirmed snapshot. Jianying has not opened this
+portrait file on this machine. The 2026-09-09 check only covered video
+and audio clips.
 
 ``POST /api/regions-draft`` accepts only an ``edit_role`` change for each
 existing region id, plus ``expected_revision``. A role change sets
@@ -132,7 +134,7 @@ _PROGRESS_STEPS = (
     {
         "id": "export",
         "title": "已导出剪映工程",
-        "meaning": "已确认快照已经写成 FCPXML 和剪辑单。剪映能否导入 marker、占位名和 gap 还没验证。",
+        "meaning": "已确认快照已经写成占位视频、FCPXML 和剪辑单。这份竖屏占位还没在这台机器上用剪映打开过。",
         "instruction": "在音乐页确认之后，点导出剪辑。",
     },
 )
@@ -362,8 +364,8 @@ _EXPORT_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <main>
-    <p>导出在音乐页。确认分区之后，点「导出剪辑」。只导出已确认快照，按 30fps 写成 FCPXML 和剪辑单。</p>
-    <p>剪映能否导入 marker、占位名和 gap 还没在这台机器上验证。已知 macOS 剪映 11.4.0（2026-09-09）能导入 FCPXML 的视频和音频片段。不要把这份导出当成已经兼容剪映。</p>
+    <p>导出在音乐页。确认分区之后，点「导出剪辑」。只导出已确认快照，按 30fps 生成竖屏占位视频，接成 FCPXML，并写一份剪辑单。分区名烧在占位角标上。</p>
+    <p>主轨是真实占位视频，音乐挂在第一段下面。竖屏占位和烧录的字还没在这台机器上验证。不要把这份导出当成已经兼容剪映。</p>
     <p><a href="/music">去音乐页</a> · <a href="/">返回项目</a></p>
   </main>
 </body>

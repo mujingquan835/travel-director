@@ -24,6 +24,6 @@ Listing fields are `status` (`draft` / `confirmed` / `history`), `source_music_s
 
 `stage_regions_reanalysis` replaces an open draft, or opens a new draft when the latest snapshot is confirmed. It does not rewrite `confirmed/`. After this directory exists, `build_project_music_edit_regions` applies that rule once it has refreshed `music_edit_regions.json`.
 
-`require_confirmed_regions_version(project, version_id)` is the export gate. A missing id, `latest`, or a draft is refused — never a silent fallback. `export_fcpxml_for_confirmed_regions` is the Slice 1 hook only; it does not build an FCPXML decision or write `project.fcpxml`.
+`require_confirmed_regions_version(project, version_id)` is the export gate. A missing id, `latest`, or a draft is refused — never a silent fallback. `export_fcpxml_for_confirmed_regions` writes `project.fcpxml` from that confirmed snapshot (real placeholder videos, not an `FcpxmlEditDecision`). See `docs/confirm-serve.md`.
 
 Receipt actions: `draft_save`, `confirm` (force-confirm sets `override` and a non-empty `reason`), `rerun`, `export`. Re-run and export writers record the receipt. They are not a job machine or an export UI.

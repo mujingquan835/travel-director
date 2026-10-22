@@ -2429,16 +2429,26 @@ if (discardButton) {{
 var exportButton = document.getElementById("export-fcpxml");
 if (exportButton) {{
   exportButton.addEventListener("click", function () {{
-    if (!state || !state.read_only) return;
+    if (!state || !state.read_only || exportButton.disabled) return;
+    var exportLabel = exportButton.textContent;
+    exportButton.disabled = true;
+    exportButton.textContent = "正在生成占位…";
+    showError("正在生成占位视频，请稍等。");
     fetch("/api/regions-export", {{
       method: "POST",
       headers: {{"Content-Type": "application/json"}},
       body: JSON.stringify({{version_id: state.version_id}})
     }}).then(function (response) {{
       return response.json().then(function (data) {{
+        exportButton.disabled = false;
+        exportButton.textContent = exportLabel;
         if (!response.ok) {{ showError(data.error || "导出失败"); return; }}
         showError("已写出 " + (data.fcpxml || "") + " 。" + (data.notice || ""));
       }});
+    }}).catch(function () {{
+      exportButton.disabled = false;
+      exportButton.textContent = exportLabel;
+      showError("导出失败");
     }});
   }});
 }}

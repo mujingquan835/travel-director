@@ -48,9 +48,9 @@ def _json(port: int, path: str) -> tuple[int, dict]:
     return status, json.loads(body.decode("utf-8"))
 
 
-def _post_json(port: int, path: str, payload: dict) -> tuple[int, dict]:
+def _post_json(port: int, path: str, payload: dict, timeout: float = 5) -> tuple[int, dict]:
     body = json.dumps(payload).encode("utf-8")
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     try:
         connection.request(
             "POST",

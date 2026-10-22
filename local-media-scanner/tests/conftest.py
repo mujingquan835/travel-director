@@ -6,6 +6,21 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _beat_this_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep beat analysis on librosa, as on CI.
+
+    A machine with the ``beat`` extra and a cached checkpoint would otherwise
+    switch ``auto`` to beat_this and change the expected beats. A test that
+    needs beat_this can patch ``beat_this_module`` again.
+    """
+
+    def _missing():
+        raise ImportError("beat_this is disabled in tests")
+
+    monkeypatch.setattr("director.beat_grid.beat_this_module", _missing)
+
+
 @pytest.fixture()
 def sample_video(tmp_path: Path) -> Path:
     output = tmp_path / "fixture.mp4"

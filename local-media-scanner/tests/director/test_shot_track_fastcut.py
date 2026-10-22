@@ -8,11 +8,13 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from director.cli import analyze_music_edit_regions_command
 from director.confirm_serve import start_confirm_desk
+from director.music_edit_regions_schema import GuideTransition, MotionKind, ShotSize, SoundCue, StoryBeat
 from director.music_timeline import _shot_box_style, render_timeline_page
 from director.music_edit_regions_versions import (
     confirm_regions_draft,
@@ -20,10 +22,12 @@ from director.music_edit_regions_versions import (
     save_regions_draft,
 )
 from director.shot_slots import DEFAULT_SHOT_STYLE, plan_shot_slots
+from director.shot_track.creator_guidance import creator_guidance, timing_hash, validate_guidance
 from director.shot_track.fastcut import (
     RULES_VERSION,
     EPS,
     MIN_SLOT_S,
+    SHOT_CYCLES,
     FastCutConfig,
     build_grid,
     drop_contrast,
@@ -563,3 +567,182 @@ if (tiny !== "left:0.000%;width:calc(0.083% + 1px)") throw new Error(tiny);
     assert report["detail"]["n"] >= 2
     assert report["detail"]["bad"] == []
     assert report["detail"]["chrome"] == []
+
+
+_GUIDE_KEYS = {
+    "shot_size",
+    "motion",
+    "transition_in",
+    "transition_out",
+    "sound_cue",
+    "sound_cues",
+    "story_beat",
+    "content_hint",
+}
+_SHOT_SIZES = set(get_args(ShotSize))
+_MOTIONS = set(get_args(MotionKind))
+_GUIDE_TRANSITIONS = set(get_args(GuideTransition))
+_SOUNDS = set(get_args(SoundCue))
+_STORIES = set(get_args(StoryBeat))
+_PAIRED = {"whip", "match", "zoom"}
+
+
+def _time_rows(document):
+    return [(slot.slot_id, slot.start, slot.end) for slot in document.shot_slots]
+
+
+def _without_guidance(payload: dict) -> dict:
+    return {key: value for key, value in payload.items() if key not in _GUIDE_KEYS}
+
+
+def test_guidance_keeps_times_and_narrative_fields(monkeypatch) -> None:
+    import director.shot_slots as slots_mod
+
+    song = _covered_song()
+    monkeypatch.setattr(slots_mod, "attach_guidance", lambda document: document)
+    before = {style: plan_shot_slots(song, style=style) for style in ("narrative", "travel", "event")}
+    monkeypatch.undo()
+    for style, earlier in before.items():
+        later = plan_shot_slots(song, style=style)
+        assert hashlib.sha256(json.dumps(_time_rows(earlier)).encode()).hexdigest() == hashlib.sha256(
+            json.dumps(_time_rows(later)).encode()
+        ).hexdigest()
+        assert _time_rows(earlier) == _time_rows(later)
+        for left, right in zip(earlier.shot_slots, later.shot_slots, strict=True):
+            assert left.model_dump(mode="json") == _without_guidance(right.model_dump(mode="json"))
+            assert (left.start, left.end, left.beats, left.shot_type, left.transition, left.reason_code) == (
+                right.start,
+                right.end,
+                right.beats,
+                right.shot_type,
+                right.transition,
+                right.reason_code,
+            )
+            assert right.story_beat in _STORIES
+            assert right.content_hint
+            if right.shot_type == "?":
+                assert right.story_beat == "待定"
+                assert right.shot_size is None
+            else:
+                assert right.shot_size in _SHOT_SIZES
+                assert right.motion in _MOTIONS
+            if right.transition_in is not None:
+                assert right.transition_in in _GUIDE_TRANSITIONS
+            if right.transition_out is not None:
+                assert right.transition_out in _GUIDE_TRANSITIONS
+            if right.sound_cue is not None:
+                assert right.sound_cue in _SOUNDS
+                assert right.sound_cue in right.sound_cues
+            for cue in right.sound_cues:
+                assert cue in _SOUNDS
+        slots = later.shot_slots
+        for left, right in zip(slots, slots[1:]):
+            if left.transition_out in _PAIRED or right.transition_in in _PAIRED:
+                assert left.transition_out == right.transition_in
+            if right.transition_in == "mask_optional":
+                assert left.transition_out in (None, "cut")
+            if left.transition_out == "end":
+                assert right.transition_in in (None, "cut")
+
+
+def test_travel_establish_rotation_changes_type_order_only() -> None:
+    assert SHOT_CYCLES["travel"]["base"]["establish"] == ["动", "细", "脸"]
+    assert SHOT_CYCLES["event"]["base"]["establish"] == ["动", "脸", "细"]
+    current = _slots("travel")
+    saved = list(SHOT_CYCLES["travel"]["base"]["establish"])
+    SHOT_CYCLES["travel"]["base"]["establish"] = ["细", "脸", "动"]
+    try:
+        previous = generate(DESK, "travel")[0]
+    finally:
+        SHOT_CYCLES["travel"]["base"]["establish"] = saved
+    assert [(row["start"], row["end"], row["beats"], row["pattern_role"], row["cut_on"]) for row in current] == [
+        (row["start"], row["end"], row["beats"], row["pattern_role"], row["cut_on"]) for row in previous
+    ]
+    now = [row["shot_type"] for row in current if row["region_role"] == "establish" and row["pattern_role"] == "base"]
+    old = [row["shot_type"] for row in previous if row["region_role"] == "establish" and row["pattern_role"] == "base"]
+    assert now and now != old
+    assert now[0] == "动"
+
+
+def test_creator_rules_keep_the_user_track_times() -> None:
+    for style in ("travel", "event"):
+        raw = _slots(style)
+        guided = creator_guidance(raw, DESK, style)
+        assert timing_hash(raw) == timing_hash(guided)
+        assert validate_guidance(guided) == []
+        for left, right in zip(raw, guided, strict=True):
+            assert (left["start"], left["end"], left["shot_type"], left["transition"]) == (
+                right["start"],
+                right["end"],
+                right["shot_type"],
+                right["transition"],
+            )
+            assert right["story_beat"] in _STORIES
+            assert right["content_hint"]
+            if right["shot_type"] != "?":
+                assert right["shot_size"] in _SHOT_SIZES
+                assert right["motion"] in _MOTIONS
+    travel = creator_guidance(_slots("travel"), DESK, "travel")
+    whips = [(left, right) for left, right in zip(travel, travel[1:]) if right["transition_in"] == "whip"]
+    assert whips
+    for left, right in whips:
+        assert left["transition_out"] == "whip"
+        assert "嗖声" in right["sound_cues"]
+    hit = next(row for row in travel if row["pattern_role"] == "hit")
+    assert hit["_reserve_best"] is True
+    assert hit["story_beat"] == "高潮"
+    assert {"重击", "嗖声"} <= set(hit["sound_cues"])
+    lift = next(row for row in travel if row["pattern_role"] == "lift")
+    assert "上升音" in lift["sound_cues"]
+    hold = next(row for row in travel[travel.index(hit) + 1 :] if row["pattern_role"] == "hero")
+    assert hold["story_beat"] == "高潮"
+    assert hold["shot_size"] == "全"
+    establish = [row for row in travel if row["region_role"] == "establish"]
+    assert establish[0]["shot_size"] == "全" and establish[0]["_title"] is True
+    assert establish[1]["shot_size"] == "中"
+    assert sum(1 for row in travel if row["_title"]) == 1
+    direction = None
+    for row in travel:
+        motion = row["motion"]
+        if motion in ("→", "←"):
+            assert direction in (None, motion)
+            direction = motion
+        if row["pattern_role"] in ("hero", "breath", "final") and float(row["beats"]) >= 2:
+            direction = None
+
+
+def test_guide_toggle_is_collapsed_by_default() -> None:
+    document = plan_shot_slots(_covered_song(), style="travel")
+    view = document.model_dump(mode="json")
+    view.update(
+        {
+            "status": "draft",
+            "read_only": False,
+            "has_draft": False,
+            "acceptance": {"ok": True, "unknown_region_ids": []},
+            "versions": [],
+            "version_id": "regions-v01",
+            "warnings": [],
+            "region_cut_anchors": [],
+        }
+    )
+    page = render_timeline_page(
+        project_title="示例数据",
+        project_id="sample",
+        project_path="/tmp/sample",
+        track_label="示例",
+        view=view,
+        message="",
+        selected=None,
+        playhead="0",
+        kind_labels={"hook": "钩子", "establish": "铺陈", "build": "推进", "peak_cut": "高潮", "settle_outro": "收束"},
+        snap_labels={"downbeat": "强拍"},
+        warning_labels={},
+    )
+    assert re.search(r'<input type="checkbox" id="guide-toggle">', page)
+    assert 'id="guide-toggle" checked' not in page
+    assert 'id="guide-rows" hidden' in page
+    for row_id in ("guide-size", "guide-transition", "guide-sound", "guide-story"):
+        assert f'id="{row_id}"' in page
+    hint = next(slot.content_hint for slot in document.shot_slots if slot.content_hint)
+    assert hint in page

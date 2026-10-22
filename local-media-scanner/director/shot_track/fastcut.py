@@ -136,7 +136,7 @@ STYLES = {
 SHOT_CYCLES = {
     "travel": {
         "flurry": ["细", "动", "脸", "细", "动"],
-        "base": {"establish": ["细", "脸", "动"], "build": ["动", "细", "脸"],
+        "base": {"establish": ["动", "细", "脸"], "build": ["动", "细", "脸"],
                  "peak_cut": ["动", "脸", "细"], "settle_outro": ["脸", "细"], "hook": ["细", "动"]},
         "hero": {"establish": "远", "build": "远", "peak_cut": "远", "settle_outro": "远", "hook": "远"},
         "hit": "远", "bridge": "动", "ramp_in": "转", "breath": "空", "final": "空", "pickup": "动", "lift": "动",

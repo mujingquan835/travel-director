@@ -71,6 +71,20 @@ PatternRole = Literal[
 ]
 RampKind = Literal["ramp_in", "ramp_out", "slow", "freeze"]
 TransitionKind = Literal["whip", "match", "zoom", "mask", "fade", "cut"]
+GuideTransition = Literal["whip", "match", "zoom", "mask", "mask_optional", "fade", "cut", "end"]
+ShotSize = Literal["远", "全", "中", "近", "特写", "细节"]
+StoryBeat = Literal["钩子", "到达", "探索", "高潮", "回味", "收尾", "待定"]
+MotionKind = Literal["→", "←", "hold", "any"]
+SoundCue = Literal[
+    "嗖声",
+    "上升音",
+    "重击",
+    "只留音乐",
+    "环境声提前",
+    "环境声延续",
+    "现场声抬起",
+    "跟音乐收",
+]
 CutOn = Literal["downbeat", "beat", "half", "edge", "accent"]
 ReasonCode = Literal[
     "HOOK_BEAT",
@@ -108,6 +122,17 @@ _SLOT_STYLE_FIELDS = frozenset(
         "beat_length",
     }
 )
+_SLOT_GUIDE_FIELDS = frozenset(
+    {
+        "shot_size",
+        "motion",
+        "transition_in",
+        "transition_out",
+        "sound_cue",
+        "story_beat",
+        "content_hint",
+    }
+)
 _DOCUMENT_STYLE_FIELDS = frozenset({"shot_style", "shot_rules_version"})
 
 
@@ -118,6 +143,8 @@ def _omit_empty_style_fields(data: object, keys: frozenset[str]) -> object:
         for key in keys:
             if data.get(key) is None:
                 data.pop(key, None)
+        if data.get("sound_cues") == []:
+            data.pop("sound_cues", None)
     return data
 
 
@@ -199,6 +226,14 @@ class ShotSlot(StrictModel):
     cut_on: CutOn | None = None
     rules_version: str | None = None
     beat_length: float | None = Field(default=None, ge=0.0)
+    shot_size: ShotSize | None = None
+    motion: MotionKind | None = None
+    transition_in: GuideTransition | None = None
+    transition_out: GuideTransition | None = None
+    sound_cue: SoundCue | None = None
+    sound_cues: list[SoundCue] = Field(default_factory=list)
+    story_beat: StoryBeat | None = None
+    content_hint: str | None = None
 
     @field_validator("reason_code")
     @classmethod
@@ -215,7 +250,7 @@ class ShotSlot(StrictModel):
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler):
-        return _omit_empty_style_fields(handler(self), _SLOT_STYLE_FIELDS)
+        return _omit_empty_style_fields(handler(self), _SLOT_STYLE_FIELDS | _SLOT_GUIDE_FIELDS)
 
 
 class RegionCutAnchor(StrictModel):

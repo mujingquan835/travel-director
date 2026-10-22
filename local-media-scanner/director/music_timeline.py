@@ -188,6 +188,16 @@ body.has-slots .insp{margin-top:8px}
 .zshot .mark{font-size:12px;top:2px;bottom:auto}
 .stylelane{display:flex;align-items:center;gap:12px;height:34px;font-size:12px}
 #shot-style{height:26px;border:1px solid #d6d3c9;border-radius:5px;background:#fffefb;padding:0 6px}
+#guide-toggle{margin:0 4px 0 0;vertical-align:-2px}
+#guide-rows[hidden]{display:none !important}
+.r-guide .lane{height:20px;overflow:hidden}
+.r-guide .rh{padding:1px 10px}
+.gcell{position:absolute;top:1px;bottom:1px;margin:0;padding:0 0 0 2px;border:0;border-radius:0;min-width:1px;overflow:hidden;z-index:1;font-size:10px;line-height:18px;white-space:nowrap;cursor:pointer}
+.gcell.hair{box-shadow:inset 1px 0 0 rgba(28,28,28,.72)}
+.gcell.on{box-shadow:inset 0 0 0 2px #2e3336;z-index:3}
+.gcell.on.hair{box-shadow:inset 1px 0 0 rgba(28,28,28,.72), inset 0 0 0 2px #2e3336}
+.guide-run{position:absolute;top:1px;bottom:1px;margin:0;padding:0;border:0;pointer-events:none;z-index:2}
+.guide-run .bracket{position:absolute;inset:0;border:0 solid #1c1c1c;border-left-width:2px;border-right-width:2px;border-bottom-width:2px;pointer-events:none}
 #drop-contrast{color:#8a3b32;font-weight:650}
 #detail-contrast{margin:4px 0 0;color:#8a3b32;font-weight:650;font-size:12px}
 #detail-contrast:empty{display:none}
@@ -373,6 +383,7 @@ def _style_row(view: dict) -> str:
         '<div class="row r-style" id="track-style"><div class="rh"><b>剪法</b></div>'
         f'<div class="lane stylelane"><label>镜头轨 <select id="shot-style" title="{html.escape(title)}"'
         f'{disabled}>{_style_options(current)}</select></label>{rules_html}'
+        '<label class="note"><input type="checkbox" id="guide-toggle"> 剪辑思路</label>'
         f'<span id="drop-contrast">{contrast}</span></div></div>'
     )
 
@@ -561,6 +572,9 @@ def _slot_title(slot: dict) -> str:
     text = f"{kind} · {dur:.2f}s"
     if reason:
         text += f" · {reason}"
+    hint = str(slot.get("content_hint") or "")
+    if hint:
+        text += f" · {hint}"
     return html.escape(text)
 
 
@@ -955,6 +969,7 @@ def _slot_panel(view: dict, region: dict, slot: dict | None = None) -> str:
             f'<p id="slot-why"><b>为什么切</b> {html.escape(str(slot.get("reason_zh") or ""))}</p>'
             f'<p id="slot-type">建议镜头 {html.escape(str(slot.get("shot_type") or ""))} · '
             f'{html.escape(str(slot.get("reason_code") or ""))}</p>'
+            f'<p id="slot-hint">{html.escape(str(slot.get("content_hint") or ""))}</p>'
             f'<p id="slot-budget">预算 {html.escape(str(budget))}</p>'
             f'<p id="slot-evidence">证据 拍 {html.escape(str(evidence.get("beat_ids") or []))}'
             f' · 强拍 {html.escape(str(evidence.get("downbeat_ids") or []))}'
@@ -1101,6 +1116,232 @@ def _empty_inspector() -> str:
 """
 
 
+_SIZE_INK = {
+    "全": ("#24384a", "#f7f6f1"),
+    "远": ("#3d5a73", "#f7f6f1"),
+    "中": ("#7f9e9c", "#1c2426"),
+    "近": ("#c4a07a", "#1c2426"),
+    "特写": ("#d7c2a4", "#1c2426"),
+    "细节": ("#efe2cf", "#1c2426"),
+}
+_STORY_INK = {
+    "钩子": ("#c27a62", "#fff"),
+    "到达": ("#3f6f78", "#fff"),
+    "探索": ("#5f8f62", "#fff"),
+    "高潮": ("#a65b6b", "#fff"),
+    "回味": ("#c4a45f", "#1c2426"),
+    "收尾": ("#6f7f9c", "#fff"),
+    "待定": ("#e2d3b1", "#5a4a2a"),
+}
+_TR_MARK = {
+    "whip": "甩",
+    "match": "配",
+    "zoom": "推",
+    "mask": "遮",
+    "mask_optional": "遮?",
+    "fade": "隐",
+    "end": "收",
+    "cut": "",
+}
+
+
+def _guide_pixels(start: float, end: float, duration: float) -> float:
+    if duration <= 0:
+        return 0.0
+    return (end - start) / duration * 1200
+
+
+def _guide_cell(
+    start: float,
+    end: float,
+    duration: float,
+    *,
+    label: str,
+    title: str,
+    bg: str,
+    fg: str,
+    hair: bool,
+    slot_id: str,
+    region_id: str,
+    band: bool = False,
+    show_at: float = 18,
+) -> str:
+    pixels = _guide_pixels(start, end, duration)
+    classes = ["gcell"]
+    if hair:
+        classes.append("hair")
+    if band:
+        classes.append("gband")
+    shown = html.escape(label) if pixels >= show_at and label else ""
+    box = _shot_box_style(start, end, 0.0, duration)
+    return (
+        f'<div class="{" ".join(classes)}" data-guide="1" data-start="{start:.6f}" data-end="{end:.6f}" '
+        f'data-slot-id="{html.escape(slot_id)}" data-region-id="{html.escape(region_id)}" '
+        f'style="{box};background-color:{bg};color:{fg}" title="{html.escape(title)}">{shown}</div>'
+    )
+
+
+def _guide_brackets(slots: list[dict], duration: float) -> str:
+    parts: list[str] = []
+    index = 0
+    while index < len(slots):
+        group = slots[index].get("flurry_group")
+        if not group:
+            index += 1
+            continue
+        end_index = index + 1
+        while end_index < len(slots) and slots[end_index].get("flurry_group") == group:
+            end_index += 1
+        start = float(slots[index]["start"])
+        end = float(slots[end_index - 1]["end"])
+        parts.append(
+            f'<div class="guide-run" data-guide-group="{html.escape(str(group))}" '
+            f'style="{_span_milli_style(start, end, 0.0, duration)}"><i class="bracket"></i></div>'
+        )
+        index = end_index
+    return "".join(parts)
+
+
+def _guide_hint(slot: dict) -> str:
+    return str(slot.get("content_hint") or "")
+
+
+def _size_lane(slots: list[dict], duration: float) -> str:
+    parts: list[str] = []
+    for index, slot in enumerate(slots):
+        size = str(slot.get("shot_size") or "")
+        bg, fg = _SIZE_INK.get(size, ("#f3f1ea", "#2e3336"))
+        title = " · ".join(part for part in (size, _guide_hint(slot)) if part)
+        parts.append(
+            _guide_cell(
+                float(slot["start"]),
+                float(slot["end"]),
+                duration,
+                label=size,
+                title=title or "景别",
+                bg=bg,
+                fg=fg,
+                hair=index > 0,
+                slot_id=str(slot["slot_id"]),
+                region_id=str(slot["region_id"]),
+            )
+        )
+    return "".join(parts) + _guide_brackets(slots, duration)
+
+
+def _transition_lane(slots: list[dict], duration: float) -> str:
+    parts: list[str] = []
+    for index, slot in enumerate(slots):
+        marks = []
+        for key in ("transition_in", "transition_out"):
+            mark = _TR_MARK.get(str(slot.get(key) or ""), "")
+            if mark and mark not in marks:
+                marks.append(mark)
+        label = "·".join(marks)
+        title = " · ".join(part for part in (label, _guide_hint(slot)) if part)
+        bg = "#f6e4dc" if "甩" in marks else "#f7f4ee"
+        parts.append(
+            _guide_cell(
+                float(slot["start"]),
+                float(slot["end"]),
+                duration,
+                label=label,
+                title=title or "转场",
+                bg=bg,
+                fg="#9c2b22" if marks else "#8a8478",
+                hair=index > 0,
+                slot_id=str(slot["slot_id"]),
+                region_id=str(slot["region_id"]),
+                show_at=22,
+            )
+        )
+    return "".join(parts) + _guide_brackets(slots, duration)
+
+
+def _sound_lane(slots: list[dict], duration: float) -> str:
+    parts: list[str] = []
+    for index, slot in enumerate(slots):
+        cues = [str(cue) for cue in (slot.get("sound_cues") or []) if cue]
+        if not cues and slot.get("sound_cue"):
+            cues = [str(slot["sound_cue"])]
+        label = "·".join(cues)
+        title = " · ".join(part for part in (label, _guide_hint(slot)) if part)
+        parts.append(
+            _guide_cell(
+                float(slot["start"]),
+                float(slot["end"]),
+                duration,
+                label=label,
+                title=title or "声音",
+                bg="#f4f1ea",
+                fg="#3c4448",
+                hair=index > 0,
+                slot_id=str(slot["slot_id"]),
+                region_id=str(slot["region_id"]),
+                show_at=28,
+            )
+        )
+    return "".join(parts) + _guide_brackets(slots, duration)
+
+
+def _story_lane(slots: list[dict], duration: float) -> str:
+    bands: list[dict] = []
+    for slot in slots:
+        beat = str(slot.get("story_beat") or "待定")
+        if bands and bands[-1]["beat"] == beat:
+            bands[-1]["end"] = float(slot["end"])
+        else:
+            bands.append(
+                {
+                    "beat": beat,
+                    "start": float(slot["start"]),
+                    "end": float(slot["end"]),
+                    "slot_id": str(slot["slot_id"]),
+                    "region_id": str(slot["region_id"]),
+                    "hint": _guide_hint(slot),
+                }
+            )
+    parts: list[str] = []
+    for index, band in enumerate(bands):
+        bg, fg = _STORY_INK.get(band["beat"], ("#e7e5de", "#2e3336"))
+        title = band["beat"] if not band["hint"] else f'{band["beat"]} · {band["hint"]}'
+        parts.append(
+            _guide_cell(
+                band["start"],
+                band["end"],
+                duration,
+                label=band["beat"],
+                title=title,
+                bg=bg,
+                fg=fg,
+                hair=index > 0,
+                slot_id=band["slot_id"],
+                region_id=band["region_id"],
+                band=True,
+                show_at=36,
+            )
+        )
+    return "".join(parts)
+
+
+def _guide_rows_html(view: dict, duration: float) -> str:
+    slots = list(view.get("shot_slots") or [])
+    if not slots or duration <= 0:
+        return ""
+    lanes = (
+        ("guide-size", "景别", _size_lane(slots, duration)),
+        ("guide-transition", "转场", _transition_lane(slots, duration)),
+        ("guide-sound", "声音", _sound_lane(slots, duration)),
+        ("guide-story", "故事", _story_lane(slots, duration)),
+    )
+    rows = "".join(
+        f'<div class="row r-guide" id="{row_id}"><div class="rh"><b>{label}</b></div>'
+        f'<div class="lane">{body}</div></div>'
+        for row_id, label, body in lanes
+    )
+    return f'<div id="guide-rows" hidden>{rows}</div>'
+
+
 def render_timeline_page(
     *,
     project_title: str,
@@ -1177,6 +1418,7 @@ def render_timeline_page(
         shot_small = "建议 · 按拍，不能拖"
         shot_body = _planned_shots_html(view, duration, active_id)
         style_row = _style_row(view)
+        guide_rows = _guide_rows_html(view, duration)
         zoom_html = _detail_html(view, duration, moment)
         inspector = inspector.replace(
             '<div class="sub">警告</div>',
@@ -1187,6 +1429,7 @@ def render_timeline_page(
         phrase_row = ""
         how_row = ""
         style_row = ""
+        guide_rows = ""
         shot_small = "（预留·未启用）"
         shot_body = _shots_html(view, duration, chosen) if view else ""
         zoom_html = ""
@@ -1238,6 +1481,7 @@ def render_timeline_page(
   {phrase_row}
   {style_row}
   <div class="row r-shot" id="track-shots"><div class="rh"><b>镜头轨</b><small>{shot_small}</small></div><div class="lane" id="shots">{shot_body}</div></div>
+  {guide_rows}
   {how_row}
   <div class="ov" id="ov">
     <div class="loopband" id="loopband" hidden style="{loop_style}"><div class="brk l"></div><div class="brk r"></div><div class="loopcap" id="loopcap">{html.escape(loop_text)}</div></div>
@@ -1511,9 +1755,19 @@ function slotMarks(slot) {{
 }}
 function fillSlot() {{
   var slot = activeSlot();
-  document.querySelectorAll(".sl,.zshot").forEach(function (node) {{
-    node.classList.toggle("on", !!(slot && node.getAttribute("data-slot-id") === slot.slot_id));
+  document.querySelectorAll(".sl,.zshot,.gcell").forEach(function (node) {{
+    var on = false;
+    if (slot && node.classList.contains("gband")) {{
+      var bandStart = Number(node.getAttribute("data-start"));
+      var bandEnd = Number(node.getAttribute("data-end"));
+      on = Number(slot.start) >= bandStart - 1e-4 && Number(slot.start) < bandEnd - 1e-4;
+    }} else if (slot) {{
+      on = node.getAttribute("data-slot-id") === slot.slot_id;
+    }}
+    node.classList.toggle("on", on);
   }});
+  var idea = document.getElementById("slot-hint");
+  if (idea) idea.textContent = slot && slot.content_hint ? slot.content_hint : "";
   if (!slot) return;
   var when = document.getElementById("slot-when");
   var why = document.getElementById("slot-why");
@@ -1676,6 +1930,7 @@ function renderDetail(seconds) {{
     if (pixels >= 52) face += slotMarks(slot);
     var tip = type + " · " + (end - start).toFixed(2) + "s";
     if (slot.reason_zh) tip += " · " + slot.reason_zh;
+    if (slot.content_hint) tip += " · " + slot.content_hint;
     var bg = pending ? "" : ";background-color:" + color + "8c";
     if (slot.flurry_group) {{
       var last = runs.length ? runs[runs.length - 1] : null;
@@ -1983,6 +2238,15 @@ function pickSlot(event) {{
 }}
 var shotLane = document.getElementById("shots");
 if (shotLane) shotLane.addEventListener("click", pickSlot);
+var guideRows = document.getElementById("guide-rows");
+var guideToggle = document.getElementById("guide-toggle");
+if (guideToggle && guideRows) {{
+  guideRows.hidden = !guideToggle.checked;
+  guideToggle.addEventListener("change", function () {{
+    guideRows.hidden = !guideToggle.checked;
+  }});
+}}
+if (guideRows) guideRows.addEventListener("click", pickSlot);
 var zoomLane = document.getElementById("zoom");
 if (zoomLane) zoomLane.addEventListener("click", pickSlot);
 var roleSelect = document.getElementById("role");

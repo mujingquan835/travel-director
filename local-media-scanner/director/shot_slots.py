@@ -747,8 +747,8 @@ def plan_shot_slots(
             update["shot_rules_version"] = None
         if update:
             planned = planned.model_copy(update=update)
-        return planned
-    return _apply_fastcut(planned, chosen)
+        return attach_guidance(planned)
+    return attach_guidance(_apply_fastcut(planned, chosen))
 
 
 def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
@@ -845,6 +845,81 @@ def _apply_fastcut(document: MusicEditRegions, style: str) -> MusicEditRegions:
             "shot_rules_version": RULES_VERSION,
         }
     )
+
+
+def attach_guidance(document: MusicEditRegions) -> MusicEditRegions:
+    """Add creator-guidance fields after slot times are already fixed."""
+
+    if not document.shot_slots:
+        return document
+    from director.shot_track.creator_guidance import creator_guidance, infer_pattern
+
+    style = document.shot_style or "narrative"
+    regions = {region.region_id: region for region in document.regions}
+    desk = {
+        "regions": [
+            {
+                "region_id": region.region_id,
+                "start": region.start,
+                "end": region.end,
+                "edit_role": region.edit_role,
+            }
+            for region in document.regions
+        ],
+        "phrases": [
+            {"id": phrase.id, "start": phrase.start, "end": phrase.end} for phrase in document.phrases
+        ],
+        "duration_seconds": document.duration_seconds,
+    }
+    raw: list[dict] = []
+    seen: dict[str, int] = {}
+    establish_hero = False
+    for slot in document.shot_slots:
+        region = regions[slot.region_id]
+        index = seen.get(slot.region_id, 0)
+        seen[slot.region_id] = index + 1
+        pattern = slot.pattern_role
+        if pattern is None:
+            pattern = infer_pattern(slot.reason_code, slot.shot_type, region.edit_role, index, establish_hero)
+            if pattern == "hero" and region.edit_role == "establish":
+                establish_hero = True
+        beats = slot.beat_length if slot.beat_length is not None else float(slot.beats)
+        raw.append(
+            {
+                "slot_id": slot.slot_id,
+                "region_id": slot.region_id,
+                "region_role": region.edit_role,
+                "start": slot.start,
+                "end": slot.end,
+                "beats": beats,
+                "shot_type": slot.shot_type,
+                "pattern_role": pattern,
+                "cut_on": slot.cut_on,
+                "transition": slot.transition,
+                "flash": bool(slot.flash),
+                "ramp": slot.ramp,
+                "flurry_group": slot.flurry_group,
+                "reason_code": slot.reason_code,
+            }
+        )
+    guided = creator_guidance(raw, desk, style)
+    slots = []
+    for slot, row in zip(document.shot_slots, guided, strict=True):
+        slots.append(
+            slot.model_copy(
+                update={
+                    "shot_size": row["shot_size"],
+                    "motion": row["motion"],
+                    "transition_in": row["transition_in"],
+                    "transition_out": row["transition_out"],
+                    "sound_cue": row["sound_cue"],
+                    "sound_cues": list(row["sound_cues"]),
+                    "story_beat": row["story_beat"],
+                    "content_hint": row["content_hint"],
+                }
+            )
+        )
+    return document.model_copy(update={"shot_slots": slots})
 
 
 def _fastcut_evidence(raw: dict, document: MusicEditRegions, beats: list[BeatEvent]) -> SlotEvidence:
